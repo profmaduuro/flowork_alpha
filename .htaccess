@@ -1,0 +1,31 @@
+# Flowork web-root exposure rules.
+#
+# Deliberately narrow: this only refuses to serve file types the application
+# never fetches over HTTP. Application .php pages, .js/.css assets, images
+# and manifests are untouched.
+
+# 1. Never serve dotfiles (.env, .env.example, .gitignore, ...).
+#    .env.example matters: it publishes SETUP_KEY / BACKUP_TOKEN, and those
+#    are the values admin_gate.php actually falls back to when no .env exists.
+<FilesMatch "(?i)^\.">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# 2. Never serve archives, database dumps, infrastructure config or
+#    editor/backup leftovers.
+# 3. Never serve key or certificate material. Public CA certs (e.g.
+#    includes/certs/timb-ca.pem) are harmless to disclose, but this keeps any
+#    private key that ever lands in the tree from being downloadable.
+<FilesMatch "(?i)\.(zip|tar|gz|tgz|bz2|rar|7z|sql|bak|old|orig|swp|log|yml|yaml|cnf|dist|iml|pem|crt|cer|key|pfx|p12|jks)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Deny from all
+    </IfModule>
+</FilesMatch>

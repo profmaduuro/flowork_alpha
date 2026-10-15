@@ -1,0 +1,13 @@
+# docker/ holds container build and service configuration (Dockerfile,
+# php.ini, my.cnf, nginx vhosts). It is build-time material, never served
+# to a browser, and it discloses infrastructure layout and tuning.
+
+# Apache 2.4 (mod_authz_core)
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+
+# Apache 2.2 fallback
+<IfModule !mod_authz_core.c>
+    Deny from all
+</IfModule>

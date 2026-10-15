@@ -1,0 +1,19 @@
+[mysqld]
+character-set-server = utf8mb4
+collation-server     = utf8mb4_unicode_ci
+default-storage-engine = InnoDB
+
+# InnoDB settings — prevents data loss on crash
+innodb_flush_log_at_trx_commit = 1
+innodb_flush_method            = O_DIRECT
+innodb_file_per_table          = 1
+
+# Recover gracefully from crashes without manual log deletion
+innodb_force_recovery = 0
+
+# Performance
+innodb_buffer_pool_size = 256M
+max_connections         = 100
+
+[client]
+default-character-set = utf8mb4

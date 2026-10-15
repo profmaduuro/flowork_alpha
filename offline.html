@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline — Flowork</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        :root {
+            --ink: #1a1208;
+            --gold: #a07020;
+            --gold-l: #b8841e;
+            --cream: #f5f0e8;
+            --white: #ffffff;
+            --radius: 8px;
+        }
+        body {
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--cream);
+            color: var(--ink);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        .container {
+            background-color: var(--white);
+            padding: 40px 32px;
+            border-radius: var(--radius);
+            box-shadow: 0 4px 20px rgba(26, 18, 8, 0.08);
+            max-width: 440px;
+            width: 100%;
+            text-align: center;
+            border-top: 5px solid var(--gold);
+        }
+        .logo {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 2.5rem;
+            letter-spacing: 2px;
+            color: var(--gold);
+            margin-bottom: 24px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .logo-dot {
+            width: 12px;
+            height: 12px;
+            background-color: var(--gold);
+            border-radius: 50%;
+        }
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: var(--ink);
+        }
+        p {
+            font-size: 0.95rem;
+            color: #5a5040;
+            line-height: 1.6;
+            margin-bottom: 32px;
+        }
+        .btn {
+            display: inline-block;
+            width: 100%;
+            padding: 14px 24px;
+            background-color: var(--gold);
+            color: var(--white);
+            border: none;
+            border-radius: var(--radius);
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+        .btn:hover {
+            background-color: var(--gold-l);
+        }
+        .btn:active {
+            transform: scale(0.98);
+        }
+        .illustration {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 24px;
+            background-color: #fdf6e8;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .illustration svg {
+            width: 40px;
+            height: 40px;
+            color: var(--gold);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="illustration">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 1t22 22M16.72 11.06A10.94 10.94 0 0 1 19 12.5M5 12.5a10.94 10.94 0 0 1 5.83-2.84M8.53 16.11a6 6 0 0 1 5.95-.12M12 20h.01"></path>
+            </svg>
+        </div>
+        <div class="logo">
+            <span class="logo-dot"></span>Flowork
+        </div>
+        <h1>Connection Lost</h1>
+        <p>It seems you are offline or the Flowork server is currently unreachable. Please check your network and try again.</p>
+        <button class="btn" onclick="window.location.reload()">Try Reconnecting</button>
+    </div>
+</body>
+</html>

@@ -1,0 +1,3 @@
+# Store every file exactly as it is on disk (no CRLF/LF conversion), so a
+# checkout reproduces the deployed files byte for byte on any machine.
+* -text

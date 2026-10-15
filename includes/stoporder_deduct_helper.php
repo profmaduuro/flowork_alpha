@@ -1,0 +1,373 @@
+<?php
+require_once __DIR__ . "/net_amount.php";
+/**
+ * stoporder_deduct_helper.php
+ * Helper to process and deduct TIMB stop orders (both internal and external) for growers.
+ */
+
+if (!function_exists('flowork_recalculate_balance_batch')) {
+    function flowork_recalculate_balance_batch($conn, $bbid, $spid, $userid) {
+        $bbid = (int)$bbid;
+        $spid = (int)$spid;
+        $userid = (int)$userid;
+
+        // 1. Get balanced_bales info
+        $bb_q = $conn->query("SELECT * FROM balanced_bales WHERE id=$bbid LIMIT 1");
+        $bb = ($bb_q && $bb_q !== true) ? $bb_q->fetch_assoc() : null;
+        if (!$bb) return false;
+
+        $tgid = (int)$bb['transporter_growersid'];
+        $splitid = (int)$bb['splitid'];
+        $growerid = (int)$bb['growerid'];
+        $today = date('Y-m-d', strtotime($bb['created_at']));
+
+        // Load bales for gross and mass
+        $res = $conn->query("
+            SELECT bj.id, bm.mass, tk.start_of_dayid,
+                   sb.id sold_id, sb.price, COALESCE(sb.sale_code,'') sale_code,
+                   er.id exchange_rateid, er.amount exchange_rate_amount
+            FROM bale_junus bj
+            JOIN bale_mass bm ON bm.id=bj.bale_massid
+            JOIN tickets tk ON tk.bale_junusid=bj.id
+            LEFT JOIN sold_bales sb ON sb.ticketsid=tk.id
+            LEFT JOIN exchange_rate er ON tk.start_of_dayid=er.start_of_dayid
+            WHERE bj.transporter_growersid=$tgid AND bj.splitid=$splitid");
+        $bales = ($res && $res !== true) ? $res->fetch_all(MYSQLI_ASSOC) : [];
+        if (empty($bales)) return false;
+
+        $gross=0; $ytd_mass=0; $sold_cnt=0; $ex_rateid=0; $ex_rate_amt=0;
+        foreach ($bales as $b) {
+            $is_rej = strtoupper(substr(trim($b['sale_code']),0,1))==='R' && strlen(trim($b['sale_code']))<=3;
+            if (!$is_rej && $b['sold_id']) {
+                $p = (float)$b['price']; if ($p > 10) $p /= 100;
+                $ytd_mass += (float)$b['mass'];
+                $gross    += (float)$b['mass'] * $p;
+                if (!$ex_rateid) { $ex_rateid=(int)$b['exchange_rateid']; $ex_rate_amt=(float)$b['exchange_rate_amount']; }
+                $sold_cnt++;
+            }
+        }
+
+        if (!$ex_rateid || !$ex_rate_amt) {
+            $_er = $conn->query("SELECT er.id,er.amount FROM exchange_rate er
+                JOIN start_of_day sod ON sod.id=er.start_of_dayid WHERE sod.active=1 ORDER BY er.id DESC LIMIT 1");
+            if (!$_er || !$_er->num_rows)
+                $_er = $conn->query("SELECT id,amount FROM exchange_rate ORDER BY id DESC LIMIT 1");
+            if ($_er && $_er !== true && $_er->num_rows) {
+                $er = $_er->fetch_assoc();
+                $ex_rateid = (int)$er['id']; $ex_rate_amt = (float)$er['amount'];
+            }
+        }
+        if (!$ex_rate_amt) $ex_rate_amt = 1;
+        $avg_price = ($sold_cnt > 0 && $ytd_mass > 0) ? $gross / $ytd_mass : 0;
+
+        // Reset previous stop order states for this batch before calculating
+        // Mark previously deducted TIMB internal stop orders as unprocessed
+        $prev_iso_q = $conn->query("SELECT internal_stop_order_amountid FROM internal_stop_order_deducted_amounts WHERE balanced_balesid=$bbid");
+        if ($prev_iso_q && $prev_iso_q->num_rows > 0) {
+            while ($prev_iso = $prev_iso_q->fetch_assoc()) {
+                $conn->query("UPDATE internal_stop_order_amount SET processed=0 WHERE id=".(int)$prev_iso['internal_stop_order_amountid']);
+            }
+        }
+        $conn->query("DELETE FROM internal_stop_order_deducted_amounts WHERE balanced_balesid=$bbid");
+
+        // Mark previously deducted TIMB external stop orders as unprocessed
+        $prev_ext_q = $conn->query("SELECT stoporderid FROM stoporder_deductions WHERE balanced_balesid=$bbid");
+        if ($prev_ext_q && $prev_ext_q->num_rows > 0) {
+            while ($prev_ext = $prev_ext_q->fetch_assoc()) {
+                $conn->query("UPDATE stoporders SET processed=0 WHERE id=".(int)$prev_ext['stoporderid']);
+            }
+        }
+        $conn->query("DELETE FROM stoporder_deductions WHERE balanced_balesid=$bbid");
+
+        // Clean previous split values, daily totals, and charges
+        $conn->query("DELETE FROM daily_totals_split_amounts WHERE balanced_balesid=$bbid");
+        $conn->query("DELETE FROM daily_totals_net_amount WHERE balanced_balesid=$bbid");
+        $conn->query("DELETE FROM balanced_bales_charges WHERE balanced_balesid=$bbid");
+        $conn->query("DELETE FROM daily_totals WHERE balanced_balesid=$bbid");
+
+        // Insert fresh daily_totals
+        $laid_cnt = count($bales);
+        $rej_cnt_bal = 0;
+        foreach ($bales as $b) {
+            $sc = strtoupper(trim($b['sale_code']));
+            if (in_array($sc,['R','CO','RO'])||($sc&&$sc[0]==='R'&&strlen($sc)<=3)) $rej_cnt_bal++;
+        }
+        $er_val = $ex_rateid > 0 ? $ex_rateid : 'NULL';
+        $conn->query("INSERT INTO daily_totals
+            (userid,balanced_balesid,exchange_rateid,mass,usd_value,zim_value,
+             average_price,laid_bales,sold_bales,rejected_bales,created_at)
+            VALUES ($userid,$bbid,$er_val,$ytd_mass,$gross,($gross * $ex_rate_amt),
+             $avg_price,$laid_cnt,$sold_cnt,$rej_cnt_bal,'$today')");
+
+        // Read SO deduction mode
+        $so_mode = 'before';
+        $sm_q = $conn->query("SELECT param_value FROM parameters WHERE param_key='so_deduction_mode' AND selling_pointid=$spid LIMIT 1");
+        if ($sm_q && $sm_q !== true && $sm_q->num_rows) {
+            $so_mode = $sm_q->fetch_assoc()['param_value'];
+        }
+
+        // Load both types of TIMB stop orders (internal and external)
+        $all_so = [];
+        
+        // Internal TIMB stop orders
+        $timb_so_q = $conn->query("
+            SELECT isoa.id, isoa.amount, isoa.priority,
+                   COALESCE(NULLIF(iso.description,''), gc.name, gc.creditor_name, iso.creditor_number) AS description,
+                   iso.creditor_number
+            FROM internal_stop_order_amount isoa
+            JOIN internal_stop_order iso ON iso.id = isoa.internal_stop_orderid
+            LEFT JOIN grower_creditors gc ON gc.creditor_no = iso.creditor_number
+            WHERE isoa.growerid = $growerid
+              AND isoa.active   = 1
+              AND isoa.processed = 0
+              AND (iso.selling_pointid = $spid OR iso.selling_pointid = 0 OR $spid = 0)
+        ");
+        if ($timb_so_q && $timb_so_q !== true) {
+            while ($tso = $timb_so_q->fetch_assoc()) {
+                $all_so[] = [
+                    'type' => 'internal',
+                    'id' => (int)$tso['id'],
+                    'amount' => (float)$tso['amount'],
+                    'priority' => (int)$tso['priority'],
+                    'description' => $tso['description'],
+                    'creditor_no' => $tso['creditor_number'],
+                    'creditor_ref' => ''
+                ];
+            }
+        }
+
+        // External TIMB stop orders
+        $ext_so_q = $conn->query("
+            SELECT so.id, so.amount_1 AS amount, so.creditor_no, so.creditor_ref, so.priority
+            FROM stoporders so
+            WHERE so.growerid = $growerid
+              AND (so.selling_pointid = $spid OR $spid = 0)
+              AND so.active = 1
+              AND so.processed = 0
+        ");
+        if ($ext_so_q && $ext_so_q !== true) {
+            while ($eso = $ext_so_q->fetch_assoc()) {
+                $all_so[] = [
+                    'type' => 'external',
+                    'id' => (int)$eso['id'],
+                    'amount' => (float)$eso['amount'],
+                    'priority' => (int)$eso['priority'],
+                    'description' => 'External Stop Order',
+                    'creditor_no' => $eso['creditor_no'],
+                    'creditor_ref' => $eso['creditor_ref']
+                ];
+            }
+        }
+
+        // Sort combined stop orders by priority, then by id
+        usort($all_so, function($a, $b) {
+            if ($a['priority'] !== $b['priority']) {
+                return $a['priority'] <=> $b['priority'];
+            }
+            return $a['id'] <=> $b['id'];
+        });
+
+        $timb_so_total = 0;
+        $remaining_for_split = $gross;
+
+        // ── STEP 1: TIMB Stop Orders (Before split deduction if configured) ──
+        if ($so_mode === 'before') {
+            foreach ($all_so as &$so) {
+                $amt = $so['amount'];
+                $deduct = min($amt, max(0, $remaining_for_split));
+                if ($deduct > 0) {
+                    $remaining_for_split -= $deduct;
+                    $timb_so_total       += $deduct;
+                    
+                    if ($so['type'] === 'internal') {
+                        $conn->query("INSERT INTO internal_stop_order_deducted_amounts
+                            (balanced_balesid, internal_stop_order_amountid, amount_deducted)
+                            VALUES ($bbid, {$so['id']}, $deduct)
+                            ON DUPLICATE KEY UPDATE amount_deducted=$deduct");
+                        $conn->query("UPDATE internal_stop_order_amount SET processed=1 WHERE id={$so['id']}");
+                    } else {
+                        $ext_cn = $conn->real_escape_string($so['creditor_no']);
+                        $ext_cr = $conn->real_escape_string($so['creditor_ref'] ?? '');
+                        $conn->query("INSERT INTO stoporder_deductions
+                            (balanced_balesid, stoporderid, amount_deducted, creditor_no, creditor_ref, created_at)
+                            VALUES ($bbid, {$so['id']}, $deduct, '$ext_cn', '$ext_cr', NOW())
+                            ON DUPLICATE KEY UPDATE amount_deducted=$deduct");
+                        $conn->query("UPDATE stoporders SET processed=1 WHERE id={$so['id']}");
+                    }
+                    $so['amount'] -= $deduct;
+                }
+            }
+        }
+
+        // ── STEP 2: RBZ split on remaining base ──
+        $_rbz = $conn->query("SELECT usd_percent FROM rbz_retention_rate LIMIT 1");
+        $rbz  = ($_rbz && $_rbz !== true) ? $_rbz->fetch_assoc() : null;
+        $rbz_pct     = $rbz ? (float)$rbz['usd_percent'] : 0.70;
+        $usd_portion = $remaining_for_split * $rbz_pct;
+        $zig_portion = $remaining_for_split * (1 - $rbz_pct);
+        $zig_portion_zig = $zig_portion * $ex_rate_amt;
+
+        $conn->query("INSERT INTO daily_totals_split_amounts
+            (userid,balanced_balesid,usd_split_value,zim_split_value,created_at)
+            VALUES ($userid,$bbid,$usd_portion,$zig_portion_zig,'$today')");
+
+        // ── STEP 3: Grower charges — USD charges from 70%, ZiG charges from 30% ──
+        $cur_usd = $usd_portion;
+        $cur_zig = $zig_portion_zig;
+
+        $cq = $conn->query("SELECT gc.id,gc.amount,gc.statutoryid,
+            COALESCE(ct.description,'Amount') ct_d,
+            COALESCE(cu.description,'USD') cu_d
+            FROM grower_charges gc
+            LEFT JOIN charge_type ct ON ct.id=gc.charge_typeid
+            LEFT JOIN statutory st ON st.id=gc.statutoryid
+            LEFT JOIN currency cu ON cu.id=st.currencyid
+            WHERE gc.selling_pointid=$spid AND gc.active=1");
+        $bank_charge_row = null;
+        if ($cq && $cq !== true) while ($ch=$cq->fetch_assoc()) {
+            $ca_u=0; $ca_z=0; $a=(float)$ch['amount'];
+            if ((int)$ch['statutoryid'] === 7) {
+                $bank_charge_row = $ch;
+                continue;
+            }
+            if ($ch['cu_d']==='USD') {
+                if ($ch['ct_d']==='Value')             $ca_u=$gross*$a;
+                elseif ($ch['ct_d']==='Mass')           $ca_u=$ytd_mass*$a;
+                elseif ($ch['ct_d']==='Mass and Value') $ca_u=($ytd_mass+$gross)*$a;
+                elseif ($ch['ct_d']==='Bales')          $ca_u=$sold_cnt*$a;
+                elseif ($ch['ct_d']==='Amount')         $ca_u=$a;
+            } else {
+                if ($ch['ct_d']==='Value')             $ca_z=$zig_portion_zig*$a;
+                elseif ($ch['ct_d']==='Mass')           $ca_z=$ytd_mass*$a;
+                elseif ($ch['ct_d']==='Bales')          $ca_z=$sold_cnt*$a;
+                elseif ($ch['ct_d']==='Amount')         $ca_z=$a;
+            }
+            $conn->query("INSERT INTO balanced_bales_charges
+                (userid,grower_chargeid,balanced_balesid,usd_value,zim_value)
+                VALUES ($userid,{$ch['id']},$bbid,$ca_u,$ca_z)");
+            $cur_usd -= $ca_u;
+            $cur_zig -= $ca_z;
+        }
+
+        // ── STEP 4: Internal company stop orders ──
+        $iq = $conn->query("SELECT id,amount FROM internal_stoporders
+            WHERE transporter_growersid=$tgid AND active=1");
+        if ($iq && $iq !== true) while ($so=$iq->fetch_assoc()) {
+            $amt = (float)$so['amount'];
+            if ($amt > 0 && $cur_usd > 0) $cur_usd -= min($amt, $cur_usd);
+        }
+        $iq = $conn->query("SELECT id,amount FROM internal_stoporders
+            WHERE growerid=$growerid AND (transporter_growersid IS NULL OR transporter_growersid=0) AND active=1");
+        if ($iq && $iq !== true) while ($so=$iq->fetch_assoc()) {
+            $amt = (float)$so['amount'];
+            if ($amt > 0 && $cur_usd > 0) $cur_usd -= min($amt, $cur_usd);
+        }
+
+        // ── STEP 4b: TIMB Stop Orders (After split deduction if configured) ──
+        if ($so_mode === 'after') {
+            foreach ($all_so as &$so) {
+                $amt = $so['amount'];
+                $deduct = min($amt, max(0, $cur_usd));
+                if ($deduct > 0) {
+                    $cur_usd       -= $deduct;
+                    $timb_so_total += $deduct;
+                    
+                    if ($so['type'] === 'internal') {
+                        $conn->query("INSERT INTO internal_stop_order_deducted_amounts
+                            (balanced_balesid, internal_stop_order_amountid, amount_deducted)
+                            VALUES ($bbid, {$so['id']}, $deduct)
+                            ON DUPLICATE KEY UPDATE amount_deducted=$deduct");
+                        $conn->query("UPDATE internal_stop_order_amount SET processed=1 WHERE id={$so['id']}");
+                    } else {
+                        $ext_cn = $conn->real_escape_string($so['creditor_no']);
+                        $ext_cr = $conn->real_escape_string($so['creditor_ref'] ?? '');
+                        $conn->query("INSERT INTO stoporder_deductions
+                            (balanced_balesid, stoporderid, amount_deducted, creditor_no, creditor_ref, created_at)
+                            VALUES ($bbid, {$so['id']}, $deduct, '$ext_cn', '$ext_cr', NOW())
+                            ON DUPLICATE KEY UPDATE amount_deducted=$deduct");
+                        $conn->query("UPDATE stoporders SET processed=1 WHERE id={$so['id']}");
+                    }
+                    $so['amount'] -= $deduct;
+                }
+            }
+        }
+
+        // ── STEP 4c: Calculate and insert dynamic Bank Charge ──
+        if (isset($bank_charge_row)) {
+            $bc_rate = (float)$bank_charge_row['amount'];
+            $bc_usd = max(0, $cur_usd * $bc_rate);
+            $bc_zig = max(0, $cur_zig * $bc_rate);
+            
+            $conn->query("INSERT INTO balanced_bales_charges
+                (userid,grower_chargeid,balanced_balesid,usd_value,zim_value)
+                VALUES ($userid,{$bank_charge_row['id']},$bbid,$bc_usd,$bc_zig)");
+            
+            $cur_usd -= $bc_usd;
+            $cur_zig -= $bc_zig;
+        }
+
+        // ── STEP 5: Net payout ──
+        if ($cur_usd < 0) $cur_usd = 0;
+        if ($cur_zig < 0) $cur_zig = 0;
+        flowork_save_net($conn, $userid, $bbid, $cur_usd, $cur_zig, $today);
+
+        return ['net_usd' => $cur_usd, 'net_zig' => $cur_zig, 'timb_so_total' => $timb_so_total];
+    }
+}
+
+if (!function_exists('flowork_deduct_stoporders')) {
+    function flowork_deduct_stoporders($conn, $spid = 0) {
+        $spid = (int)$spid;
+        $userid = isset($_SESSION['userid']) ? (int)$_SESSION['userid'] : 1;
+
+        // Find all growers who have active, unprocessed stop orders
+        $growers_q = $conn->query("
+            SELECT DISTINCT growerid
+            FROM stoporders
+            WHERE (selling_pointid = $spid OR $spid = 0)
+              AND active = 1
+              AND processed = 0
+            
+            UNION
+            
+            SELECT DISTINCT isoa.growerid
+            FROM internal_stop_order_amount isoa
+            JOIN internal_stop_order iso ON iso.id = isoa.internal_stop_orderid
+            WHERE (iso.selling_pointid = $spid OR iso.selling_pointid = 0 OR $spid = 0)
+              AND isoa.active = 1
+              AND isoa.processed = 0
+        ");
+
+        $deducted_count = 0;
+        if ($growers_q && $growers_q->num_rows > 0) {
+            while ($gr = $growers_q->fetch_assoc()) {
+                $growerid = (int)$gr['growerid'];
+                if (!$growerid) continue;
+
+                // Find the latest balanced batch for this grower
+                $bb_q = $conn->query("
+                    SELECT bb.id AS bbid, g.selling_pointid
+                    FROM balanced_bales bb
+                    JOIN growers g ON g.id = bb.growerid
+                    WHERE bb.growerid = $growerid
+                    ORDER BY bb.id DESC
+                    LIMIT 1
+                ");
+
+                if ($bb_q && $bb_q->num_rows > 0) {
+                    $bb_row = $bb_q->fetch_assoc();
+                    $bbid = (int)$bb_row['bbid'];
+                    $row_spid = (int)$bb_row['selling_pointid'];
+
+                    // Run the unified settings-compliant calculation pipeline on the batch
+                    $calc = flowork_recalculate_balance_batch($conn, $bbid, $row_spid, $userid);
+                    if ($calc) {
+                        $conn->query("UPDATE balanced_bales SET stoporder_processed = 1 WHERE id = $bbid");
+                        $deducted_count += $calc['timb_so_total'];
+                    }
+                }
+            }
+        }
+        return $deducted_count;
+    }
+}

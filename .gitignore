@@ -1,0 +1,29 @@
+# ── Secrets ────────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+# TIMB credential encryption key, generated per install
+includes/timb_key.php
+
+# ── Data: database dumps, backups, user uploads ───────────────────────
+backups/
+*.sql
+*.sql.gz
+uploads/*
+!uploads/.htaccess
+*.zip
+
+# ── Scratch output (scripts in scratch/ are kept, their reports are not) ─
+scratch/*
+!scratch/.htaccess
+!scratch/*.php
+
+# ── Editor / local tool settings ──────────────────────────────────────
+.idea/
+.vscode/
+.claude/settings.local.json
+
+# ── Logs and OS files ─────────────────────────────────────────────────
+*.log
+Thumbs.db
+.DS_Store

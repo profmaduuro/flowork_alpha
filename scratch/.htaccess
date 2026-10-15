@@ -1,0 +1,14 @@
+# scratch/ holds ad-hoc diagnostic scripts that connect to the database and
+# print results, plus raw security/audit reports. None of it is part of the
+# application - it is run from the CLI (or by an admin) and must never be
+# reachable over HTTP.
+
+# Apache 2.4 (mod_authz_core)
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+
+# Apache 2.2 fallback
+<IfModule !mod_authz_core.c>
+    Deny from all
+</IfModule>
