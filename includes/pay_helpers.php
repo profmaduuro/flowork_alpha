@@ -6,10 +6,18 @@ require_once __DIR__ . "/net_amount.php";
 // ── Role helpers ──────────────────────────────────────────────────────────
 if (!function_exists('pay_role')) {
 function pay_role($conn, $userid) {
-    // Admin in main rights = pay admin
-    $r = $conn->query("SELECT r.admin, pr.pay_role FROM rights r LEFT JOIN payment_roles pr ON pr.userid=r.userid WHERE r.userid=$userid LIMIT 1")->fetch_assoc();
+    $userid = (int)$userid;
+    // Admin or master on the user record (users.php), or admin in the legacy
+    // rights table, = pay admin. Same rule as flowork_resolve_rights().
+    $q = $conn->query("SELECT u.is_admin, u.is_master, u.role, r.admin AS legacy_admin, pr.pay_role
+        FROM users u
+        LEFT JOIN rights r ON r.userid = u.id
+        LEFT JOIN payment_roles pr ON pr.userid = u.id
+        WHERE u.id = $userid LIMIT 1");
+    $r = ($q && $q !== true) ? $q->fetch_assoc() : null;
     if (!$r) return 'clerk';
-    if ($r['admin']) return 'admin';
+    if (!empty($r['is_admin']) || !empty($r['is_master']) || !empty($r['legacy_admin'])
+        || in_array($r['role'] ?? '', ['admin', 'master'], true)) return 'admin';
     return $r['pay_role'] ?? 'clerk';
 }
 function pay_can($role, $action) {
