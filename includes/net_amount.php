@@ -43,9 +43,14 @@ if (!function_exists('flowork_net_join')) {
     /** Replace the delivery's net row, leaving exactly one row for $bbid. */
     function flowork_save_net(mysqli $conn, int $userid, int $bbid, float $usd, float $zig, string $created_at): bool {
         $created_at = $conn->real_escape_string($created_at);
-        $conn->query("DELETE FROM daily_totals_net_amount WHERE balanced_balesid=$bbid");
-        return (bool)$conn->query("INSERT INTO daily_totals_net_amount
+        // Delete + insert as one unit, unless the caller already holds a transaction.
+        $own = empty($GLOBALS['flowork_in_txn']);
+        if ($own) $conn->begin_transaction();
+        $ok = $conn->query("DELETE FROM daily_totals_net_amount WHERE balanced_balesid=$bbid")
+           && $conn->query("INSERT INTO daily_totals_net_amount
             (userid,balanced_balesid,usd_net_value,zim_net_value,created_at)
             VALUES ($userid,$bbid,$usd,$zig,'$created_at')");
+        if ($own) { $ok ? $conn->commit() : $conn->rollback(); }
+        return (bool)$ok;
     }
 }

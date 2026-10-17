@@ -6,7 +6,31 @@ require_once __DIR__ . "/net_amount.php";
  */
 
 if (!function_exists('flowork_recalculate_balance_batch')) {
+    /**
+     * Recalculate one delivery (charges, stop-order deductions, split, net).
+     * It deletes and re-inserts the delivery's rows in six tables, so it runs
+     * in one transaction: a crash or a concurrent recalculation can no longer
+     * leave the delivery with half its rows.
+     */
     function flowork_recalculate_balance_batch($conn, $bbid, $spid, $userid) {
+        if (!empty($GLOBALS['flowork_in_txn'])) {
+            return flowork_recalculate_balance_batch_body($conn, $bbid, $spid, $userid);
+        }
+        $GLOBALS['flowork_in_txn'] = true;
+        $conn->begin_transaction();
+        try {
+            $result = flowork_recalculate_balance_batch_body($conn, $bbid, $spid, $userid);
+            $conn->commit();
+            return $result;
+        } catch (Throwable $e) {
+            $conn->rollback();
+            throw $e;
+        } finally {
+            $GLOBALS['flowork_in_txn'] = false;
+        }
+    }
+
+    function flowork_recalculate_balance_batch_body($conn, $bbid, $spid, $userid) {
         $bbid = (int)$bbid;
         $spid = (int)$spid;
         $userid = (int)$userid;
