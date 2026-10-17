@@ -113,8 +113,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'remove') {
         $iso_id = (int)($_POST['iso_id'] ?? 0);
         if ($iso_id) {
-            $conn->query("UPDATE internal_stoporders SET active=0 WHERE id=$iso_id");
-            $msg = "Stop order removed.";
+            // Only this floor's stop orders (through the grower), and keep a record.
+            $conn->query("UPDATE internal_stoporders iso JOIN growers g ON g.id = iso.growerid
+                SET iso.active = 0 WHERE iso.id = $iso_id AND g.selling_pointid = $spid");
+            if ($conn->affected_rows > 0) {
+                audit_log($conn, $spid, $userid, 'internal_stoporders', 'cancel', $iso_id, ['active' => 1], ['active' => 0]);
+                $msg = "Stop order removed.";
+            } else {
+                $err = "Stop order not found on this floor.";
+            }
         }
     }
 }

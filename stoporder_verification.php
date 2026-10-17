@@ -29,6 +29,8 @@ if ($has_ext) {
 }
 
 // ── POST actions ──────────────────────────────────────────────────────────
+// Stop orders are money owed to creditors, so every change is limited to the
+// user's floor (through the grower) and written to the audit log.
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$is_admin) {
         $err = "Access Denied: Only administrators can modify stop orders.";
@@ -37,55 +39,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $id     = (int)($_POST['id'] ?? 0);
         $src    = $_POST['src'] ?? 'timb'; // 'timb', 'internal', or 'ext'
 
-        // TIMB SO actions (stoporders_timb)
-        if ($action === 'edit_so' && $src === 'timb') {
-            $amt = (float)($_POST['amount'] ?? 0);
-            $ref = $conn->real_escape_string(trim($_POST['reference'] ?? ''));
-            if ($amt <= 0) $err = "Amount must be greater than 0.";
-            else { $conn->query("UPDATE stoporders_timb SET amount=$amt,reference='$ref' WHERE id=$id"); $msg = "Stop order updated."; }
-        }
-        if ($action === 'cancel_so' && $src === 'timb') {
-            $conn->query("UPDATE stoporders_timb SET active=0 WHERE id=$id"); $msg = "Stop order cancelled.";
-        }
-        if ($action === 'restore_so' && $src === 'timb') {
-            $conn->query("UPDATE stoporders_timb SET active=1 WHERE id=$id"); $msg = "Stop order restored.";
-        }
-        if ($action === 'delete_so' && $src === 'timb') {
-            $conn->query("DELETE FROM stoporders_timb WHERE id=$id"); $msg = "Stop order deleted.";
-        }
+        // source => [table, amount column, text column, form field for the text, label]
+        $so_sources = ['timb' => ['stoporders_timb', 'amount', 'reference', 'reference', 'Stop order']];
+        if ($has_ext) $so_sources['ext']      = ['stoporders', 'amount_1', 'creditor_ref', 'reference', 'Stop order'];
+        if ($has_iso) $so_sources['internal'] = ['internal_stoporders', 'amount', 'description', 'description', 'Internal SO'];
 
-        // External decrypted SO actions (stoporders table from stoporder_processing)
-        if ($action === 'edit_so' && $src === 'ext' && $has_ext) {
-            $amt = (float)($_POST['amount'] ?? 0);
-            $ref = $conn->real_escape_string(trim($_POST['reference'] ?? ''));
-            if ($amt <= 0) $err = "Amount must be greater than 0.";
-            else { $conn->query("UPDATE stoporders SET amount_1=$amt,creditor_ref='$ref' WHERE id=$id"); $msg = "Stop order updated."; }
-        }
-        if ($action === 'cancel_so' && $src === 'ext' && $has_ext) {
-            $conn->query("UPDATE stoporders SET active=0 WHERE id=$id"); $msg = "Stop order deactivated.";
-        }
-        if ($action === 'restore_so' && $src === 'ext' && $has_ext) {
-            $conn->query("UPDATE stoporders SET active=1 WHERE id=$id"); $msg = "Stop order reactivated.";
-        }
-        if ($action === 'delete_so' && $src === 'ext' && $has_ext) {
-            $conn->query("DELETE FROM stoporders WHERE id=$id"); $msg = "Stop order deleted.";
-        }
-
-        // Internal SO actions
-        if ($action === 'edit_so' && $src === 'internal' && $has_iso) {
-            $amt  = (float)($_POST['amount'] ?? 0);
-            $desc = $conn->real_escape_string(trim($_POST['description'] ?? ''));
-            if ($amt <= 0) $err = "Amount must be greater than 0.";
-            else { $conn->query("UPDATE internal_stoporders SET amount=$amt,description='$desc' WHERE id=$id"); $msg = "Internal SO updated."; }
-        }
-        if ($action === 'cancel_so' && $src === 'internal' && $has_iso) {
-            $conn->query("UPDATE internal_stoporders SET active=0 WHERE id=$id"); $msg = "Internal SO cancelled.";
-        }
-        if ($action === 'restore_so' && $src === 'internal' && $has_iso) {
-            $conn->query("UPDATE internal_stoporders SET active=1 WHERE id=$id"); $msg = "Internal SO restored.";
-        }
-        if ($action === 'delete_so' && $src === 'internal' && $has_iso) {
-            $conn->query("DELETE FROM internal_stoporders WHERE id=$id"); $msg = "Internal SO deleted.";
+        if (isset($so_sources[$src]) && in_array($action, ['edit_so', 'cancel_so', 'restore_so', 'delete_so'], true)) {
+            [$tbl, $amt_col, $txt_col, $txt_field, $label] = $so_sources[$src];
+            $row = $conn->query("SELECT so.* FROM `$tbl` so JOIN growers g ON g.id = so.growerid
+                WHERE so.id = $id AND g.selling_pointid = $spid LIMIT 1");
+            $row = ($row && $row !== true) ? $row->fetch_assoc() : null;
+            if (!$row) {
+                $err = "$label not found on this floor.";
+            } elseif ($action === 'edit_so') {
+                $amt = (float)($_POST['amount'] ?? 0);
+                $txt = trim($_POST[$txt_field] ?? '');
+                if ($amt <= 0) {
+                    $err = "Amount must be greater than 0.";
+                } else {
+                    $txt_e = $conn->real_escape_string($txt);
+                    $conn->query("UPDATE `$tbl` SET `$amt_col`=$amt, `$txt_col`='$txt_e' WHERE id=$id");
+                    audit_log($conn, $spid, $userid, $tbl, 'update', $id,
+                        [$amt_col => $row[$amt_col], $txt_col => $row[$txt_col]], [$amt_col => $amt, $txt_col => $txt]);
+                    $msg = "$label updated.";
+                }
+            } elseif ($action === 'cancel_so' || $action === 'restore_so') {
+                $active = $action === 'restore_so' ? 1 : 0;
+                $conn->query("UPDATE `$tbl` SET active=$active WHERE id=$id");
+                audit_log($conn, $spid, $userid, $tbl, $active ? 'restore' : 'cancel', $id,
+                    ['active' => $row['active']], ['active' => $active]);
+                $msg = "$label " . ($active ? 'restored' : 'cancelled') . ".";
+            } else {
+                $conn->query("DELETE FROM `$tbl` WHERE id=$id");
+                audit_log($conn, $spid, $userid, $tbl, 'delete', $id, $row, null);
+                $msg = "$label deleted.";
+            }
         }
     }
 }
