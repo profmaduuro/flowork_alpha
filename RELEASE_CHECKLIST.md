@@ -6,6 +6,7 @@ Tick an item only after you have checked it on the target server, not on a devel
 ## 1. Code
 
 - [ ] The release is a tagged git commit. `git status` on the server shows no local changes.
+- [ ] `C:/xampp/php/php.exe tests/money.php` passes: recalculation on a throwaway copy of the database, and every paid payment equals the stored net it settles.
 - [ ] `C:/xampp/php/php.exe tests/smoke.php` passes on a staging copy with `APP_ENV=local`. The page check only sees PHP errors when errors are displayed, so never run it against production.
 - [ ] No database dumps, `.zip` archives, `scratch/` reports or `.idea/` folders were copied to the server.
 
