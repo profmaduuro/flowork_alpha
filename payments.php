@@ -57,18 +57,6 @@ $conn->query("CREATE TABLE IF NOT EXISTS payment_log (
   INDEX(payment_statusid), INDEX(logged_at)
 )");
 
-$conn->query("CREATE TABLE IF NOT EXISTS payment_failures (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  transporter_growersid INT NOT NULL,
-  sell_date DATE NOT NULL,
-  currency ENUM('usd','zig') DEFAULT 'usd',
-  amount DECIMAL(14,4) DEFAULT 0,
-  gateway VARCHAR(30) DEFAULT '',
-  phone VARCHAR(30) DEFAULT '',
-  error_message VARCHAR(255) DEFAULT '',
-  failed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE KEY pf_unique (transporter_growersid, sell_date, currency)
-)");
 
 // Payment identity (PAY-/RUN- references + sales-sheet links) lives in a shared
 // include so the approval workflow in pay_batches.php uses the exact same rules.
@@ -1076,15 +1064,6 @@ if (!empty($batches)) {
     }
 }
 
-// Load failed payments for the retry dashboard
-$failures_q = $conn->query("
-    SELECT pf.*, g.grower_num, CONCAT(g.name,' ',g.surname) grower_name
-    FROM payment_failures pf
-    JOIN transporter_growers tg ON tg.id = pf.transporter_growersid
-    JOIN growers g ON g.id = tg.growerid
-    ORDER BY pf.failed_at DESC
-");
-$failures = ($failures_q && $failures_q !== true) ? $failures_q->fetch_all(MYSQLI_ASSOC) : [];
 
 include "includes/layout.php";
 $status_labels = ['pending'=>'Pending','paid'=>'Paid','partial'=>'Partial','on_hold'=>'On Hold'];
@@ -1143,12 +1122,6 @@ $status_colors = ['pending'=>'badge-gray','paid'=>'badge-green','partial'=>'badg
       📦 Payment Batches
       <?php if(!empty($batches)): ?>
       <span class="badge badge-gray" style="font-size:.62rem; margin-left:4px"><?=count($batches)?></span>
-      <?php endif; ?>
-  </button>
-  <button type="button" class="premium-tab-btn" data-tab="failures">
-      ❌ Failed Transactions
-      <?php if(!empty($failures)): ?>
-      <span class="badge badge-red" style="font-size:.62rem; margin-left:4px"><?=count($failures)?></span>
       <?php endif; ?>
   </button>
 </div>
@@ -1541,44 +1514,6 @@ $status_colors = ['pending'=>'badge-gray','paid'=>'badge-green','partial'=>'badg
   <?php endif;?>
 </div><!-- /panel-batches -->
 
-<!-- Tab Panel 3: Failed Transactions -->
-<div id="panel-failures" class="tab-panel" data-tabs="payments">
-  <div class="card">
-    <div class="card-head">
-      <h3>Failed Transactions</h3>
-      <span class="badge <?=empty($failures)?'badge-gray':'badge-red'?>"><?=count($failures)?></span>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr>
-          <th>Failed At</th><th>Grower</th><th>Sell Date</th><th>Gateway</th>
-          <th>Phone</th><th class="text-right">Amount</th><th>Error</th>
-        </tr></thead>
-        <tbody>
-        <?php if(!empty($failures)): foreach($failures as $f): ?>
-          <tr>
-            <td style="white-space:nowrap"><?=date('d M Y H:i',strtotime($f['failed_at']))?></td>
-            <td>
-              <div><?=htmlspecialchars($f['grower_name'])?></div>
-              <div class="text-muted" style="font-size:.68rem"><?=htmlspecialchars($f['grower_num'])?></div>
-            </td>
-            <td style="white-space:nowrap"><?=date('d M Y',strtotime($f['sell_date']))?></td>
-            <td><?=htmlspecialchars($f['gateway'])?:'—'?></td>
-            <td><?=htmlspecialchars($f['phone'])?:'—'?></td>
-            <td class="text-right" style="white-space:nowrap">
-              <?=strtoupper($f['currency'])?> <?=number_format((float)$f['amount'],2)?>
-            </td>
-            <td class="text-danger" style="font-size:.72rem"><?=htmlspecialchars($f['error_message'])?:'—'?></td>
-          </tr>
-        <?php endforeach; else: ?>
-          <tr><td colspan="7" class="text-center text-muted" style="padding:2rem">No failed transactions.</td></tr>
-        <?php endif; ?>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div>
-
 <!-- ── Individual payment modal ─────────────────────────────────────── -->
 <div id="pay-modal" style="display:none;position:fixed;inset:0;z-index:400;
      background:rgba(0,0,0,0.5);align-items:center;justify-content:center">
@@ -1618,25 +1553,6 @@ $status_colors = ['pending'=>'badge-gray','paid'=>'badge-green','partial'=>'badg
         <input type="text" name="pay_ref" id="modal-ref" class="form-control" placeholder="Bank ref, or blank for auto receipt" style="font-family:monospace">
         <div id="modal-ref-hint" style="font-size:.66rem;color:var(--muted);margin-top:3px">Leave blank and a receipt number (RCT-…) is assigned automatically.</div>
       </div>
-    </div>
-
-    <!-- 📱 DYNAMIC MOBILE MONEY PAYOUT PANEL -->
-    <div id="modal-mm-panel" style="display:none; background:rgba(200,149,42,.06); border:1px dashed var(--gold); border-radius:var(--radius); padding:.75rem; margin-bottom:.85rem; animation:dash-fadeUp .3s ease both">
-      <div style="font-weight:600; font-size:.78rem; color:var(--ink); margin-bottom:.4rem; display:flex; align-items:center; gap:5px">
-        <span>📱</span> Direct Mobile Money Gateway Transfer
-      </div>
-      <div class="form-row cols-2" style="margin-bottom:.5rem">
-        <div class="form-group" style="margin-bottom:0">
-          <label style="font-size:.68rem">Recipient Phone</label>
-          <input type="text" id="modal-mm-phone" class="form-control" placeholder="0771234567" style="font-family:monospace; padding:.3rem .5rem; font-size:.85rem">
-        </div>
-        <div class="form-group" style="margin-bottom:0; display:flex; align-items:flex-end">
-          <button type="button" id="btn-mm-payout" onclick="processDirectMMPayout()" class="btn btn-primary btn-sm" style="width:100%; padding:.45rem; font-size:.72rem; background:var(--gold); border-color:var(--gold); margin:0">
-            ⚡ Process Transfer
-          </button>
-        </div>
-      </div>
-      <div id="modal-mm-status" style="display:none; font-size:.72rem; padding:.5rem .75rem; border-radius:4px; margin-top:.4rem"></div>
     </div>
 
     <div class="form-group">
@@ -1744,17 +1660,7 @@ document.addEventListener('DOMContentLoaded', function() {
   var methodSelect = document.getElementById('modal-method');
   if (methodSelect) {
     methodSelect.addEventListener('change', function() {
-      var val = this.value;
-      var panel = document.getElementById('modal-mm-panel');
-      syncRefField(val);
-      if (val === 'EcoCash' || val === 'InnBucks') {
-        panel.style.display = 'block';
-        document.getElementById('modal-mm-status').style.display = 'none';
-        document.getElementById('btn-mm-payout').disabled = false;
-        document.getElementById('btn-mm-payout').innerHTML = '⚡ Process Transfer';
-      } else {
-        panel.style.display = 'none';
-      }
+      syncRefField(this.value);
     });
   }
 });
@@ -1786,10 +1692,6 @@ function openPayModal(tgid, growerNum, growerName, currency, amount, date, phone
   document.getElementById('modal-currency').value   = currency;
   document.getElementById('modal-pay-amount').value = amount;
   
-  // Mobile Money fields reset
-  document.getElementById('modal-mm-phone').value = phone || '';
-  document.getElementById('modal-mm-panel').style.display = 'none';
-  document.getElementById('modal-mm-status').style.display = 'none';
   syncRefField('');
 
   payModal.style.display = 'flex';
@@ -1797,110 +1699,6 @@ function openPayModal(tgid, growerNum, growerName, currency, amount, date, phone
 }
 
 function closePayModal() { payModal.style.display = 'none'; }
-
-// simulated direct payment processor
-function processDirectMMPayout() {
-  var tgid     = document.getElementById('modal-tgid').value;
-  var phone    = document.getElementById('modal-mm-phone').value.trim();
-  var gateway  = document.getElementById('modal-method').value; // EcoCash or InnBucks
-  var amount   = document.getElementById('modal-pay-amount').value;
-  var currency = document.getElementById('modal-currency').value;
-  var date     = document.getElementById('modal-date').value;
-  
-  if (!phone) { alert('Recipient phone number is required.'); return; }
-  
-  var btn = document.getElementById('btn-mm-payout');
-  var statusEl = document.getElementById('modal-mm-status');
-  
-  btn.disabled = true;
-  btn.innerHTML = '⏳ Handshaking...';
-  statusEl.style.display = 'block';
-  statusEl.className = 'alert alert-warning';
-  statusEl.style.background = '#fffbeb';
-  statusEl.style.color = '#b57a00';
-  statusEl.style.border = '1px solid #ffeeba';
-  statusEl.innerHTML = 'Simulating secure connection with ' + gateway + ' gateway API...';
-  
-  fetch('api/v2/payment_gateway.php', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      action: 'payout',
-      tgid: parseInt(tgid),
-      phone: phone,
-      gateway: gateway,
-      amount: parseFloat(amount),
-      currency: currency,
-      sell_date: date
-    })
-  })
-  .then(r => r.json())
-  .then(d => {
-    if (d.success) {
-      statusEl.className = 'alert alert-success';
-      statusEl.style.background = '#e8f5e9';
-      statusEl.style.color = '#1b5e20';
-      statusEl.style.border = '1px solid #c8e6c9';
-      statusEl.innerHTML = d.message;
-      btn.innerHTML = '✓ Successful';
-      
-      // Auto fill reference field and notes in the parent form!
-      document.querySelector('[name="pay_ref"]').value = d.reference;
-      document.querySelector('[name="pay_notes"]').value = 'Simulated Mobile Money payout via ' + gateway;
-      
-      // Mark checkboxes as checked automatically for quick confirmation!
-      document.getElementById('chk1').checked = true;
-      document.getElementById('chk2').checked = true;
-      
-      fw.toast('Simulation successful: Payout processed!', 'success');
-      
-      // Auto-submit the payment form after a short delay to save and refresh!
-      setTimeout(function() {
-        document.getElementById('pay-form').submit();
-      }, 1200);
-    } else {
-      statusEl.className = 'alert alert-danger';
-      statusEl.style.background = '#ffebee';
-      statusEl.style.color = '#c62828';
-      statusEl.style.border = '1px solid #ffcdd2';
-      statusEl.innerHTML = d.error || 'Unknown gateway connection error.';
-      btn.disabled = false;
-      btn.innerHTML = '⚡ Retry Transfer';
-      fw.toast('Transfer failed: failure recorded in retry dashboard.', 'error');
-    }
-  })
-  .catch(err => {
-    statusEl.className = 'alert alert-danger';
-    statusEl.style.background = '#ffebee';
-    statusEl.style.color = '#c62828';
-    statusEl.style.border = '1px solid #ffcdd2';
-    statusEl.innerHTML = 'Gateway timeout: ' + err.message;
-    btn.disabled = false;
-    btn.innerHTML = '⚡ Retry Transfer';
-    fw.toast('Connection timeout error', 'error');
-  });
-}
-
-function openRetryPayoutModal(f) {
-  openPayModal(f.tgid, f.grower_num, f.grower_name, f.currency, f.amount, f.sell_date, f.phone);
-  
-  // Select the failed gateway method
-  var mSelect = document.getElementById('modal-method');
-  mSelect.value = f.gateway;
-  
-  // Trigger change panel visual
-  var panel = document.getElementById('modal-mm-panel');
-  panel.style.display = 'block';
-  document.getElementById('modal-mm-phone').value = f.phone;
-  
-  var statusEl = document.getElementById('modal-mm-status');
-  statusEl.style.display = 'block';
-  statusEl.className = 'alert alert-danger';
-  statusEl.style.background = '#ffebee';
-  statusEl.style.color = '#c62828';
-  statusEl.style.border = '1px solid #ffcdd2';
-  statusEl.innerHTML = '⚠️ Previous direct payout failed. Correct phone number or choose another route and retry.';
-}
 
 payModal.addEventListener('click', function(e) { if (e.target === payModal) closePayModal(); });
 document.addEventListener('keydown', function(e) {
