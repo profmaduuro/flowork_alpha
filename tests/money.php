@@ -46,21 +46,28 @@ $live_db = preg_replace('/[^a-zA-Z0-9_]/', '', $_db_name);
 $test_db = 'zz_money_test_' . bin2hex(random_bytes(3));
 $bin     = is_dir('C:/xampp/mysql/bin') ? 'C:/xampp/mysql/bin/' : '';
 $dump    = tempnam(sys_get_temp_dir(), 'fwm');
-putenv('MYSQL_PWD=' . $_db_pass);
-$auth = ' -h ' . escapeshellarg($_db_host) . ' -u ' . escapeshellarg($_db_user) . ' ';
+// The app's own MySQL user may only reach its database, so the throwaway copy
+// is made with an admin account: MYSQL_ADMIN_USER / MYSQL_ADMIN_PASS, or
+// XAMPP's root without a password.
+$adm_user = getenv('MYSQL_ADMIN_USER') ?: 'root';
+$adm_pass = getenv('MYSQL_ADMIN_PASS') ?: '';
+$adm = @new mysqli($_db_host, $adm_user, $adm_pass);
+if ($adm->connect_error) { check(false, 'admin connection for the copy', $adm->connect_error . ' (set MYSQL_ADMIN_USER / MYSQL_ADMIN_PASS)'); exit(1); }
+putenv('MYSQL_PWD=' . $adm_pass);
+$auth = ' -h ' . escapeshellarg($_db_host) . ' -u ' . escapeshellarg($adm_user) . ' ';
 exec(escapeshellarg($bin . 'mysqldump') . $auth . '--single-transaction ' . escapeshellarg($live_db) . ' > ' . escapeshellarg($dump), $o, $rc1);
-$conn->query("CREATE DATABASE `$test_db` CHARACTER SET utf8mb4");
+$adm->query("CREATE DATABASE `$test_db` CHARACTER SET utf8mb4");
 exec(escapeshellarg($bin . 'mysql') . $auth . escapeshellarg($test_db) . ' < ' . escapeshellarg($dump), $o, $rc2);
 putenv('MYSQL_PWD');
 @unlink($dump);
 $keep_db = in_array('--keep-db', $argv, true);
-register_shutdown_function(function () use ($conn, $test_db, $keep_db) {
+register_shutdown_function(function () use ($adm, $test_db, $keep_db) {
     if ($keep_db) { out("  (kept $test_db)"); return; }
-    $conn->query("DROP DATABASE IF EXISTS `$test_db`");
+    $adm->query("DROP DATABASE IF EXISTS `$test_db`");
 });
 if ($rc1 !== 0 || $rc2 !== 0) { check(false, 'clone database', "mysqldump rc=$rc1, mysql rc=$rc2"); exit(1); }
 
-$t = new mysqli($_db_host, $_db_user, $_db_pass, $test_db);
+$t = new mysqli($_db_host, $adm_user, $adm_pass, $test_db);
 if ($t->connect_error) { check(false, 'connect to copy', $t->connect_error); exit(1); }
 $t->set_charset('utf8mb4');
 $t->query("SET time_zone = '+02:00'");
