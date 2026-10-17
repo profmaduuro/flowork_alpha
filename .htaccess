@@ -41,3 +41,18 @@
     Header always unset X-Powered-By
     Header unset X-Powered-By
 </IfModule>
+
+# 5. HTTPS. Active only once Apache has loaded conf/extra/httpd-ssl.conf with
+#    "Define FLOWORK_HTTPS" (and the LAN certificate in conf/flowork-ssl).
+#    308 keeps POSTs as POSTs. Not redirected: requests from this machine
+#    (tests, scheduled tasks) and the mobile API under api/, until the
+#    devices trust the Flowork Local CA.
+<IfDefine FLOWORK_HTTPS>
+    <IfModule mod_rewrite.c>
+        RewriteEngine On
+        RewriteCond %{HTTPS} off
+        RewriteCond %{REMOTE_ADDR} !^(127\.0\.0\.1|::1)$
+        RewriteCond %{REQUEST_URI} !/api/
+        RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=308,L]
+    </IfModule>
+</IfDefine>

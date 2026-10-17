@@ -1,0 +1,74 @@
+# Flowork deployment
+
+How Flowork runs on the floor PC today, how to turn on HTTPS for the LAN, and how to add a new customer. See RELEASE_CHECKLIST.md for the full list to tick before going live.
+
+## 1. This PC (GENIUSENGINEER) — current state
+
+| Item | State |
+|---|---|
+| App folder | `C:\xampp\htdocs\flowork_alpha`, git repository, nothing pushed |
+| Apache, MySQL | Windows services `Apache2.4` and `mysql`, start automatically |
+| `APP_ENV` | `production` (PHP errors go to `C:\xampp\apache\logs\error.log`, not to pages) |
+| Database user | `flowork_alpha`, rights on database `king` only (password in `.env`) |
+| Admin 2FA | required (`REQUIRE_ADMIN_2FA=1`): admins set it up at their next login |
+| Backups | task `\Flowork\Nightly backup`, 23:30, `backups\scheduled_backup.log` |
+| HTTPS | certificate ready in `C:\xampp\apache\conf\flowork-ssl`; **active after Apache restarts** |
+| Previous `.env` | `backups\env_before_production_*` (to roll back: copy it back over `.env`) |
+
+The second copy at `C:\xampp\htdocs\flowork` still uses the same `king` database as MySQL `root` without a password. Retire it or give it its own database and user, then set a root password (section 5).
+
+## 2. Turn on HTTPS on the LAN
+
+The server certificate covers `https://GENIUSENGINEER/`, `https://192.168.0.100/` and `https://localhost/`. It is signed by a private authority, the **Flowork Local CA**, which each device must trust once.
+
+1. **Restart Apache as administrator.** Use the XAMPP Control Panel started with "Run as administrator" (Apache → Stop, then Start), or `services.msc` → Apache2.4 → Restart. The restart loads the new certificate and switches on the HTTP→HTTPS redirect in `.htaccess` (it is tied to `Define FLOWORK_HTTPS` in `conf\extra\httpd-ssl.conf`).
+2. **Check it:** open `https://192.168.0.100/flowork_alpha/` on this PC. Before the CA is trusted the browser warns; that is expected.
+3. **Trust the CA on every device** that uses Flowork. Copy `C:\xampp\apache\conf\flowork-ssl\ca.crt` (by USB or email; it is public). **Never copy `ca.key`**: whoever has it can make certificates your devices trust.
+   - Windows: double-click `ca.crt` → Install Certificate → Local Machine → "Trusted Root Certification Authorities".
+   - Android: Settings → Security → Encryption & credentials → Install a certificate → CA certificate.
+   - iPhone/iPad: open the file → install the profile → Settings → General → About → Certificate Trust Settings → switch on "Flowork Local CA".
+4. **Keep the address fixed.** Reserve `192.168.0.100` for this PC in the router (DHCP reservation). If the address changes, issue a new server certificate (section 4) — the devices keep trusting the CA.
+5. **Mobile app / scales:** requests under `/flowork_alpha/api/` and requests from this PC itself are not redirected yet. Once the handhelds trust the CA, point them at `https://` and remove the `api/` line from the redirect block in `.htaccess`.
+
+To undo: restore `conf\extra\httpd-ssl.conf.before-flowork-*` over `httpd-ssl.conf` and restart Apache.
+
+## 3. Add a customer (one database per customer)
+
+Each customer gets its own database, its own MySQL user and its own app folder with its own `.env`. Customers then cannot see each other's data, including the processing, packhouse, dispatch and transporter records that have no floor column.
+
+```
+cd C:\xampp\htdocs\flowork_alpha
+C:\xampp\php\php.exe maintenance\provision_customer.php --db=flowork_goldleaf --floor="Golden Leaf Tobacco" --code=GL --months=12
+```
+
+It prints the one-time `sysadmin` and platform passwords and writes `backups\provision_flowork_goldleaf.env`. Then:
+
+1. Copy the release into the customer's own folder, e.g. `git -C C:\xampp\htdocs\flowork_alpha archive --format=zip -o goldleaf.zip HEAD`, unzip to `C:\xampp\htdocs\goldleaf`.
+2. Move `backups\provision_flowork_goldleaf.env` to `C:\xampp\htdocs\goldleaf\.env` (and delete it from `backups`).
+3. Open `https://GENIUSENGINEER/goldleaf/`, log in as `sysadmin`, set up 2FA, change the password, create the customer's users.
+4. Add a nightly backup task for that folder (copy `\Flowork\Nightly backup` and change both paths).
+
+A test customer can be removed with `--drop --db=<name> --confirm=<name>`.
+
+Settings are read per app from its own `.env` (never from `putenv()`), so several customers on this Apache do not leak settings into each other. In Docker, `FLOWORK_TRUST_PROCESS_ENV=1` lets the container's variables win.
+
+## 4. Renew or reissue the server certificate
+
+Every 825 days (next: January 2029) or when the PC's name/address changes:
+
+```
+cd C:\xampp\apache\conf\flowork-ssl
+set OPENSSL_CONF=C:\xampp\apache\conf\openssl.cnf
+C:\xampp\apache\bin\openssl.exe req -newkey rsa:2048 -sha256 -nodes -keyout server.key -out server.csr -subj "/O=Flowork/CN=GENIUSENGINEER"
+C:\xampp\apache\bin\openssl.exe x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out server.crt -days 825 -sha256 -extfile server.ext
+```
+
+Edit `server.ext` first if the address changed, then restart Apache. Devices need nothing new.
+
+## 5. Still to do on this server (needs an administrator)
+
+- **Restart Apache** (section 2, step 1).
+- **Backups:** set `BACKUP_PASSPHRASE` and `BACKUP_COPY_DIR` in `.env`; keep the passphrase off this PC too; in Task Scheduler set `\Flowork\Nightly backup` to "Run whether user is logged on or not".
+- **MySQL on this machine only:** add `bind-address=127.0.0.1` under `[mysqld]` in `C:\xampp\mysql\bin\my.ini` and restart the `mysql` service. Today port 3306 listens on the LAN (root can only log in from this PC, but the port need not be open).
+- **Root password:** after the `/flowork` copy is retired, give MySQL `root` a password and remove the passwordless `pma` user (phpMyAdmin).
+- **Admins:** `sysadmin` and `bright` must set up 2FA at their next login (an authenticator app on their phone).
