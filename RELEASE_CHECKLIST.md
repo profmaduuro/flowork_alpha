@@ -37,11 +37,12 @@ Without Docker: leave `TRUSTED_PROXIES` empty unless a reverse proxy or load bal
 
 ## 5. Backups (a backup counts only once a restore has been tested)
 
-- [ ] A scheduled database backup runs (cron or Task Scheduler) and writes outside the web root, or to `backups/`, which is denied over HTTP.
+- [ ] `BACKUP_PASSPHRASE` and `BACKUP_COPY_DIR` are set in `.env`, and the passphrase is also stored somewhere safe off the server.
+- [ ] `maintenance/scheduled_backup.php` runs every night (Task Scheduler or cron). It dumps the database, bundles `.env` and the TIMB key, encrypts both and copies them to `BACKUP_COPY_DIR`. Check that the task reports exit code 0.
 - [ ] Backups are copied off the server (another machine or cloud storage) at least daily.
 - [ ] **Restore test:** restore the latest backup into an empty database on a separate machine, point a staging copy at it, log in and check that today's deliveries, balances and payments are there. Write down the date and how long it took:
   - Last tested restore: ____________ by ____________ (duration ______)
-- [ ] `.env` and `includes/timb_key.php` (or `TIMB_ENC_KEY`) are backed up separately and securely. A database restore is no use without them.
+- [ ] `.env` and `includes/timb_key.php` (or `TIMB_ENC_KEY`) are in the backup (the `secrets_*` file). A database restore is no use without them. Decrypt with `php maintenance/scheduled_backup.php --decrypt <file>.enc <out>`.
 - [ ] `uploads/` (company logos and documents) is included in the file backup.
 
 ## 6. After going live
