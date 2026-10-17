@@ -1229,13 +1229,13 @@ $status_colors = ['pending'=>'badge-gray','paid'=>'badge-green','partial'=>'badg
           <td style="white-space:nowrap">
             <?php if($r['status_usd']!=='paid' && $r['net']>0):?>
               <button class="btn btn-primary btn-sm"
-                      onclick="openPayModal(<?=$r['tgid']?>, '<?=addslashes($r['grower_num'])?>', '<?=addslashes($r['name'].' '.$r['surname'])?>', 'usd', <?=$r['net']?>, '<?=htmlspecialchars((string)$r['bal_date'])?>', '<?=addslashes($r['phone'] ?? '')?>')"
+                      onclick="openPayModal(<?=(int)$r['tgid']?>, <?=js_arg($r['grower_num'])?>, <?=js_arg($r['name'].' '.$r['surname'])?>, 'usd', <?=(float)$r['net']?>, <?=js_arg($r['bal_date'])?>, <?=js_arg($r['phone'] ?? '')?>)"
                       style="font-size:.72rem">✓ Pay</button>
             <?php else:?>
               <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-start">
                 <span style="font-size:.68rem;color:var(--leaf);font-weight:500">✓ Paid</span>
                 <button type="button" class="btn btn-ghost btn-sm"
-                        onclick="openReverseModal('payment',<?=$r['tgid']?>,'<?=addslashes($r['grower_num'])?> — <?=addslashes($r['name'].' '.$r['surname'])?>','<?=htmlspecialchars($r['bal_date'])?>','usd')"
+                        onclick="openReverseModal('payment',<?=(int)$r['tgid']?>,<?=js_arg($r['grower_num'].' — '.$r['name'].' '.$r['surname'])?>,<?=js_arg($r['bal_date'])?>,'usd')"
                         style="font-size:.6rem;color:var(--danger);padding:1px 5px;line-height:1.4">↩ Reverse</button>
               </div>
             <?php endif;?>
@@ -1433,7 +1433,7 @@ $status_colors = ['pending'=>'badge-gray','paid'=>'badge-green','partial'=>'badg
                 </span>
               <?php else: ?>
                 <button type="button"
-                        onclick="openReverseModal('batch',<?=$b['id']?>,'Batch #<?=$b['id']?> — <?=addslashes(htmlspecialchars($b['payment_method']))?> (<?=count($b_items)?> items)','<?=htmlspecialchars($b['sell_date'])?>','<?=$b['currency']?>')"
+                        onclick="openReverseModal('batch',<?=(int)$b['id']?>,<?=js_arg('Batch #'.$b['id'].' — '.$b['payment_method'].' ('.count($b_items).' items)')?>,<?=js_arg($b['sell_date'])?>,<?=js_arg($b['currency'])?>)"
                         class="btn btn-ghost btn-sm" style="font-size:.68rem;color:var(--danger)">↩ Reverse</button>
               <?php endif; ?>
             </div>

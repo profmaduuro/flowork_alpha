@@ -301,6 +301,17 @@ if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
+if (!function_exists('js_arg')) {
+    /**
+     * A value as a quoted JavaScript argument inside an HTML attribute, e.g.
+     * onclick="f(<?= js_arg($name) ?>)". addslashes() is not enough there: a
+     * double quote in the value still ends the attribute.
+     */
+    function js_arg($v): string {
+        return htmlspecialchars(json_encode((string)$v, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP), ENT_QUOTES, 'UTF-8');
+    }
+}
+
 if (!function_exists('csrf_token')) {
     function csrf_token() {
         if (empty($_SESSION['csrf_token'])) {

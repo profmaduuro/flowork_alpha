@@ -466,7 +466,7 @@ body.theme-dark .premium-tab-btn.active {
                 </thead>
                 <tbody>
                 <?php foreach($unsold as $u):?>
-                <tr style="cursor:pointer" onclick="addToReOffer('<?=addslashes($u['barcode'])?>','<?=$u['ticket_id']?>')">
+                <tr style="cursor:pointer" onclick="addToReOffer(<?=js_arg($u['barcode'])?>,<?=js_arg($u['ticket_id'])?>)">
                   <td style="font-family:monospace;font-size:.72rem"><?=htmlspecialchars($u['barcode'])?></td>
                   <td><span class="badge badge-gold" style="font-size:.58rem"><?=htmlspecialchars($u['grower_num'])?></span></td>
                   <td class="td-mono text-right"><?=number_format((float)$u['mass'],1)?></td>
