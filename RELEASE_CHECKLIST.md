@@ -39,7 +39,7 @@ Without Docker: leave `TRUSTED_PROXIES` empty unless a reverse proxy or load bal
 ## 5. Backups (a backup counts only once a restore has been tested)
 
 - [ ] `BACKUP_PASSPHRASE` and `BACKUP_COPY_DIR` are set in `.env`, and the passphrase is also stored somewhere safe off the server.
-- [ ] `maintenance/scheduled_backup.php` runs every night (Task Scheduler or cron). It dumps the database, bundles `.env` and the TIMB key, encrypts both and copies them to `BACKUP_COPY_DIR`. Check that the task reports exit code 0.
+- [ ] `maintenance/scheduled_backup.php` runs every night (Task Scheduler or cron). It dumps the database, bundles `.env` and the TIMB key, encrypts both and copies them to `BACKUP_COPY_DIR`. Check that the task reports exit code 0. On Windows it is the task `\Flowork\Nightly backup` (daily 23:30, output in `backups\scheduled_backup.log`). Set it to "Run whether user is logged on or not" so it runs with nobody logged in, and keep MySQL running as a service.
 - [ ] Backups are copied off the server (another machine or cloud storage) at least daily.
 - [ ] **Restore test:** restore the latest backup into an empty database on a separate machine, point a staging copy at it, log in and check that today's deliveries, balances and payments are there. Write down the date and how long it took:
   - Last tested restore: ____________ by ____________ (duration ______)

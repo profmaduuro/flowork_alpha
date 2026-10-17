@@ -119,7 +119,7 @@ if ($pass !== '') {
     foreach ($made as $i => $f) { encrypt_file($f, "$f.enc", $pass); unlink($f); $made[$i] = "$f.enc"; }
     say('encrypted with BACKUP_PASSPHRASE');
 } else {
-    say('WARNING: BACKUP_PASSPHRASE not set — files are not encrypted and will not be copied off this machine');
+    say('WARNING: BACKUP_PASSPHRASE not set - files are not encrypted and will not be copied off this machine');
 }
 
 // ── 4. Off-machine copy ───────────────────────────────────────────────────
@@ -137,7 +137,7 @@ if ($copy !== '') {
         say("copied to $copy");
     }
 } else {
-    say('WARNING: BACKUP_COPY_DIR not set — the only copy is on this machine');
+    say('WARNING: BACKUP_COPY_DIR not set - the only copy is on this machine');
 }
 
 // ── 5. Rotation ───────────────────────────────────────────────────────────
