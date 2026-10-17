@@ -130,7 +130,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
         $stmt_ins = $conn->prepare("INSERT INTO user_2fa (userid,secret,enabled,backup_codes)
             VALUES (?,?,0,?)
             ON DUPLICATE KEY UPDATE secret=?,enabled=0,backup_codes=?");
-        $stmt_ins->bind_param("isssss", $userid, $secret, $bc_str, $secret, $bc_str);
+        $stmt_ins->bind_param("issss", $userid, $secret, $bc_str, $secret, $bc_str);
         $stmt_ins->execute();
         $stmt_ins->close();
         
