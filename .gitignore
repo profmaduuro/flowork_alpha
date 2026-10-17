@@ -8,6 +8,8 @@ includes/timb_key.php
 # ── Data: database dumps, backups, user uploads ───────────────────────
 backups/
 *.sql
+# ...except the schema baseline (structure only, no data)
+!maintenance/schema.sql
 *.sql.gz
 uploads/*
 !uploads/.htaccess
