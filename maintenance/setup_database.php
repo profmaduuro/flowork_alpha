@@ -28,6 +28,26 @@ function run($conn, $sql, $label, &$results, &$errors) {
 $conn->query("SET FOREIGN_KEY_CHECKS=0");
 $conn->query("SET sql_mode=''");
 
+// ── SCHEMA BASELINE ──────────────────────────────────────────────────────
+// Every table and column the app uses (maintenance/schema.sql). Without it a
+// new install only got part of the structure and the rest appeared as pages
+// were first opened, so some screens failed on a fresh database.
+$schema_file = __DIR__ . '/schema.sql';
+if (is_file($schema_file)) {
+    $sql_all = file_get_contents($schema_file);
+    $n_ok = 0; $n_err = 0;
+    if ($conn->multi_query($sql_all)) {
+        do {
+            if ($res = $conn->store_result()) $res->free();
+            $n_ok++;
+        } while ($conn->more_results() && $conn->next_result());
+    }
+    if ($conn->errno) { $n_err++; $errors[] = "❌ schema baseline: " . $conn->error; }
+    if (!$n_err) $results[] = "✓ schema baseline applied ($n_ok statements)";
+} else {
+    $errors[] = "❌ schema baseline: maintenance/schema.sql is missing";
+}
+
 // ── 1. CORE LOOKUP TABLES ─────────────────────────────────────────────────
 run($conn,"CREATE TABLE IF NOT EXISTS splits (
     id INTEGER PRIMARY KEY AUTO_INCREMENT,

@@ -16,10 +16,7 @@
 function rate_limit_client_ip(): string {
     $remote = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
 
-    $trusted = getenv('TRUSTED_PROXIES');
-    if ($trusted === false || $trusted === '') {
-        $trusted = $_ENV['TRUSTED_PROXIES'] ?? $_SERVER['TRUSTED_PROXIES'] ?? '';
-    }
+    $trusted = flowork_env('TRUSTED_PROXIES', '');
     $trusted = array_filter(array_map('trim', explode(',', (string)$trusted)));
 
     if ($trusted && in_array($remote, $trusted, true)) {

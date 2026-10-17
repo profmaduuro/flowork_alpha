@@ -54,14 +54,14 @@ $_is_local = flowork_is_local();
 ini_set('display_errors', flowork_show_errors() ? '1' : '0');
 ini_set('log_errors', '1');
 
-$_host = getenv('DB_HOST') ?: ($_ENV['DB_HOST'] ?? ($_SERVER['DB_HOST'] ?? null));
+$_host = flowork_env('DB_HOST');
 
 if ($_host) {
     // ── Environment Variables (.env / Docker) ─────────────────────────────
     $_db_host = $_host;
-    $_db_name = getenv('DB_NAME') ?: ($_ENV['DB_NAME'] ?? 'king');
-    $_db_user = getenv('DB_USER') ?: ($_ENV['DB_USER'] ?? 'flowork');
-    $_db_pass = getenv('DB_PASS') ?: ($_ENV['DB_PASS'] ?? 'flowork_pass');
+    $_db_name = flowork_env('DB_NAME', 'king');
+    $_db_user = flowork_env('DB_USER', 'flowork');
+    $_db_pass = flowork_env('DB_PASS', '');
 } else {
     if ($_is_local) {
         // ── XAMPP localhost ───────────────────────────────────────────────

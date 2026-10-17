@@ -214,8 +214,8 @@ function timb_ws_setting($conn, $key, $default = '') {
         $r = $conn->query("SELECT name, value FROM settings WHERE name LIKE 'timb_%'");
         if ($r && $r !== true) while ($row = $r->fetch_assoc()) $cache[$row['name']] = $row['value'];
     }
-    $env = getenv(strtoupper($key));
-    if ($env !== false && $env !== '') return $env;
+    $env = flowork_env(strtoupper($key));
+    if ($env !== null) return $env;
     return (isset($cache[$key]) && $cache[$key] !== '') ? $cache[$key] : $default;
 }
 
@@ -281,8 +281,8 @@ function timb_ws_enc_key() {
     static $key = null;
     if ($key !== null) return $key;
 
-    $env = getenv('TIMB_ENC_KEY');
-    if ($env !== false && strlen($env) >= 32) return $key = substr(hash('sha256', $env, true), 0, 32);
+    $env = flowork_env('TIMB_ENC_KEY');
+    if ($env !== null && strlen($env) >= 32) return $key = substr(hash('sha256', $env, true), 0, 32);
 
     $file = __DIR__ . '/timb_key.php';
     if (is_readable($file)) {
@@ -324,9 +324,9 @@ function timb_ws_decrypt($blob) {
 function timb_ws_credentials($conn, $cred_set = 'booking') {
     $set = in_array($cred_set, array('booking','stoporder'), true) ? $cred_set : 'booking';
 
-    $eu = getenv('TIMB_' . strtoupper($set) . '_USER');
-    $ep = getenv('TIMB_' . strtoupper($set) . '_PASS');
-    if ($eu !== false && $eu !== '' && $ep !== false && $ep !== '') {
+    $eu = flowork_env('TIMB_' . strtoupper($set) . '_USER');
+    $ep = flowork_env('TIMB_' . strtoupper($set) . '_PASS');
+    if ($eu !== null && $ep !== null) {
         return ['username'=>$eu, 'password'=>$ep, 'source'=>'env'];
     }
 

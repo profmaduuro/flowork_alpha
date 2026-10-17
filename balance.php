@@ -646,7 +646,8 @@ $pending_so = (int)($_pso_row['pending_so'] ?? 0);
 $total_bal  = (int)($_pso_row['total_bal']  ?? 0);
 
 $_er_q = $conn->query("SELECT amount FROM exchange_rate ORDER BY id DESC LIMIT 1");
-$er_now = ($_er_q && $_er_q !== true) ? (float)$_er_q->fetch_assoc()['amount'] : 0;
+$_er_row = ($_er_q && $_er_q !== true) ? $_er_q->fetch_assoc() : null;   // none yet on a new install
+$er_now = $_er_row ? (float)$_er_row['amount'] : 0;
 
 // Short aliases used in HTML
 $total   = $total_growers;

@@ -3,14 +3,14 @@
 require_once __DIR__ . '/../../includes/env_loader.php';
 
 // Match the main web app database selection: Docker env, XAMPP local, or live.
-$_env_host = getenv('DB_HOST') ?: ($_ENV['DB_HOST'] ?? ($_SERVER['DB_HOST'] ?? null));
-$_port = (int)(getenv('DB_PORT') ?: 3306);
+$_env_host = flowork_env('DB_HOST');
+$_port = (int)flowork_env('DB_PORT', '3306');
 
 if ($_env_host) {
     $_host = $_env_host;
-    $_name = getenv('DB_NAME') ?: ($_ENV['DB_NAME'] ?? 'king');
-    $_user = getenv('DB_USER') ?: ($_ENV['DB_USER'] ?? 'flowork');
-    $_pass = getenv('DB_PASS') ?: ($_ENV['DB_PASS'] ?? 'flowork_pass');
+    $_name = flowork_env('DB_NAME', 'king');
+    $_user = flowork_env('DB_USER', 'flowork');
+    $_pass = flowork_env('DB_PASS', '');
 } else {
     // Local install? (APP_ENV, or the server's own address — never the Host header)
     $_is_local = flowork_is_local();

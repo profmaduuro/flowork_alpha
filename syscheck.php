@@ -18,7 +18,7 @@ require_login();
 // carry a secret in the URL. The key remains as an alternative for automated
 // callers. There is no hardcoded fallback: the old default was in the source.
 $auth_key     = (string)($_GET['key'] ?? '');
-$expected_key = getenv('SYSCHECK_KEY') ?: getenv('SETUP_KEY') ?: '';
+$expected_key = flowork_env('SYSCHECK_KEY') ?? flowork_env('SETUP_KEY', '');
 $key_ok       = is_string($expected_key) && strlen($expected_key) >= 16
                 && $auth_key !== '' && hash_equals($expected_key, $auth_key);
 

@@ -42,6 +42,8 @@ services:
       DB_USER: flowork
       DB_PASS: ${FLOWORK_DB_PASSWORD:?set FLOWORK_DB_PASSWORD in .env}
       APP_ENV: ${DOCKER_APP_ENV:-production}
+      # These container variables win over the mounted .env (see includes/env_loader.php).
+      FLOWORK_TRUST_PROCESS_ENV: "1"
     volumes:
       - .:/var/www/html
       - ./docker/app/php.ini:/usr/local/etc/php/conf.d/custom.ini

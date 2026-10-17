@@ -15,12 +15,12 @@ $active_page = "backup";
 $msg = $err = '';
 
 // ── Detect environment from conn.php ──────────────────────────────────────
-$is_docker = (bool)getenv('DB_HOST');
+$is_docker = getenv('FLOWORK_TRUST_PROCESS_ENV') === '1';
 $db_host   = $_db_host ?? 'localhost';
 $db_name   = $_db_name ?? 'king';
 $db_user   = $_db_user ?? 'root';
 $db_pass   = $_db_pass ?? '';
-$root_pass = getenv('DB_PASS') ? 'flowork_root' : ''; // Docker root pass
+$root_pass = $is_docker ? (string)flowork_env('MYSQL_ROOT_PASSWORD', '') : ''; // Docker root pass
 
 // Backup storage — inside the project so it's accessible
 $backup_dir = __DIR__ . '/backups';

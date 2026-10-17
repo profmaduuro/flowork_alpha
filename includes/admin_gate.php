@@ -30,10 +30,7 @@ unset($_SESSION['setup_authorized'], $_SESSION['setup_authorized_at']);
 //    ones that drop tables — was reachable by anyone who had seen the code.
 //    With SETUP_KEY unset, key access is simply switched off; localhost and a
 //    logged-in admin (below) still get through, so this cannot lock anyone out.
-$setup_key = getenv('SETUP_KEY');
-if ($setup_key === false || $setup_key === '') {
-    $setup_key = $_ENV['SETUP_KEY'] ?? $_SERVER['SETUP_KEY'] ?? '';
-}
+$setup_key = flowork_env('SETUP_KEY', '');
 if (is_string($setup_key) && strlen($setup_key) >= 16 && !empty($_GET['key'])
     && hash_equals($setup_key, (string)$_GET['key'])) {
     session_regenerate_id(true);

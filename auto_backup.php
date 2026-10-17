@@ -15,10 +15,7 @@ $is_cron = in_array('--cron', $argv ?? []);
 // reachable by anyone who had seen the code. With BACKUP_TOKEN unset, token
 // access is off and the normal require_login() path below applies.
 require_once __DIR__ . '/includes/env_loader.php';
-$backup_token = getenv('BACKUP_TOKEN');
-if ($backup_token === false || $backup_token === '') {
-    $backup_token = $_ENV['BACKUP_TOKEN'] ?? $_SERVER['BACKUP_TOKEN'] ?? '';
-}
+$backup_token = flowork_env('BACKUP_TOKEN', '');
 $token_ok = is_string($backup_token)
          && strlen($backup_token) >= 16
          && isset($_GET['token'])

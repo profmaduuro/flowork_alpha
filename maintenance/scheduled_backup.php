@@ -33,9 +33,7 @@ require $root . '/includes/conn.php';   // also loads .env; gives $_db_host/$_db
 ob_end_clean();
 
 function env_str(string $k): string {
-    $v = getenv($k);
-    if ($v === false || $v === '') $v = $_ENV[$k] ?? '';
-    return trim((string)$v);
+    return trim((string)flowork_env($k, ''));
 }
 function say(string $s): void { echo date('Y-m-d H:i:s'), "  $s", PHP_EOL; }
 function fail(string $s): never { fwrite(STDERR, date('Y-m-d H:i:s') . "  FAILED: $s" . PHP_EOL); exit(1); }
