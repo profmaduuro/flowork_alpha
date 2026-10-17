@@ -93,6 +93,24 @@ function require_login() {
         }
     }
 
+    // With REQUIRE_ADMIN_2FA=1, an administrator or master user without 2FA
+    // can only reach the 2FA setup page (and log out) until they enable it.
+    if (flowork_env('REQUIRE_ADMIN_2FA') === '1' && (!empty($_SESSION['is_admin']) || is_master_user())) {
+        $current_script = basename($_SERVER['SCRIPT_NAME'] ?? '');
+        if (!in_array($current_script, ['two_factor.php', 'logout.php', 'login.php'], true)) {
+            global $conn;
+            if (isset($conn) && $conn instanceof mysqli) {
+                $uid = (int)$_SESSION['userid'];
+                $fa_on = $conn->query("SELECT 1 FROM user_2fa WHERE userid=$uid AND enabled=1 LIMIT 1");
+                if (!$fa_on || $fa_on === true || $fa_on->num_rows === 0) {
+                    $_SESSION['flash_err'] = "Administrators must set up two-factor authentication before continuing.";
+                    header("Location: two_factor.php");
+                    exit;
+                }
+            }
+        }
+    }
+
     // Enforce module-level rights restriction
     $current_script = basename($_SERVER['SCRIPT_NAME'] ?? '');
     if ($current_script !== 'dashboard.php') {

@@ -142,8 +142,12 @@ if (isset($opts['skip-http'])) {
 }
 
 head("3. Pages at $base");
-if (!flowork_show_errors()) {
-    out('  [WARN] APP_ENV is not local, so PHP errors are hidden from the HTML and this check cannot see them.');
+// PHP errors reach the page only when APP_ENV is local; they always reach the
+// web server's error log, so new log lines from this app are checked as well.
+$error_log = flowork_env('SMOKE_ERROR_LOG') ?? (is_file('C:/xampp/apache/logs/error.log') ? 'C:/xampp/apache/logs/error.log' : '');
+$log_start = ($error_log && is_readable($error_log)) ? filesize($error_log) : null;
+if (!flowork_show_errors() && $log_start === null) {
+    out('  [WARN] APP_ENV is not local and no readable error log (set SMOKE_ERROR_LOG): PHP errors cannot be seen.');
 }
 
 const SMOKE_PREFIX = '__smoke_test_';
@@ -173,6 +177,13 @@ if (!$stmt->execute()) {
 $test_uid = (int)$conn->insert_id;
 $stmt->close();
 
+// Enrol the test admin in 2FA so the login goes through the real code step
+// (and REQUIRE_ADMIN_2FA does not send every page to the setup screen).
+require_once $root . '/includes/totp.php';
+$totp_secret = totp_secret();
+$conn->query("INSERT INTO user_2fa (userid, secret, enabled, backup_codes, enabled_at)
+    VALUES ($test_uid, '" . $conn->real_escape_string($totp_secret) . "', 1, '', NOW())");
+
 $cleanup = function () use ($conn, $test_uid, $username) {
     static $done = false;
     if ($done) return;
@@ -180,7 +191,7 @@ $cleanup = function () use ($conn, $test_uid, $username) {
     $conn->query("DELETE FROM users WHERE id = $test_uid");
     $conn->query("DELETE FROM user_2fa WHERE userid = $test_uid");
     $key = $conn->real_escape_string('user:' . strtolower(substr($username, 0, 40)));
-    $conn->query("DELETE FROM rate_limits WHERE ip_address = '$key'");
+    $conn->query("DELETE FROM rate_limits WHERE ip_address IN ('$key', 'user:$test_uid')");
     $left = $conn->query("SELECT COUNT(*) AS c FROM users WHERE id = $test_uid")->fetch_assoc()['c'] ?? 1;
     out(sprintf('  [%s] %-34s %s', $left ? 'FAIL' : 'PASS', 'test user removed', $left ? "user id $test_uid still exists" : ''));
 };
@@ -221,6 +232,11 @@ try {
         throw new RuntimeException('login');
     }
     [$code, $body, $loc] = $fetch('login.php', ['csrf_token' => $token, 'username' => $username, 'password' => $password]);
+    if (str_contains($loc, 'two_factor.php')) {
+        // Second step: the code from the authenticator, computed from the test user's secret.
+        [$code, $body, $loc] = $fetch('two_factor.php?verify', ['csrf_token' => $token, 'code' => totp_code($totp_secret)]);
+        if (str_contains($loc, 'login.php')) [$code, $body, $loc] = $fetch('login.php');
+    }
     $logged_in = $code >= 300 && $code < 400 && str_contains($loc, 'dashboard.php');
     $why = '';
     if (!$logged_in && preg_match('/Invalid username or password|Too many login attempts|CSRF[^<]*/i', $body, $m)) $why = $m[0];
@@ -249,12 +265,32 @@ try {
         $status_ok = $code === 200 || ($code >= 300 && $code < 400);
         $ok = $status_ok && !$found;
         $detail = $err ?: "HTTP $code" . ($loc ? " -> $loc" : '') . sprintf(' %dms %.0fKB', $ms, strlen($body) / 1024);
-        if (str_contains($loc, 'login.php')) $detail .= ' (sent back to login: page not really checked)';
+        if (str_contains($loc, 'login.php') || str_contains($loc, 'two_factor.php')) {
+            $ok = false;
+            $detail .= ' (sent to ' . basename(parse_url($loc, PHP_URL_PATH) ?: $loc) . ': page not checked)';
+        }
         if ($found) $detail .= ' | ' . implode(' | ', $found);
         result($ok, $page, $detail);
     }
 
     $fetch('logout.php');
+
+    // New PHP warnings / fatal errors this app wrote to the error log during the run.
+    if ($log_start !== null) {
+        clearstatcache();
+        $fh = fopen($error_log, 'rb');
+        fseek($fh, $log_start);
+        $new = stream_get_contents($fh);
+        fclose($fh);
+        $app_path = str_replace('/', '\\\\', str_replace('\\', '/', $root)) . '\\\\';   // as Apache writes it: C:\\xampp\\...
+        $hits = [];
+        foreach (preg_split('/\R/', (string)$new) as $line) {
+            if (stripos($line, $app_path) === false && stripos($line, str_replace('\\\\', '\\', $app_path)) === false) continue;
+            if (!preg_match('/PHP (Warning|Fatal error|Parse error)/', $line)) continue;
+            $hits[] = mb_strimwidth(preg_replace('/^\[[^\]]*\]\s*(\[[^\]]*\]\s*)*/', '', $line), 0, 170, '…');
+        }
+        result(!$hits, 'error log: no new warnings/fatals', $hits ? count($hits) . ' new | ' . implode(' | ', array_slice(array_unique($hits), 0, 3)) : basename($error_log) . ' checked');
+    }
 } catch (RuntimeException $e) {
     // reported above
 } finally {

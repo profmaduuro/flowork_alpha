@@ -70,8 +70,12 @@ if (isset($_GET['verify'])) {
             $_SESSION['2fa_verified'] = true;
             unset($_SESSION['2fa_pending_userid']);
             // Restore original destination
-            $redirect = $_SESSION['2fa_redirect'] ?? 'dashboard.php';
+            $redirect = (string)($_SESSION['2fa_redirect'] ?? 'dashboard.php');
             unset($_SESSION['2fa_redirect']);
+            // Same-site paths only: a request path like //other.site/... would leave the site.
+            if (!preg_match('#^(/(?!/)|[A-Za-z0-9_-]+\.php)#', $redirect) || preg_match('#[\r\n\\\\]#', $redirect)) {
+                $redirect = 'dashboard.php';
+            }
             header("Location: $redirect"); exit;
         } else {
             $err = "Invalid code. Please try again.";
@@ -104,6 +108,7 @@ if (isset($_GET['verify'])) {
 
 // ── Settings page ─────────────────────────────────────────────────────────
 require_login();
+if (!empty($_SESSION['flash_err'])) { $err = $_SESSION['flash_err']; unset($_SESSION['flash_err']); }
 $stmt_fa = $conn->prepare("SELECT * FROM user_2fa WHERE userid=? LIMIT 1");
 $stmt_fa->bind_param("i", $userid);
 $stmt_fa->execute();
@@ -131,7 +136,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
         
         $_SESSION['2fa_setup_secret'] = $secret;
         $_SESSION['2fa_setup_codes']  = $codes;
-        $msg = "Secret generated. Scan the QR code below then enter the code to verify.";
+        $msg = "Key generated. Add it to your authenticator app, then enter the code it shows.";
         $fa = ['secret'=>$secret,'enabled'=>0,'backup_codes'=>implode(',',$codes)];
     }
 
@@ -153,13 +158,23 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
     }
 
     if ($action==='disable_2fa') {
-        $stmt_dis = $conn->prepare("UPDATE user_2fa SET enabled=0 WHERE userid=?");
-        $stmt_dis->bind_param("i", $userid);
-        $stmt_dis->execute();
-        $stmt_dis->close();
-        
-        $msg = "2FA has been disabled.";
-        if($fa) $fa['enabled'] = 0;
+        // Switching 2FA off needs a current code, so a borrowed or stolen
+        // session cannot remove it; admins cannot switch it off at all while
+        // REQUIRE_ADMIN_2FA is on.
+        $is_adm = !empty($_SESSION['is_admin']) || is_master_user();
+        if ($is_adm && flowork_env('REQUIRE_ADMIN_2FA') === '1') {
+            $err = "Two-factor authentication is required for administrators and cannot be switched off.";
+        } elseif (!flowork_2fa_check($conn, $userid, trim($_POST['code'] ?? ''))) {
+            $err = "Enter a current code from your authenticator app (or a backup code) to switch 2FA off.";
+        } else {
+            $stmt_dis = $conn->prepare("UPDATE user_2fa SET enabled=0 WHERE userid=?");
+            $stmt_dis->bind_param("i", $userid);
+            $stmt_dis->execute();
+            $stmt_dis->close();
+            audit_log($conn, (int)($_SESSION['selling_pointid'] ?? 0), $userid, 'user_2fa', 'disable', $userid);
+            $msg = "2FA has been disabled.";
+            if($fa) $fa['enabled'] = 0;
+        }
     }
 
     if ($action==='regen_backups') {
@@ -177,7 +192,9 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
     }
 }
 
-// QR code URL (uses Google Charts API)
+// The secret is shown for manual entry in the authenticator app. It used to be
+// sent to api.qrserver.com to draw a QR code, which gave the key to a third
+// party (and failed on a LAN without internet).
 $setup_secret = $fa['secret'] ?? null;
 $stmt_un = $conn->prepare("SELECT username FROM users WHERE id=? LIMIT 1");
 $stmt_un->bind_param("i", $userid);
@@ -185,11 +202,6 @@ $stmt_un->execute();
 $username_q = $stmt_un->get_result();
 $username = ($username_q && $username_q->num_rows > 0) ? ($username_q->fetch_assoc()['username'] ?? 'user') : 'user';
 $stmt_un->close();
-$issuer  = urlencode('Flowork');
-$account = urlencode($username.'@flowork');
-$qr_url  = $setup_secret
-    ? "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=".urlencode("otpauth://totp/$account?secret=$setup_secret&issuer=Flowork")
-    : null;
 
 $backup_codes = $fa ? array_filter(explode(',',$fa['backup_codes']??'')) : [];
 $show_backups = isset($_SESSION['2fa_setup_codes']);
@@ -235,12 +247,9 @@ include "includes/layout.php";
     <button type="submit" class="btn btn-primary" style="width:100%">📱 Begin Setup</button>
   </form>
   <?php else: ?>
-  <div style="text-align:center;margin-bottom:1rem">
-    <img src="<?=htmlspecialchars($qr_url)?>" alt="QR Code" style="border:6px solid #fff;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15)">
-  </div>
   <div style="background:var(--cream-d);border-radius:6px;padding:.75rem;font-size:.8rem;margin-bottom:1rem;text-align:center">
-    <div style="font-size:.68rem;color:var(--muted);margin-bottom:.35rem">Manual entry key</div>
-    <code style="font-size:1rem;letter-spacing:.15em;font-weight:600"><?=$setup_secret?></code>
+    <div style="font-size:.72rem;color:var(--muted);margin-bottom:.35rem">In your authenticator app choose <b>Enter a setup key</b>, account <b><?=htmlspecialchars($username)?>@flowork</b>, time-based, and type this key:</div>
+    <code style="font-size:1rem;letter-spacing:.15em;font-weight:600"><?=htmlspecialchars(trim(chunk_split($setup_secret, 4, ' ')))?></code>
   </div>
   <form method="POST">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
@@ -271,6 +280,8 @@ include "includes/layout.php";
     <form method="POST" onsubmit="return confirm('Disable 2FA? Your account will be less secure.')">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
       <input type="hidden" name="action" value="disable_2fa">
+      <input type="text" name="code" class="form-control" maxlength="8" placeholder="Current code" autocomplete="one-time-code" required
+             style="max-width:160px;display:inline-block;margin-right:.5rem;text-align:center;letter-spacing:.2em">
       <button class="btn btn-danger">✕ Disable 2FA</button>
     </form>
   </div>
@@ -318,8 +329,8 @@ foreach($display_codes as $code): if(!trim($code)) continue; ?>
   </div>
   <div style="text-align:center">
     <div style="font-size:1.8rem;margin-bottom:.35rem">📷</div>
-    <div style="font-weight:600;color:var(--text-strong);margin-bottom:.25rem">Scan QR Code</div>
-    <div>Scan the QR code or enter the key manually in the app</div>
+    <div style="font-weight:600;color:var(--text-strong);margin-bottom:.25rem">Add the setup key</div>
+    <div>In the app choose "Enter a setup key" and type the key shown on the setup page</div>
   </div>
   <div style="text-align:center">
     <div style="font-size:1.8rem;margin-bottom:.35rem">🔢</div>
