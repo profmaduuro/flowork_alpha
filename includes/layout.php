@@ -526,7 +526,7 @@ document.addEventListener('DOMContentLoaded',function(){
 </script>
 <?php $pay_page = str_starts_with($active_page ?? '', 'pay') || ($active_page ?? '') === 'payments'; ?>
 <?php if($pay_page): ?>
-<script src="<?= APP_BASE ?>/includes/pay_ui.js?v=3"></script>
+<script src="<?= APP_BASE ?>/includes/pay_ui.js?v=4"></script>
 <?php endif; ?>
 <script>window.APP_BASE = '<?= APP_BASE ?>';</script>
 <script src="<?= APP_BASE ?>/includes/flowork.js?v=8"></script>

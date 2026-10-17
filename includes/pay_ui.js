@@ -5,9 +5,14 @@
 
 window.PayUI = (function () {
 
+    // pay_ajax.php sits next to this script (includes/), wherever the app is installed.
+    const PAY_AJAX_URL = (document.currentScript && document.currentScript.src)
+        ? new URL('pay_ajax.php', document.currentScript.src).pathname
+        : 'includes/pay_ajax.php';
+
     // ── Core fetch helper ─────────────────────────────────────────────────
     async function ajax(method, action, data) {
-        const url = '/flowork/pay_ajax.php';
+        const url = PAY_AJAX_URL;
         let opts;
         if (method === 'GET') {
             const qs = new URLSearchParams({ action, ...data }).toString();

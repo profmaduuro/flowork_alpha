@@ -115,19 +115,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ref      = $conn->real_escape_string(trim($_POST['pay_ref']     ?? ''));
         $notes    = $conn->real_escape_string(trim($_POST['pay_notes']   ?? ''));
         $now      = date('Y-m-d H:i:s');
+        $on_floor = $tgid ? $conn->query("SELECT 1 FROM transporter_growers tg JOIN growers g ON g.id=tg.growerid
+            WHERE tg.id=$tgid AND (g.selling_pointid=$spid OR tg.selling_pointid=$spid) LIMIT 1") : false;
+        $ex = ($tgid && $date) ? $conn->query("SELECT id, status FROM payment_status WHERE transporter_growersid=$tgid AND sell_date='$date' AND currency='$currency' LIMIT 1")->fetch_assoc() : null;
         if (!$tgid || !$date || !$method) { $err = "Grower, date and payment method required."; }
+        elseif (!$on_floor || $on_floor === true || $on_floor->num_rows === 0) { $err = "This grower is not on your current floor."; }
+        elseif ($ex && in_array($ex['status'], ['paid', 'released'], true)) {
+            $err = "This payment is already recorded as {$ex['status']}. Reverse it first if it needs correcting.";
+        }
         else {
             // Amount = stored net of this grower's deliveries balanced on the date (single source).
             $net_col = $currency === 'zig' ? 'zim_net_value' : 'usd_net_value';
             $amt_q   = $conn->query("SELECT COALESCE(SUM(dtn.$net_col),0) AS net FROM balanced_bales bb ".flowork_net_join()."
                 WHERE bb.transporter_growersid=$tgid AND DATE(bb.created_at)='$date'");
             $amount  = ($amt_q && $amt_q !== true) ? (float)$amt_q->fetch_assoc()['net'] : 0;
-            $ex = $conn->query("SELECT id FROM payment_status WHERE transporter_growersid=$tgid AND sell_date='$date' AND currency='$currency' LIMIT 1")->fetch_assoc();
             if ($ex) {
                 $psid = (int)$ex['id'];
-                $conn->query("UPDATE payment_status SET status='paid',net_amount=$amount,payment_method='$method',reference_number='$ref',paid_at='$now',paid_by=$userid,notes='$notes' WHERE id=$psid");
+                $conn->query("UPDATE payment_status SET status='paid',net_amount=$amount,amount_paid=$amount,payment_method='$method',reference_number='$ref',paid_at='$now',paid_by=$userid,notes='$notes' WHERE id=$psid");
             } else {
-                $conn->query("INSERT INTO payment_status (transporter_growersid,sell_date,currency,net_amount,status,payment_method,reference_number,paid_at,paid_by,notes) VALUES ($tgid,'$date','$currency',$amount,'paid','$method','$ref','$now',$userid,'$notes')");
+                $conn->query("INSERT INTO payment_status (transporter_growersid,sell_date,currency,net_amount,amount_paid,status,payment_method,reference_number,paid_at,paid_by,notes) VALUES ($tgid,'$date','$currency',$amount,$amount,'paid','$method','$ref','$now',$userid,'$notes')");
                 $psid = (int)$conn->insert_id;
             }
             // Receipt number: always for cash, otherwise only when no bank ref was typed
