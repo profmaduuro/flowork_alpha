@@ -29,3 +29,15 @@
         Deny from all
     </IfModule>
 </FilesMatch>
+
+# 4. Security headers on every response. The app never frames itself on
+#    another site, so pages refuse to be framed (clickjacking), browsers may
+#    not guess content types, and the PHP version is not advertised.
+<IfModule mod_headers.c>
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set Referrer-Policy "same-origin"
+    Header always set Permissions-Policy "geolocation=(self), camera=(self), microphone=()"
+    Header always unset X-Powered-By
+    Header unset X-Powered-By
+</IfModule>
