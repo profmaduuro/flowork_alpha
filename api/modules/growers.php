@@ -184,6 +184,7 @@ if ($action === 'book_tg' && $method === 'POST') {
     $b = body();
     $tgid = (int)($b['tgid'] ?? 0);
     if (!$tgid) err('tgid required');
+    requireTgOnFloor($db, $user, $tgid);
     $tg = $db->query("SELECT growerid,bales,COALESCE(sell_date, CURDATE()) sell_date FROM transporter_growers WHERE id=$tgid LIMIT 1");
     if (!$tg || !$tg->num_rows) err('Delivery note not found');
     $row = $tg->fetch_assoc();
@@ -196,6 +197,7 @@ if ($action === 'unbook_tg' && $method === 'POST') {
     $b = body();
     $tgid = (int)($b['tgid'] ?? 0);
     if (!$tgid) err('tgid required');
+    requireTgOnFloor($db, $user, $tgid);
     $bb = $db->query("SELECT id FROM balanced_bales WHERE transporter_growersid=$tgid LIMIT 1");
     if ($bb && $bb->num_rows > 0) err('Already balanced - cannot unbook');
     $db->query("UPDATE transporter_growers SET booked=0 WHERE id=$tgid");

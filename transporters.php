@@ -133,6 +133,7 @@ if (isset($_GET['ajax'])) {
     if ($aj === 'toggle_tg') {
         $tgid = (int)($_POST['tgid'] ?? 0);
         $oc   = (int)($_POST['open_close'] ?? 0);
+        if (!flowork_on_floor($conn, 'tg', $tgid, $spid)) { echo json_encode(['error'=>'Delivery not found on this floor']); exit; }
         $conn->query("UPDATE transporter_growers SET open_close=$oc, datetime=NOW() WHERE id=$tgid");
         echo json_encode(['ok'=>true]);
         exit;
@@ -273,8 +274,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'toggle_tg') {
         $tgid = (int)($_POST['tgid'] ?? 0);
         $oc   = (int)($_POST['open_close'] ?? 0);
-        $conn->query("UPDATE transporter_growers SET open_close=$oc, datetime=NOW() WHERE id=$tgid");
-        $msg = "Delivery note ".($oc?'closed':'opened').".";
+        if (!flowork_on_floor($conn, 'tg', $tgid, $spid)) { $err = "Delivery not found on this floor."; }
+        else {
+            $conn->query("UPDATE transporter_growers SET open_close=$oc, datetime=NOW() WHERE id=$tgid");
+            $msg = "Delivery note ".($oc?'closed':'opened').".";
+        }
     }
 
     // ── Delivery note actions ─────────────────────────────────────────────

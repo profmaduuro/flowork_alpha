@@ -60,6 +60,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'panel') {
     $tgid    = (int)($_GET['tgid'] ?? 0);
     $splitid = (int)($_GET['split'] ?? 0);
     if (!$tgid) { echo json_encode(['error'=>'No tgid']); exit; }
+    if (!flowork_on_floor($conn, 'tg', $tgid, $spid)) { echo json_encode(['error'=>'Delivery not found on this floor']); exit; }
 
     $pg = $conn->query("SELECT g.id growerid, g.grower_num, g.name, g.surname,
         tg.id tgid, tg.bales tg_bales, tg.junused_bales, tg.booked,
@@ -187,13 +188,20 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'update_bale') {
     ob_end_clean(); header('Content-Type: application/json');
     $sbid = (int)($_POST['sold_id'] ?? 0);
     if (!$sbid) { echo json_encode(['error'=>'No ID']); exit; }
+    if (!flowork_on_floor($conn, 'sold_bale', $sbid, $spid)) { echo json_encode(['error'=>'Bale not found on this floor']); exit; }
+    $before = $conn->query("SELECT price, sale_code, timb_gradesid, buyer_gradesid FROM sold_bales WHERE id=$sbid")->fetch_assoc();
     $sets = [];
     if (!empty($_POST['timb_gradesid']))  $sets[] = "timb_gradesid=".(int)$_POST['timb_gradesid'];
     if (!empty($_POST['buyer_gradesid'])) $sets[] = "buyer_gradesid=".(int)$_POST['buyer_gradesid'];
     $price = (float)($_POST['price'] ?? 0);
     if (isset($_POST['sale_code']))        $sets[] = "sale_code='".$conn->real_escape_string(trim($_POST['sale_code'])). "'";
     if ($price > 0) $sets[] = "price=$price";
-    if ($sets) $conn->query("UPDATE sold_bales SET ".implode(',',$sets)." WHERE id=$sbid");
+    if ($sets) {
+        $conn->query("UPDATE sold_bales SET ".implode(',',$sets)." WHERE id=$sbid");
+        // Price and grade decide what the grower is paid, so keep a record of every change.
+        audit_log($conn, $spid, $userid, 'sold_bales', 'update', $sbid, $before,
+            $conn->query("SELECT price, sale_code, timb_gradesid, buyer_gradesid FROM sold_bales WHERE id=$sbid")->fetch_assoc());
+    }
     $row = $conn->query("SELECT sb.id, sb.price, sb.sale_code, sb.timb_gradesid, sb.buyer_gradesid,
         tg.description timb_grade, bg.description buyer_grade, b.name buyer_name
         FROM sold_bales sb
@@ -256,6 +264,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'balan
     $splitid  = max(1, (int)($_POST['splitid'] ?? 1));
     $growerid = (int)($_POST['growerid'] ?? 0);
     if (!$tgid || !$growerid) { echo json_encode(['error'=>'Missing fields']); exit; }
+    if (!flowork_on_floor($conn, 'tg', $tgid, $spid) || !flowork_on_floor($conn, 'grower', $growerid, $spid)) {
+        echo json_encode(['error'=>'Delivery not found on this floor']); exit;
+    }
 
     // Already balanced?
     $_ab = $conn->query("SELECT id FROM balanced_bales WHERE transporter_growersid=$tgid AND splitid=$splitid LIMIT 1");
@@ -347,12 +358,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'balan
 }
 
 // ── REVERSE ───────────────────────────────────────────────────────────────
-function do_reverse($conn, $where_sql) {
-    $bl = $conn->query("SELECT id, transporter_growersid, growerid FROM balanced_bales WHERE $where_sql");
+/**
+ * Reverse (delete) balanced deliveries matching $where_sql on this floor only.
+ * A delivery whose payment is already paid or released is skipped: reverse
+ * the payment first, otherwise the payment would point at nothing.
+ * Returns the number reversed; $skipped receives the ids left alone.
+ */
+function do_reverse($conn, $where_sql, $spid = 0, $userid = 0, &$skipped = []) {
+    $spid = (int)$spid;
+    $bl = $conn->query("SELECT bb.id, bb.transporter_growersid, bb.growerid, DATE(bb.created_at) bal_date
+        FROM balanced_bales bb JOIN growers g ON g.id = bb.growerid
+        WHERE ($where_sql) AND (g.selling_pointid=$spid OR bb.selling_pointid=$spid)");
     $rev = 0;
     while ($bl && $b = $bl->fetch_assoc()) {
         $bid  = (int)$b['id'];
         $tgid = (int)$b['transporter_growersid'];
+        $paid = $conn->query("SELECT 1 FROM payment_status WHERE transporter_growersid=$tgid
+            AND sell_date='" . $conn->real_escape_string($b['bal_date']) . "' AND status IN ('paid','released') LIMIT 1");
+        if ($paid && $paid !== true && $paid->num_rows > 0) { $skipped[] = $bid; continue; }
+        $conn->begin_transaction();
         $conn->query("DELETE FROM internal_stop_order_deducted_amounts WHERE balanced_balesid=$bid");
         $conn->query("DELETE FROM daily_totals_net_amount WHERE balanced_balesid=$bid");
         $conn->query("DELETE FROM balanced_bales_charges WHERE balanced_balesid=$bid");
@@ -370,6 +394,10 @@ function do_reverse($conn, $where_sql) {
             $rev++;
             // Re-open the delivery note so grower can be re-balanced
             if ($tgid) $conn->query("UPDATE transporter_growers SET open_close=0 WHERE id=$tgid");
+            $conn->commit();
+            audit_log($conn, $spid, (int)$userid, 'balanced_bales', 'reverse', $bid, ['tgid' => $tgid, 'growerid' => (int)$b['growerid']], null);
+        } else {
+            $conn->rollback();
         }
     }
     return $rev;
@@ -433,28 +461,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'rever
     $label = '';
     if (!$val) { echo json_encode(['error'=>'No value provided']); exit; }
 
+    $skipped = [];
     if ($by === 'batch') {
         $batch = (int)$val;
-        $rev   = do_reverse($conn, "sale_batchid=$batch");
+        $rev   = do_reverse($conn, "bb.sale_batchid=$batch", $spid, $userid, $skipped);
         $label = "Batch #$batch";
     } elseif ($by === 'bbid') {
         $bbid = (int)$val;
-        $rev  = do_reverse($conn, "id=$bbid");
+        $rev  = do_reverse($conn, "bb.id=$bbid", $spid, $userid, $skipped);
         $label = "Record #$bbid";
     } elseif ($by === 'grower') {
-        // val = grower_num
-        $gq = $conn->query("SELECT id FROM growers WHERE grower_num='$val' LIMIT 1");
+        // val = grower_num, looked up on this floor only
+        $gq = $conn->query("SELECT id FROM growers WHERE grower_num='$val' AND selling_pointid=$spid LIMIT 1");
         $gr = ($gq && $gq !== true) ? $gq->fetch_assoc() : null;
-        if (!$gr) { echo json_encode(['error'=>"Grower '$val' not found"]); exit; }
+        if (!$gr) { echo json_encode(['error'=>"Grower '$val' not found on this floor"]); exit; }
         $gid = (int)$gr['id'];
-        $rev = do_reverse($conn, "growerid=$gid");
+        $rev = do_reverse($conn, "bb.growerid=$gid", $spid, $userid, $skipped);
         $label = "Grower $val";
     } elseif ($by === 'tgid') {
         $tgid = (int)$val;
-        $rev  = do_reverse($conn, "transporter_growersid=$tgid");
+        $rev  = do_reverse($conn, "bb.transporter_growersid=$tgid", $spid, $userid, $skipped);
         $label = "Delivery note #$tgid";
     }
-    echo json_encode(['ok'=>true,'rev'=>$rev,'msg'=>"Reversed $label — $rev record(s) removed."]);
+    $msg = "Reversed $label — $rev record(s) removed.";
+    if ($skipped) $msg .= " " . count($skipped) . " already paid and left as is (record " . implode(', ', $skipped) . "): reverse the payment first.";
+    echo json_encode(['ok'=>true,'rev'=>$rev,'skipped'=>$skipped,'msg'=>$msg]);
     exit;
 }
 
@@ -465,6 +496,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'run_s
     ob_end_clean(); header('Content-Type: application/json');
     $bbid = (int)($_POST['bbid'] ?? 0);
     if (!$bbid) { echo json_encode(['error'=>'No batch ID']); exit; }
+    if (!flowork_on_floor($conn, 'bb', $bbid, $spid)) { echo json_encode(['error'=>'Batch not found on this floor']); exit; }
 
     // Check if already processed
     $bb_q = $conn->query("SELECT stoporder_processed FROM balanced_bales WHERE id=$bbid LIMIT 1");

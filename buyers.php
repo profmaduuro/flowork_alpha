@@ -106,6 +106,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_SERVER['HTTP_X_REQUESTED_W
     if ($action === 'delete_buyer') {
         $bid = (int)($_POST['buyerid'] ?? 0);
         if (!$bid) { echo json_encode(['error' => 'No buyer']); exit; }
+        if (!flowork_on_floor($conn, 'buyer', $bid, $spid)) { echo json_encode(['error' => 'Buyer not found on this floor']); exit; }
         $uq   = $conn->query("SELECT COUNT(*) c FROM sold_bales sb JOIN buyer_grades bg ON bg.id=sb.buyer_gradesid WHERE bg.buyerid=$bid");
         $used = ($uq && $uq !== true) ? (int)$uq->fetch_assoc()['c'] : 0;
         if ($used > 0) { echo json_encode(['error' => "Cannot delete — buyer is referenced in $used sold bale record(s)"]); exit; }
@@ -119,6 +120,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_SERVER['HTTP_X_REQUESTED_W
         $bid  = (int)($_POST['buyerid'] ?? 0);
         $desc = $conn->real_escape_string(strtoupper(trim($_POST['description'] ?? '')));
         if (!$bid || !$desc) { echo json_encode(['error' => 'Buyer and grade code required']); exit; }
+        if (!flowork_on_floor($conn, 'buyer', $bid, $spid)) { echo json_encode(['error' => 'Buyer not found on this floor']); exit; }
         $dup = $conn->query("SELECT id FROM buyer_grades WHERE buyerid=$bid AND description='$desc' LIMIT 1");
         if ($dup && $dup->num_rows) { echo json_encode(['error' => "Grade '$desc' already exists"]); exit; }
         $conn->query("INSERT INTO buyer_grades (buyerid,description) VALUES ($bid,'$desc')");
@@ -130,6 +132,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_SERVER['HTTP_X_REQUESTED_W
     if ($action === 'toggle_grade') {
         $gid = (int)($_POST['gid'] ?? 0);
         $a   = (int)($_POST['active'] ?? 1);
+        if (!flowork_on_floor($conn, 'buyer_grade', $gid, $spid)) { echo json_encode(['error' => 'Grade not found on this floor']); exit; }
         $conn->query("UPDATE buyer_grades SET active=$a WHERE id=$gid");
         echo json_encode(['ok' => true, 'active' => $a]);
         exit;
@@ -137,6 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_SERVER['HTTP_X_REQUESTED_W
 
     if ($action === 'delete_grade') {
         $gid = (int)($_POST['gid'] ?? 0);
+        if (!flowork_on_floor($conn, 'buyer_grade', $gid, $spid)) { echo json_encode(['error' => 'Grade not found on this floor']); exit; }
         // Check usage
         $uq   = $conn->query("SELECT COUNT(*) c FROM sold_bales WHERE buyer_gradesid=$gid");
         $used = ($uq && $uq !== true) ? (int)$uq->fetch_assoc()['c'] : 0;

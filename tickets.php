@@ -63,6 +63,12 @@ function group_state($conn, $tgid) {
 // ── POST handlers ──────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
+    // Every action here works on one delivery group: it must be on this floor.
+    $_post_tgid = (int)($_POST['tgid'] ?? $_POST['transporter_growersid'] ?? 0);
+    if ($_post_tgid && !flowork_on_floor($conn, 'tg', $_post_tgid, $spid)) {
+        $err = "Delivery not found on this floor.";
+        $action = '';
+    }
 
     // ── Generate / resume barcodes ────────────────────────────────────────
     if ($action === 'gen_tickets') {

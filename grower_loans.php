@@ -149,6 +149,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ref  = $conn->real_escape_string(trim($_POST['reference']??''));
         $notes= $conn->real_escape_string(trim($_POST['notes']??''));
         if(!$lid||$amt<=0){$err="Loan and amount required.";}
+        elseif(!flowork_on_floor($conn,'loan',$lid,$spid)){$err="Loan not found on this floor.";}
         else {
             $sd_sql = $sd?"'$sd'":'NULL';
             $conn->query("INSERT INTO loan_repayments (loan_id,amount,repayment_date,sell_date,method,reference,recorded_by,notes) VALUES ($lid,$amt,'$dt',$sd_sql,'$meth','$ref',$userid,'$notes')");

@@ -2,6 +2,7 @@
 require_once __DIR__ . '/password_helper.php';
 require_once __DIR__ . '/audit.php';
 require_once __DIR__ . '/rights.php';
+require_once __DIR__ . '/floor_scope.php';
 
 function require_login() {
     if (session_status() === PHP_SESSION_NONE) session_start();

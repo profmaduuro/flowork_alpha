@@ -128,3 +128,18 @@ function getSpid(array $user): int {
 function getSeasonid(array $user): int {
     return (int)($user['seasonid'] ?? 1);
 }
+
+/**
+ * Refuse unless this delivery link (transporter_growers.id) is on a floor the
+ * user may act on: the grower's floor or the floor it was recorded on.
+ */
+function requireTgOnFloor(mysqli $db, array $user, int $tgid): void {
+    $q = $db->query("SELECT g.selling_pointid gs, tg.selling_pointid ts FROM transporter_growers tg
+                     JOIN growers g ON g.id = tg.growerid WHERE tg.id = $tgid LIMIT 1");
+    $row = ($q && $q !== true) ? $q->fetch_assoc() : null;
+    if (!$row) err('Delivery note not found', 404);
+    $allowed = allowedSpids($user);
+    if (!in_array((int)$row['gs'], $allowed, true) && !in_array((int)$row['ts'], $allowed, true)) {
+        err('Forbidden — this delivery is not on your selling point', 403);
+    }
+}

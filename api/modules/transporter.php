@@ -162,6 +162,7 @@ if ($action === 'toggle_tg' && $method === 'POST') {
     $tgid = (int)($b['tgid'] ?? 0);
     $oc   = (int)($b['open_close'] ?? 0);
     if (!$tgid) err('tgid required');
+    requireTgOnFloor($db, $user, $tgid);
     $db->query("UPDATE transporter_growers SET open_close=$oc WHERE id=$tgid");
     ok(['msg'=>'Delivery note ' . ($oc ? 'closed' : 'opened') . '.']);
 }

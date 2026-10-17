@@ -85,14 +85,14 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
     if ($action==='activate_season') {
         $sid = (int)($_POST['season_id']??0);
         $conn->query("UPDATE seasons SET status='closed' WHERE (selling_pointid=$spid OR selling_pointid=0) AND status='active'");
-        $conn->query("UPDATE seasons SET status='active',open_date=CURDATE() WHERE id=$sid");
+        $conn->query("UPDATE seasons SET status='active',open_date=CURDATE() WHERE id=$sid AND (selling_pointid=$spid OR selling_pointid=0)");
         audit_log($conn,$spid,$userid,'seasons','activate',$sid);
         $msg = "✓ Season activated.";
     }
 
     if ($action==='close_season') {
         $sid = (int)($_POST['season_id']??0);
-        $conn->query("UPDATE seasons SET status='closed',close_date=CURDATE() WHERE id=$sid");
+        $conn->query("UPDATE seasons SET status='closed',close_date=CURDATE() WHERE id=$sid AND (selling_pointid=$spid OR selling_pointid=0)");
         audit_log($conn,$spid,$userid,'seasons','close',$sid);
         $msg = "✓ Season closed.";
     }

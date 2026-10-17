@@ -149,8 +149,11 @@ if (isset($_GET['ajax'])) {
     // Delete stop order
     if ($aj === 'delete_stoporder') {
         $id = (int)($_POST['id'] ?? 0);
-        $conn->query("DELETE FROM internal_stop_order_amount WHERE internal_stop_orderid=$id");
+        // Delete the stop order first (floor-checked); only then its amounts,
+        // so another floor's amounts can no longer be wiped by id.
         $conn->query("DELETE FROM internal_stop_order WHERE id=$id AND ($spid=0 OR selling_pointid=$spid)");
+        if ($conn->affected_rows < 1) { echo json_encode(['ok'=>false,'error'=>'Stop order not found on this floor.']); exit; }
+        $conn->query("DELETE FROM internal_stop_order_amount WHERE internal_stop_orderid=$id");
         audit_log($conn,$spid,$userid,'internal_stop_order','delete',$id);
         echo json_encode(['ok'=>true,'msg'=>'Stop order deleted.']);
         exit;

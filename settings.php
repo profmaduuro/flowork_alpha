@@ -50,7 +50,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $sodid = (int)($_POST['sodid'] ?? 0);
         $rate  = (float)($_POST['rate'] ?? 0);
         if (!$sodid || $rate <= 0) { echo json_encode(['error'=>'Invalid']); exit; }
+        if (!flowork_on_floor($conn, 'start_of_day', $sodid, $spid)) { echo json_encode(['error'=>'Sale day not found on this floor']); exit; }
+        $_eq = $conn->query("SELECT id, amount FROM exchange_rate WHERE start_of_dayid=$sodid LIMIT 1");
+        $_old_rate = ($_eq && $_eq !== true && $_eq->num_rows) ? $_eq->fetch_assoc()['amount'] : null;
         $_eq = $conn->query("SELECT id FROM exchange_rate WHERE start_of_dayid=$sodid LIMIT 1");
+        // The rate converts every ZiG figure for that day, so record who changed it.
+        audit_log($conn, $spid, $userid, 'exchange_rate', $_old_rate === null ? 'create' : 'update', $sodid,
+            $_old_rate === null ? null : ['amount' => $_old_rate], ['amount' => $rate]);
         if ($_eq && $_eq !== true && $_eq->num_rows) {
             $conn->query("UPDATE exchange_rate SET amount=$rate WHERE start_of_dayid=$sodid");
         } else {

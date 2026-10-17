@@ -217,8 +217,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $tgid  = (int)($_POST['tgid'] ?? 0);
         $date  = $conn->real_escape_string($_POST['sell_date'] ?? '');
         $notes = $conn->real_escape_string(trim($_POST['notes'] ?? ''));
-        $conn->query("UPDATE payment_status SET status='on_hold',notes='$notes' WHERE transporter_growersid=$tgid AND sell_date='$date'");
-        $msg = "Placed on hold.";
+        if (!flowork_on_floor($conn, 'tg', $tgid, $spid)) { $err = "This grower is not on your current floor."; }
+        else {
+            // A settled payment is reversed, never put on hold (that would hide it).
+            $conn->query("UPDATE payment_status SET status='on_hold',notes='$notes' WHERE transporter_growersid=$tgid AND sell_date='$date' AND status NOT IN ('paid','released')");
+            $msg = $conn->affected_rows > 0 ? "Placed on hold." : "Nothing to hold: the payment is already settled or not created yet.";
+        }
     }
 
     // ── Reverse individual grower payment ─────────────────────────────────
@@ -229,6 +233,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $reason   = $conn->real_escape_string(trim($_POST['reason'] ?? ''));
         if (!$tgid || !$date) {
             $err = "Grower and date are required for reversal.";
+        } elseif (!flowork_on_floor($conn, 'tg', $tgid, $spid)) {
+            $err = "This grower is not on your current floor.";
         } elseif (!$reason) {
             $err = "A reason is required to reverse a payment.";
         } else {
@@ -267,6 +273,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $reason = $conn->real_escape_string(trim($_POST['reason'] ?? ''));
         if (!$bid) {
             $err = "Batch ID is required.";
+        } elseif (!flowork_on_floor($conn, 'pay_batch', $bid, $spid)) {
+            $err = "Batch not found on this floor.";
         } elseif (!$reason) {
             $err = "A reason is required to reverse a batch.";
         } else {

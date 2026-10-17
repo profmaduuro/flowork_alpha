@@ -73,6 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$day_closed) {
     ] as $act => [$new_status, $perm, $by_col, $at_col]) {
         if ($action === $act.'_batch' && pay_can($my_role,$perm)) {
             $bid = (int)($_POST['bid'] ?? 0);
+            if (!flowork_on_floor($conn, 'pay_batch', $bid, $spid)) { $err = "Batch not found on this floor."; break; }
             $now = date('Y-m-d H:i:s');
             $conn->query("UPDATE payment_batch SET status='$new_status',$by_col=$userid,$at_col='$now' WHERE id=$bid");
             // On release: mark all items as paid in payment_status

@@ -31,6 +31,13 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
         die("CSRF token verification failed.");
     }
     $action=$_POST['action']??'';
+    // Floors are separate customers. Only a master user may add, delete or
+    // switch floors on/off; a floor admin may edit their own floor's details.
+    $_fid_post = (int)($_POST['floor_id'] ?? 0);
+    if (!is_master_user()) {
+        $own_floor_edit = $action === 'edit_floor' && $_fid_post > 0 && $_fid_post === (int)($_SESSION['selling_pointid'] ?? 0);
+        if ($action !== '' && $action !== 'switch_floor' && !$own_floor_edit) { $err = "Only a master user can change other floors or add, delete and switch floors."; $action = ''; }
+    }
     if($action==='add_floor'){
         $name=$conn->real_escape_string(trim($_POST['name']??''));
         $loc=$conn->real_escape_string(trim($_POST['location']??''));
@@ -99,7 +106,10 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     if($action==='switch_floor'){
         $fid=(int)($_POST['floor_id']??0);
         $sp=$conn->query("SELECT * FROM selling_point WHERE id=$fid AND active=1 LIMIT 1")->fetch_assoc();
-        if($sp){
+        $allowed_ids = array_map('intval', array_column($_SESSION['accessible_floors'] ?? [], 'id'));
+        if($sp && !is_master_user() && !in_array($fid, $allowed_ids, true)){
+            $err="You do not have access to that floor.";
+        }elseif($sp){
             $_SESSION['selling_pointid']=$fid;$_SESSION['selling_point_name']=$sp['name'];
             header("Location: dashboard.php");exit;
         }else{$err="Floor not found or inactive.";}

@@ -225,6 +225,7 @@ if (isset($_GET["ajax"])) {
     $action = $_GET["action"] ?? "";
     if ($action === "book") {
         $tgid = (int)$_GET["tgid"];
+        if (!flowork_on_floor($conn, 'tg', $tgid, $spid)) { echo json_encode(["error"=>"Delivery not found on this floor"]); exit; }
         $conn->query("UPDATE transporter_growers SET booked=1, datetime=NOW() WHERE id=$tgid");
         $tg = $conn->query("SELECT growerid,bales,sell_date FROM transporter_growers WHERE id=$tgid LIMIT 1");
         if ($tg && $tg !== true && $tg->num_rows) {
@@ -235,6 +236,7 @@ if (isset($_GET["ajax"])) {
     }
     if ($action === "unbook") {
         $bb_id = (int)$_GET["bb_id"];
+        if (!flowork_on_floor($conn, 'booked_bale', $bb_id, $spid)) { echo json_encode(["error"=>"Booking not found on this floor"]); exit; }
         $bb_q = $conn->query("SELECT growerid, sell_date FROM booked_bales WHERE id=$bb_id LIMIT 1");
         if ($bb_q && $bb_q->num_rows > 0) {
             $bb_r = $bb_q->fetch_assoc();
@@ -317,6 +319,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         
         if (!$bb_id) {
             echo json_encode(["error" => "Invalid booking ID."]);
+            exit;
+        }
+        if (!flowork_on_floor($conn, 'booked_bale', $bb_id, $spid)) {
+            echo json_encode(["error" => "Booking not found on this floor."]);
             exit;
         }
         

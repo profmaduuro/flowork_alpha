@@ -47,6 +47,9 @@ $conn->query("CREATE TABLE IF NOT EXISTS cf_inputs (
 if (isset($_GET['get_contract_details'])) {
     header('Content-Type: application/json');
     $cid = (int)$_GET['get_contract_details'];
+    if (!flowork_on_floor($conn, 'contract', $cid, (int)($_SESSION['selling_pointid'] ?? 0))) {
+        echo json_encode(['error' => 'Contract not found on this floor']); exit;
+    }
     
     // Contract & Grower
     $c_q = $conn->query("
@@ -161,6 +164,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         if (!$cid || !$qty || !$cost) {
             $err = "❌ Invalid input parameters.";
+        } elseif (!flowork_on_floor($conn, 'contract', $cid, $spid)) {
+            $err = "❌ Contract not found on this floor.";
         } else {
             $issued_date = date('Y-m-d');
             $ins = $conn->query("
@@ -204,7 +209,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'update_status') {
         $cid    = (int)($_POST['contract_id'] ?? 0);
         $status = $conn->real_escape_string($_POST['status'] ?? 'active');
-        if ($cid) {
+        if ($cid && !flowork_on_floor($conn, 'contract', $cid, $spid)) {
+            $err = "❌ Contract not found on this floor.";
+        } elseif ($cid) {
             $conn->query("UPDATE cf_contracts SET status='$status' WHERE id=$cid");
             $msg = "✓ Contract status updated to " . strtoupper($status);
         }

@@ -18,7 +18,9 @@ if ($_pc && $_pc->num_rows === 0)
 // ── Mark single as printed ────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'mark_printed') {
     $bbid = (int)($_POST['bbid'] ?? 0);
-    if ($bbid) $conn->query("UPDATE balanced_bales SET printed=1 WHERE id=$bbid");
+    if ($bbid && flowork_on_floor($conn, 'bb', $bbid, (int)($_SESSION['selling_pointid'] ?? 0))) {
+        $conn->query("UPDATE balanced_bales SET printed=1 WHERE id=$bbid");
+    }
     header("Location: sales_sheets.php"); exit;
 }
 
