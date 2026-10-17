@@ -1,0 +1,13 @@
+# maintenance/ holds setup, repair and one-off data scripts. Run them from
+# the command line (php maintenance/<script>.php from the app folder). None
+# of them may be reachable over HTTP: several change or drop tables.
+
+# Apache 2.4 (mod_authz_core)
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+
+# Apache 2.2 fallback
+<IfModule !mod_authz_core.c>
+    Deny from all
+</IfModule>
