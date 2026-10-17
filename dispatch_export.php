@@ -249,7 +249,7 @@ include "includes/layout.php";
 <div class="alert" style="background:var(--gold-bg);border-left:3px solid var(--gold);color:var(--ink);padding:.85rem 1.15rem;margin-bottom:1rem;font-size:.85rem">
   <strong>No dispatch sessions found</strong> for selling point ID <?=$spid?>.
   <?php if(!$spid): ?>
-  <br>⚠ No selling point selected — please <a href="setup.php">run setup</a> and reload session.
+  <br>⚠ No selling point selected — please log out, choose a floor when you log back in, and reload this page.
   <?php else: ?>
   <br>Go to <a href="dispatch.php">Dispatch</a> to create a session first, then return here to export.
   <?php endif; ?>

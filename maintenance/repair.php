@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/includes/admin_gate.php';
+require_once dirname(__DIR__) . '/includes/admin_gate.php';
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
@@ -14,7 +14,7 @@ h2{color:#c8952a;border-bottom:1px solid #333;padding-bottom:4px;margin-top:1.5r
 a{color:#c8952a;font-size:1.1rem}hr{border-color:#333;margin:1rem 0}
 </style></head><body><h2>⚙ Flowork DB Repair</h2>";
 
-require_once "includes/conn.php";
+require_once dirname(__DIR__) . "/includes/conn.php";
 echo "<p class='ok'>✓ Connected to MySQL</p>";
 echo "<p class='ok'>✓ Database '" . htmlspecialchars($_db_name) . "' selected</p>";
 

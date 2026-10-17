@@ -1,9 +1,9 @@
 <?php
-require_once __DIR__ . '/includes/admin_gate.php';
+require_once dirname(__DIR__) . '/includes/admin_gate.php';
 // docker cp bal_debug3.php flowork_app:/var/www/html/bal_debug3.php
 mysqli_report(MYSQLI_REPORT_OFF);
 session_start();
-require_once "includes/conn.php";
+require_once dirname(__DIR__) . "/includes/conn.php";
 
 echo "<style>body{font:12px monospace;background:#111;color:#ddd;padding:15px}
 .ok{color:#6ec97a}.bad{color:#f08080}.warn{color:#e8c87a}

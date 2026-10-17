@@ -1,10 +1,10 @@
 <?php
-require_once __DIR__ . '/includes/admin_gate.php';
+require_once dirname(__DIR__) . '/includes/admin_gate.php';
 // Direct creditor import test - bypasses everything
 // docker cp cred_direct.php flowork_app:/var/www/html/cred_direct.php
 // visit http://localhost:8080/cred_direct.php
 session_start();
-require_once "includes/conn.php";
+require_once dirname(__DIR__) . "/includes/conn.php";
 
 ini_set('max_execution_time', 300);
 ini_set('display_errors', 1);

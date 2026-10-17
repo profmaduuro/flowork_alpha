@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/includes/admin_gate.php';
+require_once dirname(__DIR__) . '/includes/admin_gate.php';
 /**
  * go.php — Emergency setup wrapper.
  * Disables mysqli exceptions then runs all setup logic directly.
@@ -9,7 +9,7 @@ mysqli_report(MYSQLI_REPORT_OFF);
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 session_start();
-require_once __DIR__ . "/includes/password_helper.php";
+require_once dirname(__DIR__) . "/includes/password_helper.php";
 
 // Read credentials from Docker env vars or fall back to XAMPP defaults
 $_db_host = getenv('DB_HOST') ?: 'localhost';

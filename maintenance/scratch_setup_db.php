@@ -1,6 +1,6 @@
 <?php
-require_once __DIR__ . '/includes/admin_gate.php';
-require_once "includes/conn.php";
+require_once dirname(__DIR__) . '/includes/admin_gate.php';
+require_once dirname(__DIR__) . "/includes/conn.php";
 $conn->query("CREATE TABLE IF NOT EXISTS internal_stop_order (
     id INT AUTO_INCREMENT PRIMARY KEY,
     userid INT NOT NULL,

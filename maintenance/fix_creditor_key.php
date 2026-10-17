@@ -1,9 +1,9 @@
 <?php
-require_once __DIR__ . '/includes/admin_gate.php';
+require_once dirname(__DIR__) . '/includes/admin_gate.php';
 // docker cp fix_creditor_key2.php flowork_app:/var/www/html/fix_creditor_key2.php
 // visit http://localhost:8080/fix_creditor_key2.php
 session_start();
-require_once "includes/conn.php";
+require_once dirname(__DIR__) . "/includes/conn.php";
 
 echo "<pre style='font:13px monospace;background:#111;color:#9c9;padding:20px'>";
 

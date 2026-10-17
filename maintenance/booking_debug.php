@@ -1,7 +1,7 @@
 <?php
-require_once __DIR__ . '/includes/admin_gate.php';
+require_once dirname(__DIR__) . '/includes/admin_gate.php';
 session_start();
-require_once "includes/conn.php";
+require_once dirname(__DIR__) . "/includes/conn.php";
 echo "<pre style='font:12px monospace;background:#111;color:#9c9;padding:20px'>";
 
 $spid = (int)($_SESSION['selling_pointid'] ?? 0);

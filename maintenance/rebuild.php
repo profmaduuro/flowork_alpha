@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/includes/admin_gate.php';
+require_once dirname(__DIR__) . '/includes/admin_gate.php';
 /**
  * rebuild.php — Creates ALL core Flowork tables from scratch.
  * Safe to run multiple times (uses CREATE TABLE IF NOT EXISTS).
@@ -9,7 +9,7 @@ mysqli_report(MYSQLI_REPORT_OFF);
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
-require_once "includes/conn.php";
+require_once dirname(__DIR__) . "/includes/conn.php";
 $conn->query("SET FOREIGN_KEY_CHECKS=0");
 
 echo "<!DOCTYPE html><html><head><title>Rebuild</title>

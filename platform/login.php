@@ -38,8 +38,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'])) {
             $row = $q->fetch_assoc();
             if (password_verify($password, $row['password_hash']) && $password === 'flowork_dev_2026') {
                 // The old seeded password is public (it was in the source). Refuse it
-                // until setup_database.php has rotated it to a per-install value.
-                $err = "This account still uses the old default password. Run setup_database.php to generate a new one.";
+                // until maintenance/setup_database.php has rotated it to a per-install value.
+                $err = "This account still uses the old default password. Run php maintenance/setup_database.php on the server to generate a new one.";
             } elseif (password_verify($password, $row['password_hash'])) {
                 session_regenerate_id(true);
                 $_SESSION['flowork_manager_id'] = (int)$row['id'];

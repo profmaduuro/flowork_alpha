@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/includes/admin_gate.php';
+require_once dirname(__DIR__) . '/includes/admin_gate.php';
 /**
  * setup_database.php — Run once to create all missing tables and seed data
  * Safe to run multiple times — uses IF NOT EXISTS and INSERT IGNORE
@@ -10,7 +10,7 @@ require_once __DIR__ . '/includes/admin_gate.php';
  * the gate against a literal committed to the source tree.
  */
 mysqli_report(MYSQLI_REPORT_OFF);
-require_once "includes/conn.php";
+require_once dirname(__DIR__) . "/includes/conn.php";
 
 $results = [];
 $errors  = [];
@@ -1126,8 +1126,6 @@ $seeds = [
     "INSERT IGNORE INTO currency (id,description) VALUES (1,'USD'),(2,'ZiG')",
     // statutory charges
     "INSERT IGNORE INTO statutory (id,description,currencyid,accessid) VALUES (1,'Afforestration',2,1),(2,'Weighing & Auction',1,2),(3,'Floor Commission',1,3),(4,'Service Charge',1,4),(5,'MOA',1,5),(6,'MOA',2,6),(7,'Bank Charge',1,7)",
-    // default admin user (password: core)
-    "INSERT IGNORE INTO users (id,username,password,active,created_at) VALUES (1,'sysadmin','core',1,NOW())",
     // ticket check letters
     "INSERT IGNORE INTO ticket_check_letter (characters,character_value) VALUES ('0',0),('1',1),('2',2),('3',3),('4',4),('5',5),('6',6),('7',7),('8',8),('9',9),('A',10),('B',11),('C',12),('D',13),('E',14),('F',15),('G',16),('H',17),('I',18),('J',19),('K',20),('L',21),('M',22),('N',23),('O',24),('P',25),('Q',26),('R',27),('S',28),('T',29),('U',30),('V',31),('W',32),('X',33),('Y',34),('Z',35),('-',36),('.',37),(' ',38),('\$',39),('/',40),('+',41),('%',42)",
 ];
@@ -1135,6 +1133,32 @@ $seeds = [
 foreach ($seeds as $sql) {
     $label = substr($sql, 0, 50).'...';
     run($conn, $sql, "SEED: $label", $results, $errors);
+}
+
+// First administrator. The password used to be the fixed string 'core',
+// published in this file; it is now generated once per install and shown
+// only here. An existing sysadmin is never touched.
+$chk_admin = $conn->query("SELECT id FROM users WHERE id=1 OR username='sysadmin' LIMIT 1");
+if ($chk_admin && $chk_admin->num_rows === 0) {
+    require_once dirname(__DIR__) . '/includes/password_helper.php';
+    $admin_pass = bin2hex(random_bytes(9));
+    $admin_hash = $conn->real_escape_string(flowork_password_hash($admin_pass));
+    if ($conn->query("INSERT INTO users (id,username,password,active,is_admin,role,created_at)
+                      VALUES (1,'sysadmin','$admin_hash',1,1,'admin',NOW())")) {
+        $results[] = "sysadmin login created with password: $admin_pass — copy it now, it is not shown again, and change it after the first login";
+    } else {
+        $errors[] = "❌ sysadmin seeding: ".$conn->error;
+    }
+} else {
+    $results[] = "✓ sysadmin user already exists";
+}
+$conn->query("UPDATE users SET is_admin=1, role='admin' WHERE username='sysadmin'");
+
+if (PHP_SAPI === 'cli') {
+    foreach ($results as $r) echo "  ok  $r\n";
+    foreach ($errors  as $e) echo "  ERR $e\n";
+    echo count($results), " succeeded, ", count($errors), " errors\n";
+    exit($errors ? 1 : 0);
 }
 
 // ── REPORT ────────────────────────────────────────────────────────────────
@@ -1156,7 +1180,7 @@ h1{color:#1a1208;border-bottom:3px solid #c8952a;padding-bottom:.5rem}
   ❌ <?=count($errors)?> errors
   <?php if(empty($errors)): ?>
   <br><br>All tables created successfully. <a href="login.php" style="color:#e8b84b">→ Go to Login</a>
-  <br><small>Login: <b>sysadmin</b> / <b>core</b> (change after first login)</small>
+  <br><small>Use the sysadmin password shown above for the first login, then change it.</small>
   <?php else: ?>
   <br><br>Some errors occurred — these are usually FK constraint issues on tables that already exist. Check above.
   <?php endif; ?>

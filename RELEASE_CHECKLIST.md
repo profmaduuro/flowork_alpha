@@ -46,6 +46,7 @@ Without Docker: leave `TRUSTED_PROXIES` empty unless a reverse proxy or load bal
 
 ## 6. After going live
 
-- [ ] Delete or block the maintenance scripts that are not needed in production (`setup*.php`, `repair.php`, `rebuild.php`, `fix_*.php`, `scratch_*.php`, `*_debug.php`).
+- [ ] `maintenance/` and `scratch/` return 403 over HTTP (both have a deny-all `.htaccess`; on nginx, deny them in the server block). Run those scripts only from the command line, e.g. `php maintenance/setup_database.php`.
+- [ ] On a new install, `php maintenance/setup_database.php` prints a one-time password for `sysadmin` and for the platform `developer` account. Log in and change both.
 - [ ] Change the passwords of any default or shared accounts. Remove test users.
 - [ ] Watch the PHP error log for the first day of trading.

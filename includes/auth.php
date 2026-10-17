@@ -119,7 +119,6 @@ function require_login() {
             'bales.php'             => 'balance',
             'day_control.php'       => 'balance',
             'pay_close.php'         => 'balance',
-            'update_balance.php'    => 'balance',
 
             // accounts
             'billing.php'           => 'accounts',
@@ -150,7 +149,6 @@ function require_login() {
             'stoporder_processing.php'  => 'stoporders',
             'stoporder_verification.php'=> 'stoporders',
             'internal_stoporders.php'   => 'stoporders',
-            'reset_so.php'              => 'stoporders',
 
             // growers
             'growers.php'           => 'growers',

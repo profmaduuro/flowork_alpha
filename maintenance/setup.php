@@ -1,9 +1,9 @@
 <?php
-require_once __DIR__ . '/includes/admin_gate.php';
+require_once dirname(__DIR__) . '/includes/admin_gate.php';
 mysqli_report(MYSQLI_REPORT_OFF);
 session_start();
-require_once "includes/conn.php";
-require_once "includes/password_helper.php";
+require_once dirname(__DIR__) . "/includes/conn.php";
+require_once dirname(__DIR__) . "/includes/password_helper.php";
 
 // Allow access without login for initial setup
 $msg = [];

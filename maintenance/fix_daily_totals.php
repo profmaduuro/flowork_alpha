@@ -1,10 +1,10 @@
 <?php
-require_once __DIR__ . '/includes/admin_gate.php';
+require_once dirname(__DIR__) . '/includes/admin_gate.php';
 // Fixes daily_totals rows that have zero/null values
 // docker cp fix_daily_totals.php flowork_app:/var/www/html/fix_daily_totals.php
 // visit http://localhost:8080/fix_daily_totals.php
 session_start();
-require_once "includes/conn.php";
+require_once dirname(__DIR__) . "/includes/conn.php";
 echo "<pre style='font:12px monospace;background:#111;color:#9c9;padding:20px'>";
 
 // Find batches with missing daily_totals data
