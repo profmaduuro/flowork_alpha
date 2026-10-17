@@ -10,8 +10,8 @@
  *      - the same figures both times (no drift, no duplicate rows),
  *      - exactly one daily_totals row and one net row per delivery,
  *      - 0 <= net USD <= gross USD and net ZiG >= 0,
- *      - pinned figures for the 8 July 2026 deliveries under the current
- *        Settings (from the net reconciliation, column B).
+ *      - every delivery has a recorded rule, and pinned figures for the
+ *        8 July 2026 deliveries under rule A (net reconciliation, column A).
  *    The copy is dropped at the end (--keep-db keeps it for inspection).
  * 2. Live data checks (read-only on the live database):
  *      - one stored net per delivery (unique key present),
@@ -95,17 +95,19 @@ foreach ([1, 2] as $pass) {
     }
 }
 
-// Pinned: 8 July 2026 deliveries recalculated under today's Settings
-// (so_deduction_mode=before, RBZ 80/20) — reconciliation column B.
-$pinned = [73 => [0.00, 0.00], 74 => [341.34, 4356.53], 75 => [0.00, 0.00], 76 => [0.00, 0.00]];
-$settings = $all($t, "SELECT param_value FROM parameters WHERE param_key='so_deduction_mode' AND selling_pointid=1")[0]['param_value'] ?? '?';
-$rbz = $all($t, "SELECT usd_percent FROM rbz_retention_rate LIMIT 1")[0]['usd_percent'] ?? '?';
-out("  Settings in the copy: so_deduction_mode=$settings, RBZ USD share=$rbz");
+// Every delivery carries the rule it was calculated with, so recalculating
+// never depends on today's Settings.
+$norule = $all($t, "SELECT COUNT(*) c FROM balanced_bales WHERE rule_so_mode IS NULL OR rule_rbz_usd IS NULL")[0]['c'] ?? '?';
+check((string)$norule === '0', 'every delivery has a recorded rule', "$norule without");
+
+// Pinned: the 8 July 2026 deliveries under rule A (stop orders after the
+// split, 70/30), as decided by the owner on 2026-10-17 — reconciliation column A.
+$pinned = [73 => [0.00, 20675.06], 74 => [190.69, 8358.90], 75 => [0.00, 7582.89], 76 => [0.00, 6819.23]];
 foreach ($pinned as $id => [$usd, $zig]) {
     $n = $net($id);
     if ((int)$n['n'] === 0) { out("  [SKIP] delivery $id not in this database"); continue; }
     $ok = abs((float)$n['usd'] - $usd) < 0.01 && abs((float)$n['zig'] - $zig) < 0.01;
-    check($ok, "delivery $id matches reconciliation (B)", sprintf('got USD %.2f ZiG %.2f, expected USD %.2f ZiG %.2f', $n['usd'], $n['zig'], $usd, $zig));
+    check($ok, "delivery $id matches reconciliation (A)", sprintf('got USD %.2f ZiG %.2f, expected USD %.2f ZiG %.2f', $n['usd'], $n['zig'], $usd, $zig));
 }
 $t->close();
 

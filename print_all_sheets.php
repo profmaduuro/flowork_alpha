@@ -729,11 +729,19 @@ foreach ($bbids_safe as $idx => $bbid):
     // Auto-fix missing data
     maybe_fix_sheet($conn, $bb);
 
+    // The rule recorded on the delivery when it was calculated; today's Settings only as a fallback.
     $so_mode = get_so_mode($conn, (int)$bb['selling_pointid']);
+    $sheet_usd_pct = $rbz_usd_pct;
+    $_rule = $conn->query("SELECT rule_so_mode, rule_rbz_usd FROM balanced_bales WHERE id=" . (int)$bbid);
+    $_rule = ($_rule && $_rule !== true) ? $_rule->fetch_assoc() : null;
+    if ($_rule && $_rule['rule_so_mode'] !== null && $_rule['rule_rbz_usd'] !== null) {
+        $so_mode = $_rule['rule_so_mode'];
+        $sheet_usd_pct = (float)$_rule['rule_rbz_usd'];
+    }
 ?>
 <div class="sheet-wrap" data-bbid="<?= $bbid ?>">
     <div class="sheet-num">Sheet <?= ($idx+1) ?> of <?= $total_sheets ?> &nbsp;·&nbsp; <?= htmlspecialchars($bb['grower_num']) ?> — <?= htmlspecialchars($bb['name'].' '.$bb['surname']) ?></div>
-    <?= render_one_sheet($conn, $bb, $rbz_usd_pct, $rbz_zig_pct, $so_mode, $logo_base64, $company) ?>
+    <?= render_one_sheet($conn, $bb, $sheet_usd_pct, 1 - $sheet_usd_pct, $so_mode, $logo_base64, $company) ?>
 </div>
 <?php endforeach; ?>
 

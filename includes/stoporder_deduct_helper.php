@@ -5,6 +5,42 @@ require_once __DIR__ . "/net_amount.php";
  * Helper to process and deduct TIMB stop orders (both internal and external) for growers.
  */
 
+if (!function_exists('flowork_delivery_rules')) {
+    /** Add the per-delivery rule columns once (MariaDB: IF NOT EXISTS). */
+    function flowork_ensure_rule_columns(mysqli $conn): void {
+        static $done = false;
+        if ($done) return;
+        $conn->query("ALTER TABLE balanced_bales
+            ADD COLUMN IF NOT EXISTS rule_so_mode VARCHAR(10) NULL DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS rule_rbz_usd DECIMAL(6,4) NULL DEFAULT NULL");
+        $done = true;
+    }
+
+    /**
+     * [so_mode, rbz_usd_share] for a delivery. Uses the rule recorded on the
+     * delivery; if none is recorded yet (first calculation), takes today's
+     * Settings and records them on the delivery.
+     */
+    function flowork_delivery_rules(mysqli $conn, array $bb, int $spid): array {
+        flowork_ensure_rule_columns($conn);
+        $bbid = (int)$bb['id'];
+        $r = $conn->query("SELECT rule_so_mode, rule_rbz_usd FROM balanced_bales WHERE id=$bbid LIMIT 1");
+        $r = ($r && $r !== true) ? $r->fetch_assoc() : null;
+        if ($r && $r['rule_so_mode'] !== null && $r['rule_rbz_usd'] !== null) {
+            return [$r['rule_so_mode'], (float)$r['rule_rbz_usd']];
+        }
+        $so_mode = 'before';
+        $sm_q = $conn->query("SELECT param_value FROM parameters WHERE param_key='so_deduction_mode' AND selling_pointid=$spid LIMIT 1");
+        if ($sm_q && $sm_q !== true && $sm_q->num_rows) $so_mode = $sm_q->fetch_assoc()['param_value'];
+        $so_mode = $so_mode === 'after' ? 'after' : 'before';
+        $_rbz = $conn->query("SELECT usd_percent FROM rbz_retention_rate LIMIT 1");
+        $rbz  = ($_rbz && $_rbz !== true) ? $_rbz->fetch_assoc() : null;
+        $rbz_pct = $rbz ? (float)$rbz['usd_percent'] : 0.70;
+        $conn->query("UPDATE balanced_bales SET rule_so_mode='$so_mode', rule_rbz_usd=$rbz_pct WHERE id=$bbid");
+        return [$so_mode, $rbz_pct];
+    }
+}
+
 if (!function_exists('flowork_recalculate_balance_batch')) {
     /**
      * Recalculate one delivery (charges, stop-order deductions, split, net).
@@ -16,6 +52,7 @@ if (!function_exists('flowork_recalculate_balance_batch')) {
         if (!empty($GLOBALS['flowork_in_txn'])) {
             return flowork_recalculate_balance_batch_body($conn, $bbid, $spid, $userid);
         }
+        flowork_ensure_rule_columns($conn);   // ALTER commits implicitly: never inside the transaction
         $GLOBALS['flowork_in_txn'] = true;
         $conn->begin_transaction();
         try {
@@ -123,12 +160,10 @@ if (!function_exists('flowork_recalculate_balance_batch')) {
             VALUES ($userid,$bbid,$er_val,$ytd_mass,$gross,($gross * $ex_rate_amt),
              $avg_price,$laid_cnt,$sold_cnt,$rej_cnt_bal,'$today')");
 
-        // Read SO deduction mode
-        $so_mode = 'before';
-        $sm_q = $conn->query("SELECT param_value FROM parameters WHERE param_key='so_deduction_mode' AND selling_pointid=$spid LIMIT 1");
-        if ($sm_q && $sm_q !== true && $sm_q->num_rows) {
-            $so_mode = $sm_q->fetch_assoc()['param_value'];
-        }
+        // Stop-order mode and RBZ split: the ones recorded on this delivery
+        // when it was first calculated, so a later recalculation reproduces
+        // its figures instead of applying whatever Settings say today.
+        [$so_mode, $rbz_pct] = flowork_delivery_rules($conn, $bb, $spid);
 
         // Load both types of TIMB stop orders (internal and external)
         $all_so = [];
@@ -224,9 +259,6 @@ if (!function_exists('flowork_recalculate_balance_batch')) {
         }
 
         // ── STEP 2: RBZ split on remaining base ──
-        $_rbz = $conn->query("SELECT usd_percent FROM rbz_retention_rate LIMIT 1");
-        $rbz  = ($_rbz && $_rbz !== true) ? $_rbz->fetch_assoc() : null;
-        $rbz_pct     = $rbz ? (float)$rbz['usd_percent'] : 0.70;
         $usd_portion = $remaining_for_split * $rbz_pct;
         $zig_portion = $remaining_for_split * (1 - $rbz_pct);
         $zig_portion_zig = $zig_portion * $ex_rate_amt;

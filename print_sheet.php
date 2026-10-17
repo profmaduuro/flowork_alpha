@@ -563,6 +563,13 @@ $ex_rate   = (float)($bb['exchange_rate'] ?: 1);
 $_rbz_q = $conn->query("SELECT usd_percent,other_currency_percent FROM rbz_retention_rate LIMIT 1");
 $rbz_row = ($_rbz_q && $_rbz_q!==true) ? $_rbz_q->fetch_assoc() : null;
 $rbz_usd_pct = $rbz_row ? (float)$rbz_row['usd_percent'] : 0.70;
+// The rule recorded on the delivery when it was calculated; today's Settings only as a fallback.
+$_rule = $conn->query("SELECT rule_so_mode, rule_rbz_usd FROM balanced_bales WHERE id=" . (int)$bbid);
+$_rule = ($_rule && $_rule !== true) ? $_rule->fetch_assoc() : null;
+if ($_rule && $_rule['rule_so_mode'] !== null && $_rule['rule_rbz_usd'] !== null) {
+    $so_mode     = $_rule['rule_so_mode'];
+    $rbz_usd_pct = (float)$_rule['rule_rbz_usd'];
+}
 $rbz_zig_pct = 1 - $rbz_usd_pct;
 
 // TIMB SOs
