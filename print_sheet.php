@@ -387,23 +387,6 @@ tfoot td{padding:4px 5px;border:1px solid var(--border-dark);font-weight:500;bac
         Batch #<?= $bb['sale_batchid'] ?> &nbsp;·&nbsp; <?= htmlspecialchars($bb['grower_num']) ?>
         &nbsp;·&nbsp; <?= htmlspecialchars($bb['name'].' '.$bb['surname']) ?>
     </span>
-    <span style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:10px">
-        <span style="color:var(--muted);font-weight:500">TIMB SO:</span>
-        <a href="?bbid=<?=$bbid?>&so_mode=before"
-           style="padding:2px 8px;border-radius:10px;text-decoration:none;font-size:10px;border:1px solid;
-                  background:<?=$so_mode==='before'?'#1a4a2a':'transparent'?>;
-                  color:<?=$so_mode==='before'?'#fff':'#666'?>;
-                  border-color:<?=$so_mode==='before'?'#1a4a2a':'#ccc'?>">
-            Before Split
-        </a>
-        <a href="?bbid=<?=$bbid?>&so_mode=after"
-           style="padding:2px 8px;border-radius:10px;text-decoration:none;font-size:10px;border:1px solid;
-                  background:<?=$so_mode==='after'?'#1a3a5a':'transparent'?>;
-                  color:<?=$so_mode==='after'?'#fff':'#666'?>;
-                  border-color:<?=$so_mode==='after'?'#1a3a5a':'#ccc'?>">
-            After Split
-        </a>
-    </span>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════ HEADER -->
@@ -817,29 +800,34 @@ $total_ded_zig = $charges_zig_total;
                 <td class="text-right" style="font-weight:700;color:#c0392b"><?= $charges_zig_total>0?'-'.number_format($charges_zig_total,2).' ZiG':'-' ?></td>
             </tr>
 
-            <!-- Net rows -->
+            <!-- Net rows: the payout printed is the stored net (what Payments pays),
+                 not this page's own recalculation, which uses today's Settings. -->
+            <?php
+            $has_stored = $bb['usd_net_value'] !== null;
+            $db_net_usd = $has_stored ? (float)$bb['usd_net_value'] : $step_usd_net;
+            $db_net_zig = $has_stored ? (float)$bb['zim_net_value'] : $step_zig_net;
+            $net_note   = $has_stored ? 'as recorded at balancing' : 'not yet recorded — estimate';
+            ?>
             <tr class="net-row">
-                <td>NET PAYOUT (USD)<div style="font-size:.65em;opacity:.7;font-weight:400">= USD portion <?= $timb_so_total_disp>0&&$so_mode==='after'?'- TIMB SO ':'' ?>- charges - internal SOs</div></td>
-                <td class="text-right" style="font-size:1.05em">$<?= number_format($step_usd_net,2) ?></td>
+                <td>NET PAYOUT (USD)<div style="font-size:.65em;opacity:.7;font-weight:400"><?= $net_note ?></div></td>
+                <td class="text-right" style="font-size:1.05em">$<?= number_format($db_net_usd,2) ?></td>
                 <td></td>
             </tr>
             <tr class="net-row" style="border-top:1px solid rgba(255,255,255,.15)">
-                <td>NET PAYOUT (ZiG)<div style="font-size:.65em;opacity:.7;font-weight:400">= ZiG portion - ZiG charges</div></td>
+                <td>NET PAYOUT (ZiG)<div style="font-size:.65em;opacity:.7;font-weight:400"><?= $net_note ?></div></td>
                 <td></td>
-                <td class="text-right" style="font-size:1.05em"><?= number_format($step_zig_net,2) ?> ZiG</td>
+                <td class="text-right" style="font-size:1.05em"><?= number_format($db_net_zig,2) ?> ZiG</td>
             </tr>
 
             <!-- Variance check (no-print) -->
             <?php
-            $db_net_usd = (float)$bb['usd_net_value'];
-            $db_net_zig = (float)$bb['zim_net_value'];
             $var_usd = round($step_usd_net - $db_net_usd, 2);
             $var_zig = round($step_zig_net - $db_net_zig, 2);
             if (abs($var_usd) > 0.01 || abs($var_zig) > 0.01):
             ?>
             <tr class="no-print" style="background:#fff8e1">
                 <td style="font-size:.68rem;color:#8a5a0a">
-                    ⚠ Variance detected (DB vs recalc)
+                    ⚠ The steps above use today's Settings and differ from the recorded payout by
                 </td>
                 <td class="text-right" style="font-size:.68rem;color:#c0392b">
                     <?= $var_usd!=0 ? 'Δ $'.number_format($var_usd,2) : '' ?>

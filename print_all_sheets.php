@@ -160,31 +160,14 @@ function maybe_fix_sheet(mysqli $conn, array &$bb): void {
     }
     $avg    = ($sold > 0 && $mass > 0) ? $gross / $mass : 0;
     $laid   = $sold + $rej;
-    $er_val = $er_id ? $er_id : 'NULL';
-    $today  = date('Y-m-d', strtotime($tg['created_at']));
-    $uid    = 1;
-    $chk_q  = $conn->query("SHOW COLUMNS FROM daily_totals LIKE 'balanced_balesid'");
-    if ($chk_q && $chk_q->num_rows) {
-        $chk = $conn->query("SELECT id FROM daily_totals WHERE balanced_balesid=$bbid LIMIT 1");
-        if ($chk && $chk->num_rows) {
-            $conn->query("UPDATE daily_totals SET mass=$mass,usd_value=$gross,zim_value=".($gross*(float)$er_fix).",
-                average_price=$avg,laid_bales=$laid,sold_bales=$sold,rejected_bales=$rej,
-                exchange_rateid=$er_val WHERE balanced_balesid=$bbid");
-        } else {
-            $conn->query("INSERT INTO daily_totals (userid,balanced_balesid,exchange_rateid,mass,usd_value,
-                zim_value,average_price,laid_bales,sold_bales,rejected_bales,created_at)
-                VALUES ($uid,$bbid,$er_val,$mass,$gross,".($gross*(float)$er_fix).",$avg,$laid,$sold,$rej,'$today')");
-        }
-    }
-    // Reload
-    $fix_q = $conn->query("SELECT dt.mass,dt.usd_value,dt.zim_value,dt.laid_bales,dt.sold_bales,
-        dt.rejected_bales,dt.average_price,dt.created_at dt_created,er.amount exchange_rate
-        FROM daily_totals dt LEFT JOIN exchange_rate er ON er.id=dt.exchange_rateid
-        WHERE dt.balanced_balesid=$bbid LIMIT 1");
-    if ($fix_q && $fix_q !== true && $fix_q->num_rows) {
-        $fix = $fix_q->fetch_assoc();
-        $bb  = array_merge($bb, $fix);
-    }
+    // Display only. A print page must not write financial records: this used
+    // to insert/update daily_totals on every view, falling back to the latest
+    // exchange rate. Missing totals are fixed by recalculating on the Balance page.
+    $bb = array_merge($bb, [
+        'mass' => $mass, 'usd_value' => $gross, 'zim_value' => $gross * (float)$er_fix,
+        'laid_bales' => $laid, 'sold_bales' => $sold, 'rejected_bales' => $rej,
+        'average_price' => $avg, 'exchange_rate' => $er_fix, 'totals_missing' => true,
+    ]);
 }
 
 // ── Render a single sales sheet HTML block ───────────────────────────────────
@@ -547,16 +530,33 @@ function render_one_sheet(mysqli $conn, array $bb, float $rbz_usd_pct, float $rb
                 <td class="text-right" style="font-weight:700;color:#c0392b">-$<?= number_format($charges_usd_total + $iso_total,2) ?></td>
                 <td class="text-right" style="font-weight:700;color:#c0392b"><?= $charges_zig_total>0?'-'.number_format($charges_zig_total,2).' ZiG':'-' ?></td>
             </tr>
+            <?php
+            // The payout printed is the stored net (what Payments pays), not this
+            // page's own recalculation, which uses today's Settings.
+            $has_stored = isset($bb['usd_net_value']) && $bb['usd_net_value'] !== null;
+            $payout_usd = $has_stored ? (float)$bb['usd_net_value'] : $step_usd_net;
+            $payout_zig = $has_stored ? (float)$bb['zim_net_value'] : $step_zig_net;
+            ?>
             <tr class="net-row">
-                <td>NET PAYOUT (USD)<div style="font-size:.65em;opacity:.7;font-weight:400">= USD portion <?= $timb_so_total>0&&$so_mode==='after'?'- TIMB SO ':'' ?>- charges - internal SOs</div></td>
-                <td class="text-right" style="font-size:1.05em">$<?= number_format($step_usd_net,2) ?></td>
+                <td>NET PAYOUT (USD)<div style="font-size:.65em;opacity:.7;font-weight:400"><?= $has_stored ? 'as recorded at balancing' : 'not yet recorded — estimate' ?></div></td>
+                <td class="text-right" style="font-size:1.05em">$<?= number_format($payout_usd,2) ?></td>
                 <td></td>
             </tr>
             <tr class="net-row" style="border-top:1px solid rgba(255,255,255,.15)">
-                <td>NET PAYOUT (ZiG)<div style="font-size:.65em;opacity:.7;font-weight:400">= ZiG portion - ZiG charges</div></td>
+                <td>NET PAYOUT (ZiG)<div style="font-size:.65em;opacity:.7;font-weight:400"><?= $has_stored ? 'as recorded at balancing' : 'not yet recorded — estimate' ?></div></td>
                 <td></td>
-                <td class="text-right" style="font-size:1.05em"><?= number_format($step_zig_net,2) ?> ZiG</td>
+                <td class="text-right" style="font-size:1.05em"><?= number_format($payout_zig,2) ?> ZiG</td>
             </tr>
+            <?php if ($has_stored && (abs($payout_usd - $step_usd_net) > 0.01 || abs($payout_zig - $step_zig_net) > 0.01)): ?>
+            <tr class="no-print" style="background:#fff8e1">
+                <td colspan="3" style="font-size:.68rem;color:#8a5a0a">⚠ The steps above use today's Settings and give USD <?= number_format($step_usd_net,2) ?> / ZiG <?= number_format($step_zig_net,2) ?>; the payout shown is the recorded figure.</td>
+            </tr>
+            <?php endif; ?>
+            <?php if (!empty($bb['totals_missing'])): ?>
+            <tr class="no-print" style="background:#fff8e1">
+                <td colspan="3" style="font-size:.68rem;color:#8a5a0a">⚠ This delivery has no saved totals; figures are calculated for display only. Recalculate it on the Balance page.</td>
+            </tr>
+            <?php endif; ?>
         </table>
     </div>
 </div>
