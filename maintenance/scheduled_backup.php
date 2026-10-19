@@ -5,6 +5,11 @@
  *
  *   C:/xampp/php/php.exe C:/xampp/htdocs/flowork_alpha/maintenance/scheduled_backup.php
  *
+ * The Windows task uses php-win.exe (no console window) and --log:
+ *   C:/xampp/php/php-win.exe ...\maintenance\scheduled_backup.php --log=...\backups\scheduled_backup.log
+ * Files are written as *.part and renamed when complete, so an interrupted
+ * run (PC switched off) never leaves something that looks like a backup.
+ *
  * What it writes to backups/ (denied over HTTP):
  *   king_<stamp>.sql.gz        mysqldump --single-transaction (consistent snapshot)
  *   secrets_<stamp>.json[.enc] .env and includes/timb_key.php — a database
@@ -35,8 +40,17 @@ ob_end_clean();
 function env_str(string $k): string {
     return trim((string)flowork_env($k, ''));
 }
-function say(string $s): void { echo date('Y-m-d H:i:s'), "  $s", PHP_EOL; }
-function fail(string $s): never { fwrite(STDERR, date('Y-m-d H:i:s') . "  FAILED: $s" . PHP_EOL); exit(1); }
+// --log=<file>: append every line to that file as well. The scheduled task
+// runs this with php-win.exe (no console window that can be closed by
+// accident), so the script writes its own log instead of relying on cmd ">>".
+$LOG = null;
+foreach ($argv as $a) if (str_starts_with($a, '--log=')) $LOG = substr($a, 6);
+function logline(string $s): void {
+    global $LOG;
+    if ($LOG) @file_put_contents($LOG, $s . PHP_EOL, FILE_APPEND | LOCK_EX);
+}
+function say(string $s): void { $l = date('Y-m-d H:i:s') . "  $s"; echo $l, PHP_EOL; logline($l); }
+function fail(string $s): never { $l = date('Y-m-d H:i:s') . "  FAILED: $s"; fwrite(STDERR, $l . PHP_EOL); logline($l); exit(1); }
 
 const MAGIC = "FLOWORKBK1";
 function encrypt_file(string $in, string $out, string $pass): void {
@@ -44,7 +58,7 @@ function encrypt_file(string $in, string $out, string $pass): void {
     $key  = hash_pbkdf2('sha256', $pass, $salt, 200000, 32, true);
     $ct   = openssl_encrypt(file_get_contents($in), 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag);
     if ($ct === false) fail("encryption failed for $in");
-    file_put_contents($out, MAGIC . $salt . $iv . $tag . $ct);
+    if (file_put_contents("$out.part", MAGIC . $salt . $iv . $tag . $ct) === false || !rename("$out.part", $out)) fail("could not write $out");
 }
 function decrypt_file(string $in, string $out, string $pass): void {
     $d = file_get_contents($in);
@@ -74,29 +88,42 @@ $stamp = date('Ymd_His');
 $keep  = max(1, (int)(env_str('BACKUP_KEEP_DAYS') ?: 30));
 $copy  = rtrim(env_str('BACKUP_COPY_DIR'), '/\\');
 if (!is_dir($dir) && !mkdir($dir, 0750, true)) fail("cannot create $dir");
+say('backup started');
+
+// Left-overs of a run that was interrupted (PC switched off, window closed):
+// unfinished files are never mistaken for a backup.
+foreach (glob("$dir/*.part") ?: [] as $f) { @unlink($f); say('removed unfinished ' . basename($f)); }
 
 // ── 1. Database dump ──────────────────────────────────────────────────────
 $dump = env_str('MYSQLDUMP') ?: (is_file('C:/xampp/mysql/bin/mysqldump.exe') ? 'C:/xampp/mysql/bin/mysqldump.exe' : 'mysqldump');
 $db   = preg_replace('/[^a-zA-Z0-9_]/', '', $_db_name);
-$sql  = "$dir/{$db}_$stamp.sql";
-// Password via the environment, not the command line, so it never shows in a process list.
-putenv('MYSQL_PWD=' . $_db_pass);
-$cmd = escapeshellarg($dump) . ' --single-transaction --routines --triggers --events --default-character-set=utf8mb4'
-     . ' -h ' . escapeshellarg($_db_host) . ' -u ' . escapeshellarg($_db_user) . ' ' . escapeshellarg($db)
-     . ' > ' . escapeshellarg($sql) . ' 2>&1';
-exec($cmd, $out, $rc);
-putenv('MYSQL_PWD');
+$sql  = "$dir/{$db}_$stamp.sql.part";   // renamed only when complete
+// mysqldump is started directly (no cmd.exe), its output written straight to
+// the file: under Task Scheduler with php-win.exe there is no console, and a
+// shell redirect was cut off part-way. The password goes via the
+// environment, not the command line, so it never shows in a process list.
+$errf = "$sql.err";
+$proc = proc_open(
+    [$dump, '--single-transaction', '--routines', '--triggers', '--events', '--default-character-set=utf8mb4',
+     '-h', $_db_host, '-u', $_db_user, $db],
+    [0 => ['file', PHP_OS_FAMILY === 'Windows' ? 'NUL' : '/dev/null', 'r'], 1 => ['file', $sql, 'w'], 2 => ['file', $errf, 'w']],
+    $pipes, null, array_merge(getenv(), ['MYSQL_PWD' => $_db_pass]), ['bypass_shell' => true]
+);
+$rc = is_resource($proc) ? proc_close($proc) : -1;
+$dump_err = is_file($errf) ? trim((string)file_get_contents($errf)) : '';
+@unlink($errf);
 $head = is_file($sql) ? (string)file_get_contents($sql, false, null, 0, 4000) : '';
 $tail = is_file($sql) ? (string)file_get_contents($sql, false, null, max(0, filesize($sql) - 200)) : '';
 if ($rc !== 0 || strpos($head, 'CREATE TABLE') === false || strpos($tail, 'Dump completed') === false) {
-    $msg = trim($head) !== '' ? substr(trim($head), 0, 300) : "rc=$rc";
+    $msg = $dump_err !== '' ? substr($dump_err, 0, 300) : "rc=$rc, dump incomplete";
     @unlink($sql);
     fail("mysqldump: $msg");
 }
-$gz = "$sql.gz";
-$fi = fopen($sql, 'rb'); $fo = gzopen($gz, 'wb6');
+$gz = "$dir/{$db}_$stamp.sql.gz";
+$fi = fopen($sql, 'rb'); $fo = gzopen("$gz.part", 'wb6');
 while (!feof($fi)) gzwrite($fo, fread($fi, 1 << 20));
 fclose($fi); gzclose($fo);
+if (!rename("$gz.part", $gz)) fail("could not finish $gz");
 $tables = substr_count(file_get_contents($sql), 'CREATE TABLE');
 unlink($sql);
 say(sprintf('database %s: %d tables, %.1f MB compressed', $db, $tables, filesize($gz) / 1048576));
@@ -129,7 +156,8 @@ if ($copy !== '') {
         fail("BACKUP_COPY_DIR $copy is not reachable; local backup is in $dir");
     } else {
         foreach ($made as $f) {
-            if (!copy($f, $copy . '/' . basename($f)) || filesize($copy . '/' . basename($f)) !== filesize($f)) fail("copy to $copy failed");
+            $to = $copy . '/' . basename($f);
+            if (!copy($f, "$to.part") || filesize("$to.part") !== filesize($f) || !rename("$to.part", $to)) fail("copy to $copy failed");
         }
         $copied = true;
         say("copied to $copy");
