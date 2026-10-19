@@ -32,7 +32,7 @@ $base = rtrim($opts['base'] ?? 'http://localhost/flowork_alpha/', '/') . '/';
 // notify, setup/repair/rebuild/fix_* and the scratch_* scripts).
 $pages = [
     'dashboard.php', 'role_dashboard.php', 'management_dashboard.php',
-    'floor_map.php', 'floor_queue.php', 'floor_summary.php', 'live_floor.php',
+    'floor_map.php', 'floor_queue.php', 'floor_summary.php', 'live_floor.php', 'scale.php',
     'grower_booking.php', 'grower_registry.php', 'grower_loans.php', 'grower_performance.php',
     'bales.php', 'bale_adjustments.php', 'bale_check.php', 'balance.php',
     'tickets.php', 'selling.php', 'sales.php', 'sales_sheets.php', 're_offer.php',

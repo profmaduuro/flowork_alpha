@@ -23,6 +23,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
         if (!$temp_barcode || $mass <= 0) {
             $err = "Temp barcode and mass are required.";
+        } elseif ($mass > 999) {
+            $err = "Mass {$mass} kg is too high for one bale (maximum 999 kg). Check the scale reading.";
+        } elseif (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $created_at)) {
+            $err = "Invalid date.";
         } else {
             $_dup_q = $conn->query("SELECT id FROM bale_mass WHERE temp_bacode='$temp_barcode'");
             $dup = ($_dup_q && $_dup_q !== true) ? $_dup_q->num_rows : 0;
@@ -38,6 +42,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $err = "DB Error: " . $conn->error;
                 }
             }
+        }
+
+        // Scan & Save posts in the background and wants JSON, not the page.
+        if (!empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
+            header('Content-Type: application/json');
+            if ($err) { echo json_encode(['ok' => false, 'error' => $err]); exit; }
+            $_tc = $conn->query("SELECT COUNT(*) c, COALESCE(SUM(mass),0) kg FROM bale_mass WHERE DATE(created_at)='$today' AND seasonid=$seasonid AND ($spid=0 OR selling_pointid=$spid)");
+            $tc  = ($_tc && $_tc !== true) ? $_tc->fetch_assoc() : ['c' => 0, 'kg' => 0];
+            echo json_encode(['ok' => true, 'msg' => $msg,
+                'row' => ['temp_barcode' => $temp_barcode, 'mass' => $mass, 'created_at' => $created_at, 'username' => current_user()],
+                'today' => ['count' => (int)$tc['c'], 'kg' => (int)$tc['kg']]]);
+            exit;
         }
     }
 }
@@ -140,6 +156,22 @@ body.theme-dark .premium-tab-btn.active {
 body.theme-dark .scale-console-container {
     background: var(--ink-soft);
 }
+
+/* Scan & Save */
+.scan-save-toggle {
+    display: flex; gap: .55rem; align-items: flex-start;
+    font-size: .75rem; color: var(--muted); line-height: 1.4;
+    margin-bottom: .75rem; cursor: pointer;
+}
+.scan-save-toggle input { margin-top: .15rem; accent-color: var(--leaf); }
+.scan-save-toggle strong { color: var(--ink); }
+.scan-save-status { min-height: 1.6rem; font-size: .82rem; font-weight: 600; margin-bottom: .6rem; }
+.scan-save-status.ok   { color: var(--leaf); }
+.scan-save-status.err  { color: var(--danger, #c0392b); }
+.scan-save-status.busy { color: var(--muted); font-weight: 500; }
+@keyframes scanSavedFlash { from { box-shadow: 0 0 0 3px rgba(61,107,53,.45); } to { box-shadow: 0 0 0 0 rgba(61,107,53,0); } }
+.scan-saved-flash { animation: scanSavedFlash .9s ease-out; }
+@media (prefers-reduced-motion: reduce) { .scan-saved-flash { animation: none; } }
 
 /* Glowing Input Styling */
 .scale-barcode-input-container {
@@ -270,7 +302,7 @@ body.theme-dark .scale-table-wrap table thead th {
 <div class="page-header">
     <div class="page-header-left">
         <h2>Weighing Scale</h2>
-        <p>Record bale mass — today: <strong><?= number_format($today_count['c']) ?> bales</strong> / <strong><?= number_format($today_count['kg']) ?> kg</strong></p>
+        <p>Record bale mass — today: <strong><span id="hdr-count"><?= number_format($today_count['c']) ?></span> bales</strong> / <strong><span id="hdr-kg"><?= number_format($today_count['kg']) ?></span> kg</strong></p>
     </div>
 </div>
 
@@ -302,6 +334,11 @@ body.theme-dark .scale-table-wrap table thead th {
 <div id="panel-weigh" class="scale-tab-panel active">
     <div class="scale-console-container">
         <div class="workspace-section-title">Record Bale Weight</div>
+        <label class="scan-save-toggle" for="scan-save">
+            <input type="checkbox" id="scan-save" checked>
+            <span><strong>Scan &amp; Save</strong> — the bale is saved as soon as it has a barcode and a mass: type the mass from the scale and scan the tag (or scan, type the mass, press Enter). No button needed.</span>
+        </label>
+        <div id="scan-save-status" class="scan-save-status" role="status" aria-live="polite"></div>
         <form method="POST" action="" id="scale-form">
             <input type="hidden" name="action" value="weigh">
             <div class="form-group mb-2">
@@ -309,7 +346,7 @@ body.theme-dark .scale-table-wrap table thead th {
                 <div class="scale-barcode-input-container">
                     <input type="text" name="temp_barcode" id="temp_barcode" class="form-control scale-barcode-input"
                            required autofocus placeholder="Scan or type barcode..." style="flex:1">
-                    <button type="button" class="btn btn-ghost" onclick="FloworkScanner.scan(function(bc){ document.getElementById('temp_barcode').value=bc; document.getElementById('mass').focus(); })" style="white-space:nowrap;border-color:var(--gold);color:var(--gold)" title="Scan with camera">
+                    <button type="button" class="btn btn-ghost" onclick="FloworkScanner.scan(function(bc){ document.getElementById('temp_barcode').value=bc; scanSaveAfterBarcode(); })" style="white-space:nowrap;border-color:var(--gold);color:var(--gold)" title="Scan with camera">
                         📷 Scan
                     </button>
                 </div>
@@ -338,15 +375,11 @@ body.theme-dark .scale-table-wrap table thead th {
             <div class="scale-stats-row">
                 <div class="scale-stat-capsule">
                     <span class="scale-stat-lbl">Weighed Bales</span>
-                    <span class="scale-stat-val" style="color:var(--gold)">
-                        <?= number_format($today_count['c']) ?>
-                    </span>
+                    <span class="scale-stat-val" style="color:var(--gold)" id="cap-count"><?= number_format($today_count['c']) ?></span>
                 </div>
                 <div class="scale-stat-capsule">
                     <span class="scale-stat-lbl">Mass Weighed</span>
-                    <span class="scale-stat-val" style="color:var(--leaf)">
-                        <?= number_format($today_count['kg']) ?> <span style="font-size:0.9rem">kg</span>
-                    </span>
+                    <span class="scale-stat-val" style="color:var(--leaf)"><span id="cap-kg"><?= number_format($today_count['kg']) ?></span> <span style="font-size:0.9rem">kg</span></span>
                 </div>
             </div>
         </div>
@@ -574,13 +607,112 @@ document.getElementById('scale-form').addEventListener('submit', async function(
     }
 });
 
-// Auto-advance: after typing barcode and pressing Tab/Enter, jump to mass
-document.getElementById('temp_barcode').addEventListener('keydown', function(e) {
+// ── Scan & Save ───────────────────────────────────────────────────────────
+// A bale is saved as soon as it has both a barcode and a mass, in either
+// order: type the mass and scan the tag (the scanner sends Enter), or scan
+// and then type the mass and press Enter. Saved in the background (no page
+// reload); offline it goes to the same local queue as before.
+const ssBox = document.getElementById('scan-save');
+const ssStatus = document.getElementById('scan-save-status');
+const ssBarcode = document.getElementById('temp_barcode');
+const ssMass = document.getElementById('mass');
+let ssBusy = false, ssStartField = null;
+
+try { if (localStorage.getItem('flowork_scan_save') === '0') ssBox.checked = false; } catch (e) {}
+ssBox.addEventListener('change', () => { try { localStorage.setItem('flowork_scan_save', ssBox.checked ? '1' : '0'); } catch (e) {} });
+
+function ssSay(text, cls) { ssStatus.textContent = text; ssStatus.className = 'scan-save-status ' + (cls || ''); }
+function ssBeep(ok) {
+    try {
+        const ctx = ssBeep.ctx || (ssBeep.ctx = new (window.AudioContext || window.webkitAudioContext)());
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.frequency.value = ok ? 1320 : 220; g.gain.value = 0.08;
+        o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + (ok ? 0.09 : 0.35));
+    } catch (e) {}
+}
+// Remember which field the operator starts each bale with, to return there.
+[ssBarcode, ssMass].forEach(el => el.addEventListener('input', () => {
+    if (!ssStartField && el.value.trim() !== '') ssStartField = el;
+}));
+
+function ssAddRow(row, pending) {
+    const tbody = document.querySelector('#panel-log table tbody');
+    const empty = tbody.querySelector('td[colspan]');
+    if (empty) empty.parentElement.remove();
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td><code style="font-size:0.78rem"></code></td><td class="td-mono text-right fw-500"></td><td class="td-muted"></td><td></td><td class="td-muted"></td>';
+    const code = tr.querySelector('code');
+    code.textContent = row.temp_barcode;                       // text, never HTML
+    code.style.color = pending ? 'var(--gold)' : 'var(--ink)';
+    tr.children[1].textContent = row.mass;
+    tr.children[2].textContent = row.created_at;
+    tr.children[3].innerHTML = pending ? '<span class="badge badge-gold">Offline Pending</span>' : '<span class="badge badge-gray">Available</span>';
+    tr.children[4].textContent = pending ? 'Local Cache' : (row.username || '');
+    tbody.insertBefore(tr, tbody.firstChild);
+}
+
+async function scanSaveTry() {
+    if (!ssBox.checked || ssBusy) return false;
+    const bc = ssBarcode.value.trim();
+    const mass = parseInt(ssMass.value, 10) || 0;
+    if (!bc || mass <= 0) return false;
+    if (mass > 999) { ssSay('Mass ' + mass + ' kg is too high for one bale — check the scale reading.', 'err'); ssBeep(false); ssMass.focus(); ssMass.select(); return true; }
+
+    const created_at = document.querySelector('[name=created_at]').value;
+    if (!navigator.onLine) {
+        await saveOfflineBale({ temp_barcode: bc, mass, created_at, timestamp: Date.now() });
+        ssAddRow({ temp_barcode: bc, mass, created_at }, true);
+        ssDone('Saved offline: ' + bc + ' — ' + mass + ' kg (will sync when back online)');
+        await updateNetworkState();
+        return true;
+    }
+
+    ssBusy = true;
+    ssSay('Saving ' + bc + ' — ' + mass + ' kg…', 'busy');
+    const fd = new FormData(document.getElementById('scale-form'));
+    try {
+        const r = await fetch('scale.php', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        const d = await r.json();
+        if (d.ok) {
+            ssAddRow(d.row, false);
+            ['hdr-count', 'cap-count'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = d.today.count.toLocaleString(); });
+            ['hdr-kg', 'cap-kg'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = d.today.kg.toLocaleString(); });
+            ssDone('✓ Saved ' + d.row.temp_barcode + ' — ' + d.row.mass + ' kg');
+        } else {
+            ssSay('✕ Not saved: ' + d.error, 'err'); ssBeep(false);
+            ssBarcode.focus(); ssBarcode.select();
+        }
+    } catch (e) {
+        ssSay('✕ Not saved: the server did not answer. Check the connection and scan again.', 'err'); ssBeep(false);
+    } finally { ssBusy = false; }
+    return true;
+}
+function ssDone(text) {
+    ssSay(text, 'ok'); ssBeep(true);
+    const box = document.querySelector('.scale-console-container');
+    box.classList.remove('scan-saved-flash'); void box.offsetWidth; box.classList.add('scan-saved-flash');
+    const back = ssStartField || ssBarcode;
+    ssBarcode.value = ''; ssMass.value = ''; ssStartField = null;
+    back.focus();
+}
+// After a barcode arrives (scanner Enter, Tab or the camera): save if the mass is
+// already there, otherwise move on to the mass.
+async function scanSaveAfterBarcode() {
+    if (await scanSaveTry()) return;
+    ssMass.focus(); ssMass.select();
+}
+
+ssBarcode.addEventListener('keydown', async function(e) {
     if (e.key === 'Enter' || e.key === 'Tab') {
         e.preventDefault();
-        document.getElementById('mass').focus();
-        document.getElementById('mass').select();
+        await scanSaveAfterBarcode();
     }
+});
+ssMass.addEventListener('keydown', async function(e) {
+    if (e.key !== 'Enter' || !ssBox.checked) return;   // toggle off: Enter submits the form as before
+    e.preventDefault();
+    if (await scanSaveTry()) return;
+    if (!ssBarcode.value.trim()) { ssSay('Mass ready — now scan the bale tag.', 'busy'); ssBarcode.focus(); }
 });
 
 function switchScaleTab(tabId) {
