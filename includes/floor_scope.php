@@ -8,7 +8,7 @@
  * floor's records by guessing ids.
  *
  * Kinds map to how each table reaches a floor. Tables with no floor column at
- * all (processing, packhouse, dispatch, transporters, TIMB grades) are shared
+ * all (processing, packhouse, dispatch, TIMB grades) are shared
  * by every floor in the database and are not covered here.
  */
 
@@ -34,6 +34,7 @@ if (!function_exists('flowork_on_floor')) {
             'contract'    => "SELECT 1 FROM cf_contracts WHERE id=$id AND selling_pointid=$spid",
             'start_of_day'=> "SELECT 1 FROM start_of_day WHERE id=$id AND selling_pointid=$spid",
             'vehicle'     => "SELECT 1 FROM vehicles WHERE id=$id AND selling_pointid=$spid",
+            'transporter' => "SELECT 1 FROM transporter WHERE id=$id AND selling_pointid=$spid",
             // a payment batch belongs to a floor when all its growers do
             'pay_batch'   => "SELECT 1 FROM payment_batch_item pbi
                               JOIN transporter_growers tg ON tg.id=pbi.transporter_growersid

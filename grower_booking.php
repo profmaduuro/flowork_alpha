@@ -358,6 +358,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             echo json_encode(["error"=>"Grower and transporter required."]);
             exit;
         }
+        if (!flowork_on_floor($conn, 'grower', $gid, $spid) || !flowork_on_floor($conn, 'transporter', $trid, $spid)) {
+            echo json_encode(["error"=>"Grower or transporter not found on this floor."]);
+            exit;
+        }
         $tg_q = $conn->query("SELECT id,booked FROM transporter_growers WHERE growerid=$gid AND transporterid=$trid AND selling_pointid=$spid LIMIT 1");
         if ($tg_q && $tg_q->num_rows > 0) {
             $tg = $tg_q->fetch_assoc();
@@ -461,7 +465,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         $imported = 0; $skipped = 0;
         // Get default transporter for this floor (first active one) for auto-linking
-        $def_tr = $conn->query("SELECT id FROM transporter WHERE seasonid=$seasonid AND active=1 ORDER BY id LIMIT 1");
+        $def_tr = $conn->query("SELECT id FROM transporter WHERE seasonid=$seasonid AND active=1 AND ($spid=0 OR selling_pointid=$spid) ORDER BY id LIMIT 1");
         $def_trid = ($def_tr && $def_tr !== true && $def_tr->num_rows) ? (int)$def_tr->fetch_assoc()['id'] : 0;
         foreach ($records as $rec) {
             if (!$rec['found'] || !$rec['growerid']) { $skipped++; continue; }
@@ -556,7 +560,7 @@ if (!empty($_SESSION['timb_raw_from_fm'])) {
     if ($recs_fm) {
         $imported_fm = 0; $skipped_fm = 0;
         // Get default transporter for this floor (first active one) for auto-linking
-        $def_tr = $conn->query("SELECT id FROM transporter WHERE seasonid=$seasonid AND active=1 ORDER BY id LIMIT 1");
+        $def_tr = $conn->query("SELECT id FROM transporter WHERE seasonid=$seasonid AND active=1 AND ($spid=0 OR selling_pointid=$spid) ORDER BY id LIMIT 1");
         $def_trid = ($def_tr && $def_tr !== true && $def_tr->num_rows) ? (int)$def_tr->fetch_assoc()['id'] : 0;
         foreach ($recs_fm as $rec) {
             if (!$rec['found'] || !$rec['growerid']) { $skipped_fm++; continue; }
@@ -631,7 +635,7 @@ $total_delivered_bales = (int)array_sum(array_column($tg_list, "bales_delivered"
 
 $growers_q = $conn->query("SELECT id,grower_num,name,surname FROM growers WHERE ($spid=0 OR selling_pointid=$spid) ORDER BY grower_num LIMIT 500");
 $growers   = ($growers_q && $growers_q!==true) ? $growers_q->fetch_all(MYSQLI_ASSOC) : [];
-$trans_q   = $conn->query("SELECT id,name,truck_num FROM transporter WHERE seasonid=$seasonid AND active=1 ORDER BY name");
+$trans_q   = $conn->query("SELECT id,name,truck_num FROM transporter WHERE seasonid=$seasonid AND active=1 AND ($spid=0 OR selling_pointid=$spid) ORDER BY name");
 $transporters = ($trans_q && $trans_q!==true) ? $trans_q->fetch_all(MYSQLI_ASSOC) : [];
 
 // Aggregate daily booked bales and details for calendar capacity grid

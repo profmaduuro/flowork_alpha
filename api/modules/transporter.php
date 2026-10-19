@@ -18,7 +18,7 @@ $seasonid = getSeasonid($user);
 if ($action === 'list') {
     $q     = $db->real_escape_string(trim($_GET['q'] ?? ''));
     // Filter by seasonid; if spid set, also filter via transporter_growers.selling_pointid
-    $where = "t.seasonid = $seasonid";
+    $where = "t.seasonid = $seasonid AND ($spid = 0 OR t.selling_pointid = $spid)";
     if ($q) $where .= " AND (t.name LIKE '%$q%' OR t.truck_num LIKE '%$q%' OR t.id_num LIKE '%$q%')";
     $r = $db->query("
         SELECT t.id, t.name, t.id_num, t.truck_num, COALESCE(bl.code, t.location) loc_code, t.active,
@@ -53,8 +53,8 @@ if ($action === 'create' && $method === 'POST') {
     if (!$name) err('Name is required');
     // Exact columns from real DB schema
     $db->query("INSERT INTO transporter
-        (userid, seasonid, name, id_num, truck_num, location, location_id, created_at)
-        VALUES ($uid, $seasonid, '$name', '$id_num', '$truck', '$loc', $loc_val, '$now')");
+        (userid, seasonid, selling_pointid, name, id_num, truck_num, location, location_id, created_at)
+        VALUES ($uid, $seasonid, $spid, '$name', '$id_num', '$truck', '$loc', $loc_val, '$now')");
     if ($db->error) err('DB error: ' . $db->error);
     $new_id = (int)$db->insert_id;
     ok(['id'=>$new_id,'name'=>$name,'truck_num'=>$truck]);
@@ -66,7 +66,7 @@ if ($action === 'get') {
     if (!$tid) err('id required');
     $t = $db->query("SELECT t.*, bl.code bl_code, bl.name bl_name
         FROM transporter t LEFT JOIN bale_locations bl ON bl.id=t.location_id
-        WHERE t.id=$tid AND t.seasonid=$seasonid LIMIT 1");
+        WHERE t.id=$tid AND t.seasonid=$seasonid AND ($spid=0 OR t.selling_pointid=$spid) LIMIT 1");
     if (!$t || !$t->num_rows) err('Transporter not found');
     $tp = $t->fetch_assoc();
     // Exact tg_list subqueries from web transporters.php AJAX tg_list
@@ -108,6 +108,8 @@ if ($action === 'add_grower' && $method === 'POST') {
     $b     = body();
     need($b, ['transporterid', 'grower_num']);
     $tid   = (int)$b['transporterid'];
+    $own   = $db->query("SELECT 1 FROM transporter WHERE id=$tid AND ($spid=0 OR selling_pointid=$spid) LIMIT 1");
+    if (!$own || $own === true || !$own->num_rows) err('Transporter not found on this floor', 404);
     $gnum  = $db->real_escape_string(strtoupper(trim($b['grower_num'])));
     $bales = (int)($b['bales'] ?? 0);
     $sdate = $db->real_escape_string($b['sell_date'] ?? date('Y-m-d'));

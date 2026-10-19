@@ -12,6 +12,19 @@ $spid     = (int)($_SESSION['selling_pointid'] ?? 0);
 $today    = date('Y-m-d');
 $msg = $err = '';
 
+// Transporters belong to a floor: any transporter id in the request must be on the user's floor.
+$_req_tid = (int)($_POST['transporterid'] ?? $_POST['tid'] ?? $_GET['tid'] ?? 0);
+if ($_req_tid && !flowork_on_floor($conn, 'transporter', $_req_tid, $spid)) {
+    if (isset($_GET['ajax'])) {
+        if (ob_get_level()) ob_clean();
+        header('Content-Type: application/json');
+        echo json_encode(['ok' => false, 'error' => 'Transporter not found on this floor']);
+        exit;
+    }
+    $err = 'Transporter not found on this floor.';
+    $_POST = []; $_SERVER['REQUEST_METHOD'] = 'GET';
+}
+
 if (isset($_GET['ajax'])) {
     // Clean any accidental output before JSON
     if (ob_get_level()) ob_clean();
@@ -230,8 +243,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$name || !$truck_num) { $err = "Name and truck number required."; }
         else {
             $loc_val = $loc_id > 0 ? $loc_id : 'NULL';
-            $conn->query("INSERT INTO transporter (userid,seasonid,name,id_num,truck_num,location,location_id,created_at,datetime)
-                VALUES ($userid,$seasonid,'$name','$id_num','$truck_num','',$loc_val,'$now',NOW())");
+            $conn->query("INSERT INTO transporter (userid,seasonid,selling_pointid,name,id_num,truck_num,location,location_id,created_at,datetime)
+                VALUES ($userid,$seasonid,$spid,'$name','$id_num','$truck_num','',$loc_val,'$now',NOW())");
             $msg = "Transporter '$name' added.";
             audit_log($conn,$spid,$userid,'transporter','create',(int)$conn->insert_id);
         }
@@ -357,9 +370,9 @@ $transporters_q = $conn->query("
            COUNT(DISTINCT CASE WHEN bb.id IS NOT NULL THEN tg.id END) balanced_count
     FROM transporter t
     LEFT JOIN bale_locations bl ON bl.id=t.location_id
-    LEFT JOIN transporter_growers tg ON tg.transporterid=t.id
+    LEFT JOIN transporter_growers tg ON tg.transporterid=t.id AND ($spid=0 OR tg.selling_pointid=$spid)
     LEFT JOIN balanced_bales bb ON bb.transporter_growersid=tg.id
-    WHERE t.seasonid=$seasonid
+    WHERE t.seasonid=$seasonid AND ($spid=0 OR t.selling_pointid=$spid)
     GROUP BY t.id
     ORDER BY t.datetime DESC, t.id DESC
 ");

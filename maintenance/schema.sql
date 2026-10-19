@@ -1796,6 +1796,7 @@ CREATE TABLE IF NOT EXISTS `transporter` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `userid` int(11) DEFAULT 0,
   `seasonid` int(11) DEFAULT 0,
+  `selling_pointid` int(11) NOT NULL DEFAULT 0,
   `name` varchar(100) NOT NULL,
   `id_num` varchar(100) DEFAULT '',
   `truck_num` varchar(100) DEFAULT '',
@@ -1805,7 +1806,8 @@ CREATE TABLE IF NOT EXISTS `transporter` (
   `open_close` int(11) NOT NULL DEFAULT 1,
   `created_at` varchar(100) DEFAULT '',
   `datetime` timestamp NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `idx_tr_sp` (`selling_pointid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE IF NOT EXISTS `transporter_growers` (
