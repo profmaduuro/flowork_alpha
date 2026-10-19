@@ -1158,7 +1158,7 @@ if ('serviceWorker' in navigator) {
   <?php endif; ?>
 
   <?php if (has_right('reports')): ?>
-  <?php $grp_rpt = in_array($active_page,['reports','season_compare','analytics','buyer_analytics','grower_performance','financial_forecast','price_forecast','pay_reconcile','pay_owed_recon','business_intelligence']); ?>
+  <?php $grp_rpt = in_array($active_page,['reports','season_compare','analytics','buyer_analytics','grower_performance','financial_forecast','price_forecast','pay_reconcile','pay_owed_recon','pay_daily_recon','business_intelligence']); ?>
   <div class="nav-group" data-group="reports">
     <div class="nav-toggle <?= $grp_rpt ? 'has-active' : '' ?>" onclick="toggleNavGroup(this)">
       Reports
@@ -1200,6 +1200,10 @@ if ('serviceWorker' in navigator) {
   <a href="pay_owed_recon.php" class="nav-item <?= $active_page==='pay_owed_recon'?'active':'' ?>">
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v12M3 5h10M3 5l-2 4h4zM13 5l-2 4h4z"/></svg>
     Paid vs Owed
+  </a>
+  <a href="pay_daily_recon.php" class="nav-item <?= $active_page==='pay_daily_recon'?'active':'' ?>">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2.5" width="12" height="11" rx="1.5"/><path d="M2 6h12M5 9l1.5 1.5L10 8"/></svg>
+    Daily Reconciliation
   </a>
   <a href="reports.php" class="nav-item <?= $active_page==='reports'?'active':'' ?>">
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="1" width="12" height="14" rx="1"/><path d="M5 5h6M5 8h6M5 11h4"/></svg>

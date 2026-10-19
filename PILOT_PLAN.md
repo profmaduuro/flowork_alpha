@@ -22,10 +22,8 @@ Purpose: prove on one real floor, alongside the current way of working, that Flo
 ## Every sale day
 
 1. Run the sale in Flowork as normal (booking, tickets, selling, balancing, stop orders, payments).
-2. After balancing, accounts runs the daily report and saves the CSV:
-   ```
-   C:\xampp\php\php.exe C:\xampp\htdocs\flowork_alpha\maintenance\daily_recon.php --date=YYYY-MM-DD --floor=1 --csv=C:\pilot\recon_YYYY-MM-DD.csv
-   ```
+2. After balancing, accounts opens **Payments → Daily Reconciliation** (`pay_daily_recon.php`), picks the sale day and clicks **Export CSV** to keep the day's file. (Same report from the command line: `C:
+mpp\php\php.exe maintenance\daily_recon.php --date=YYYY-MM-DD --floor=1 --csv=...`.)
 3. Compare, delivery by delivery, with the manual records: bales, mass, gross, each charge, stop orders per creditor, net USD and ZiG, and the amount paid.
 4. Every difference goes in the log below the same day with its cause. A difference is **explained** only when its cause is found and either fixed or accepted by the owner in writing.
 5. Accounts signs the day off (initials and date on the CSV, or a line in the log).

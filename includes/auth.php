@@ -193,6 +193,7 @@ function require_login() {
             'pay_grower.php'        => 'payments',
             'pay_reconcile.php'     => 'payments',
             'pay_owed_recon.php'    => 'payments',
+            'pay_daily_recon.php'   => 'payments',
             'banking.php'           => 'payments',
             'bank_file.php'         => 'payments',
 

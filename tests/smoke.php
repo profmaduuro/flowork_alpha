@@ -39,7 +39,7 @@ $pages = [
     'buyers.php', 'buyer_management.php', 'buyer_analytics.php',
     'stop_orders.php', 'stoporder_processing.php', 'stoporder_verification.php',
     'internal_stoporders.php', 'deductions.php', 'penalties.php',
-    'payments.php', 'pay_dashboard.php', 'pay_batches.php', 'pay_reconcile.php',
+    'payments.php', 'pay_dashboard.php', 'pay_batches.php', 'pay_reconcile.php', 'pay_daily_recon.php',
     'pay_owed_recon.php', 'pay_audit.php', 'pay_close.php', 'pay_grower.php',
     'banking.php', 'bank_file.php', 'exchange_rate.php',
     'dispatch.php', 'transporters.php', 'vehicles.php',
