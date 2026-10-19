@@ -11,7 +11,7 @@ How Flowork runs on the floor PC today, how to turn on HTTPS for the LAN, and ho
 | `APP_ENV` | `production` (PHP errors go to `C:\xampp\apache\logs\error.log`, not to pages) |
 | Database user | `flowork_alpha`, rights on database `king` only (password in `.env`) |
 | Admin 2FA | required (`REQUIRE_ADMIN_2FA=1`): admins set it up at their next login |
-| Backups | task `\Flowork\Nightly backup`, 23:30, `backups\scheduled_backup.log` |
+| Backups | task `\Flowork\Nightly backup`, 23:30, runs `php-win.exe` (no window); if the PC is off it runs at the next start; log `backups\scheduled_backup.log` |
 | HTTPS | certificate ready in `C:\xampp\apache\conf\flowork-ssl`; **active after Apache restarts** |
 | Previous `.env` | `backups\env_before_production_*` (to roll back: copy it back over `.env`) |
 
@@ -19,15 +19,15 @@ The second copy at `C:\xampp\htdocs\flowork` still uses the same `king` database
 
 ## 2. Turn on HTTPS on the LAN
 
-The server certificate covers `https://GENIUSENGINEER/`, `https://192.168.0.100/` and `https://localhost/`. It is signed by a private authority, the **Flowork Local CA**, which each device must trust once.
+The server certificate covers `https://GENIUSENGINEER/`, `https://192.168.1.23/`, `https://192.168.0.100/` and `https://localhost/`. It is signed by a private authority, the **Flowork Local CA**, which each device must trust once.
 
 1. **Restart Apache as administrator.** Use the XAMPP Control Panel started with "Run as administrator" (Apache → Stop, then Start), or `services.msc` → Apache2.4 → Restart. The restart loads the new certificate and switches on the HTTP→HTTPS redirect in `.htaccess` (it is tied to `Define FLOWORK_HTTPS` in `conf\extra\httpd-ssl.conf`).
-2. **Check it:** open `https://192.168.0.100/flowork_alpha/` on this PC. Before the CA is trusted the browser warns; that is expected.
+2. **Check it:** open `https://192.168.1.23/flowork_alpha/` on this PC. Before the CA is trusted the browser warns; that is expected.
 3. **Trust the CA on every device** that uses Flowork. Copy `C:\xampp\apache\conf\flowork-ssl\ca.crt` (by USB or email; it is public). **Never copy `ca.key`**: whoever has it can make certificates your devices trust.
    - Windows: double-click `ca.crt` → Install Certificate → Local Machine → "Trusted Root Certification Authorities".
    - Android: Settings → Security → Encryption & credentials → Install a certificate → CA certificate.
    - iPhone/iPad: open the file → install the profile → Settings → General → About → Certificate Trust Settings → switch on "Flowork Local CA".
-4. **Keep the address fixed.** Reserve `192.168.0.100` for this PC in the router (DHCP reservation). If the address changes, issue a new server certificate (section 4) — the devices keep trusting the CA.
+4. **Keep the address fixed.** The PC moved from `192.168.0.100` to `192.168.1.23` on 19 Oct 2026 (after a restart), which breaks bookmarks and handhelds. Reserve `192.168.1.23` for this PC in the router (DHCP reservation). If the address changes, issue a new server certificate (section 4) — the devices keep trusting the CA.
 5. **Mobile app / scales:** requests under `/flowork_alpha/api/` and requests from this PC itself are not redirected yet. Once the handhelds trust the CA, point them at `https://` and remove the `api/` line from the redirect block in `.htaccess`.
 
 To undo: restore `conf\extra\httpd-ssl.conf.before-flowork-*` over `httpd-ssl.conf` and restart Apache.
