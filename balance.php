@@ -160,10 +160,15 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'panel') {
     $bg_all = ($bg_all && $bg_all !== true) ? $bg_all->fetch_all(MYSQLI_ASSOC) : [];
 
     // Check if stop orders already processed for this batch
-    $so_processed = 0;
+    $so_processed = 0; $rule = null; $settled = false;
     if ($already_balanced) {
-        $sp_q = $conn->query("SELECT stoporder_processed FROM balanced_bales WHERE id=$already_balanced LIMIT 1");
-        $so_processed = ($sp_q && $sp_q !== true) ? (int)$sp_q->fetch_assoc()['stoporder_processed'] : 0;
+        flowork_ensure_rule_columns($conn);
+        $sp_q = $conn->query("SELECT stoporder_processed, rule_so_mode, rule_rbz_usd, transporter_growersid, DATE(created_at) d
+            FROM balanced_bales WHERE id=$already_balanced LIMIT 1");
+        $sp_r = ($sp_q && $sp_q !== true) ? $sp_q->fetch_assoc() : null;
+        $so_processed = (int)($sp_r['stoporder_processed'] ?? 0);
+        if ($sp_r && $sp_r['rule_so_mode'] !== null) $rule = ['mode' => $sp_r['rule_so_mode'], 'pct' => round((float)$sp_r['rule_rbz_usd'] * 100, 2)];
+        $settled = $sp_r && flowork_delivery_settled($conn, (int)$sp_r['transporter_growersid'], (string)$sp_r['d']);
     }
 
     echo json_encode([
@@ -173,6 +178,9 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'panel') {
         'current_split'   => $splitid,
         'already_balanced'=> $already_balanced,
         'so_processed'    => $so_processed,
+        'rule'            => $rule,
+        'settled'         => $settled,
+        'can_change_rule' => $already_balanced && !$settled && (!empty($_SESSION['is_admin']) || is_master_user()),
         'booking_warn'    => $booking_warn,
         'bales_booked'    => $bales_booked,
         'bales'           => $bales,
@@ -267,6 +275,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'balan
     if (!flowork_on_floor($conn, 'tg', $tgid, $spid) || !flowork_on_floor($conn, 'grower', $growerid, $spid)) {
         echo json_encode(['error'=>'Delivery not found on this floor']); exit;
     }
+    // Rule for this delivery, chosen on the confirm panel (defaults: the floor's Settings).
+    $rule = flowork_rule_from_input($conn, $spid, $_POST['rule_so_mode'] ?? null, $_POST['rule_rbz_usd_pct'] ?? null);
+    if (!$rule) { echo json_encode(['error'=>'Invalid rule: stop orders must be before or after the split, and the USD share 0 to 100%.']); exit; }
 
     // Already balanced?
     $_ab = $conn->query("SELECT id FROM balanced_bales WHERE transporter_growersid=$tgid AND splitid=$splitid LIMIT 1");
@@ -325,6 +336,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'balan
         VALUES ($userid,$splitid,$growerid,$tgid,'$today',NOW())");
     $bbid = (int)$conn->insert_id;
     if (!$bbid) { echo json_encode(['error'=>'Balance insert failed: '.$conn->error]); exit; }
+    flowork_set_delivery_rule($conn, $bbid, $rule[0], $rule[1]);
 
     // Recalculate using unified pipeline
     $calc = flowork_recalculate_balance_batch($conn, $bbid, $spid, $userid);
@@ -342,7 +354,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'balan
     $conn->query("UPDATE transporter_growers SET open_close=1 WHERE id=$tgid");
 
     audit_log($conn,$spid,$userid,'balanced_bales','create',$bbid,null,
-        ['tgid'=>$tgid,'gross'=>$gross,'net'=>$calc['net_usd'],'bales'=>count($bales)]);
+        ['tgid'=>$tgid,'gross'=>$gross,'net'=>$calc['net_usd'],'bales'=>count($bales),'rule_so_mode'=>$rule[0],'rule_rbz_usd'=>$rule[1]]);
 
     echo json_encode([
         'ok'     => true,
@@ -490,6 +502,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'rever
 }
 
 
+
+// ── CHANGE THE RULE OF A BALANCED, UNPAID DELIVERY (admin, AJAX) ─────────
+// Records the new stop-order mode / RBZ split on the delivery and recalculates
+// it. Refused once the grower's payment for that day is paid or released.
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'change_rule') {
+    ob_end_clean(); header('Content-Type: application/json');
+    if (empty($_SESSION['is_admin']) && !is_master_user()) { echo json_encode(['error'=>'Only an administrator can change the rule of a balanced delivery.']); exit; }
+    $bbid = (int)($_POST['bbid'] ?? 0);
+    if (!flowork_on_floor($conn, 'bb', $bbid, $spid)) { echo json_encode(['error'=>'Delivery not found on this floor']); exit; }
+    $rule = flowork_rule_from_input($conn, $spid, $_POST['rule_so_mode'] ?? null, $_POST['rule_rbz_usd_pct'] ?? null);
+    if (!$rule) { echo json_encode(['error'=>'Invalid rule: stop orders must be before or after the split, and the USD share 0 to 100%.']); exit; }
+    flowork_ensure_rule_columns($conn);
+    $cur = $conn->query("SELECT bb.transporter_growersid tgid, DATE(bb.created_at) d, bb.rule_so_mode, bb.rule_rbz_usd,
+            n.usd_net_value, n.zim_net_value
+        FROM balanced_bales bb LEFT JOIN daily_totals_net_amount n ON n.balanced_balesid=bb.id WHERE bb.id=$bbid")->fetch_assoc();
+    if (flowork_delivery_settled($conn, (int)$cur['tgid'], (string)$cur['d'])) {
+        echo json_encode(['error'=>'This grower has already been paid for that day. Reverse the payment first, then change the rule.']); exit;
+    }
+    flowork_set_delivery_rule($conn, $bbid, $rule[0], $rule[1]);
+    $calc = flowork_recalculate_balance_batch($conn, $bbid, $spid, $userid);
+    if (!$calc) {
+        flowork_set_delivery_rule($conn, $bbid, (string)$cur['rule_so_mode'], (float)$cur['rule_rbz_usd']);
+        echo json_encode(['error'=>'Recalculation failed; the rule was put back.']); exit;
+    }
+    audit_log($conn, $spid, $userid, 'balanced_bales', 'change_rule', $bbid,
+        ['rule_so_mode'=>$cur['rule_so_mode'], 'rule_rbz_usd'=>(float)$cur['rule_rbz_usd'], 'net_usd'=>(float)$cur['usd_net_value'], 'net_zig'=>(float)$cur['zim_net_value']],
+        ['rule_so_mode'=>$rule[0], 'rule_rbz_usd'=>$rule[1], 'net_usd'=>round($calc['net_usd'], 4), 'net_zig'=>round($calc['net_zig'], 4)]);
+    echo json_encode(['ok'=>true, 'bbid'=>$bbid, 'net'=>round($calc['net_usd'], 2), 'net_zig'=>round($calc['net_zig'], 2),
+        'msg'=>sprintf('Rule changed: stop orders %s the split, USD %s%%. Net now $%s / ZiG %s.', $rule[0], round($rule[1]*100, 2),
+            number_format($calc['net_usd'], 2), number_format($calc['net_zig'], 2))]);
+    exit;
+}
 
 // ── RUN STOP ORDERS (single batch, AJAX) ─────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'run_so_single') {
@@ -1161,9 +1205,12 @@ foreach($all_rows as $r):
 </div>
 
 
+<?php [$__rule_mode, $__rule_share] = flowork_rule_defaults($conn, $spid); ?>
 <script>
 /* global state */
 var TG=[],BG=[],AT=0,AS=0,AG=0;
+/* The floor's Settings: the rule offered by default when balancing */
+var RULE_DEFAULT={mode:<?= json_encode($__rule_mode) ?>,pct:<?= json_encode(round($__rule_share * 100, 2)) ?>};
 
 
 function xe(s){
@@ -1382,10 +1429,22 @@ function renderModal(d){
         ac.innerHTML='<div style="flex:1"><div style="font-weight:700;color:#2a6a2a">&#10003; Already Balanced</div>'
             +'<div style="font-size:.72rem;color:#7a6040;margin-top:.2rem">Gross <strong>$'+parseFloat(s.gross).toFixed(2)+'</strong>'
             +(d.so_processed?' &middot; <span style="color:#2a6a2a">Stop orders processed</span>':' &middot; <span style="color:#8a5a0a">Stop orders pending</span>')
-            +'</div></div>'
+            +'</div>'
+            +(d.rule?'<div style="font-size:.7rem;color:#7a6040;margin-top:.2rem">Rule: TIMB stop orders '+d.rule.mode+' the RBZ split, USD '+d.rule.pct+'%'
+                +(d.settled?' &middot; paid, rule locked':'')+'</div>':'')
+            +(d.can_change_rule?'<div style="display:flex;flex-wrap:wrap;gap:.35rem .6rem;align-items:center;font-size:.7rem;color:#7a6040;margin-top:.35rem">'
+                +'<select id="cr-mode" style="font-size:.7rem;padding:1px 4px"><option value="before">before split</option><option value="after">after split</option></select>'
+                +'<input id="cr-pct" type="number" min="0" max="100" step="0.01" style="width:4.4rem;font-size:.7rem;padding:1px 4px"> %'
+                +'<button onclick="changeRule('+bbId+')" style="font-size:.7rem;padding:2px 8px;border:1px solid #c8952a;background:#fff8ec;color:#8a5a0a;border-radius:6px;cursor:pointer">Change rule &amp; recalculate</button>'
+                +'</div>':'')
+            +'</div>'
             +soBtn
             +'<a href="print_sheet.php?bbid='+bbId+'" target="_blank" style="background:#1a4a8a;color:#fff;text-decoration:none;padding:.6rem 1.2rem;border-radius:8px;font-size:.82rem;font-weight:600">&#128438; Print Sheet</a>'
             +'<button onclick="closeModal()" style="background:none;border:1px solid #d0c8b0;color:#7a6040;padding:.6rem 1rem;border-radius:8px;font-size:.82rem;cursor:pointer">Close</button>';
+        if(d.can_change_rule){
+            var r0=d.rule||RULE_DEFAULT;
+            document.getElementById('cr-mode').value=r0.mode; document.getElementById('cr-pct').value=r0.pct;
+        }
     } else if(warn==='NOT_BOOKED'){
         ac.innerHTML='<div style="flex:1"><div style="font-size:.82rem;font-weight:600;color:var(--danger)">Not Booked</div>'
             +'<div style="font-size:.7rem"><a href="grower_booking.php" style="color:var(--gold)">Go to Grower Booking</a></div></div>'
@@ -1405,15 +1464,44 @@ function renderModal(d){
             +'<div style="font-size:.72rem;color:#7a6040;margin-top:.2rem">Gross <strong style=\"color:#1a1208\">$'+parseFloat(s.gross).toFixed(2)+'</strong>'
             +' &nbsp;&middot;&nbsp; '+parseFloat(s.total_mass).toFixed(1)+' kg'
             +' &nbsp;&middot;&nbsp; Booked: '+d.bales_booked+'</div>'
+            +'<div style="display:flex;flex-wrap:wrap;gap:.35rem .8rem;align-items:center;font-size:.72rem;color:#7a6040;margin-top:.4rem">'
+            +'<label>TIMB stop orders <select id="rule-mode" style="font-size:.72rem;padding:1px 4px">'
+            +'<option value="before">before the RBZ split</option><option value="after">after the RBZ split</option></select></label>'
+            +'<label>USD share <input id="rule-pct" type="number" min="0" max="100" step="0.01" style="width:4.6rem;font-size:.72rem;padding:1px 4px"> %</label>'
+            +'<span id="rule-note" style="color:#a07020"></span>'
+            +'</div>'
             +'</div>'
             +'<button id="balbtn" class="btn-balance" onclick="doBalance('+AG+')">&#10003; Confirm &amp; Balance</button>'
             +'<button onclick="closeModal()" style="background:none;border:1px solid #d0c8b0;color:#7a6040;padding:.6rem 1rem;border-radius:8px;font-size:.82rem;cursor:pointer">Cancel</button>';
+        // Rule for this delivery: starts at the floor's Settings, can be changed here.
+        var rm=document.getElementById('rule-mode'), rp=document.getElementById('rule-pct'), rn=document.getElementById('rule-note');
+        rm.value=RULE_DEFAULT.mode; rp.value=RULE_DEFAULT.pct;
+        var flag=function(){ rn.textContent=(rm.value!==RULE_DEFAULT.mode||parseFloat(rp.value)!==RULE_DEFAULT.pct)?'differs from Settings':''; };
+        rm.onchange=flag; rp.oninput=flag;
     }
 }
 
 /* ── Balance ── */
+/* ── Change the rule of a balanced, unpaid delivery (admin) ── */
+function changeRule(bbid){
+    var m=document.getElementById('cr-mode').value, p=document.getElementById('cr-pct').value;
+    if(!confirm('Change the rule for this delivery and recalculate it?\n\nTIMB stop orders '+m+' the RBZ split, USD '+p+'% / ZiG '+(100-parseFloat(p||0))+'%.\nThe old and new figures are kept in the audit log.'))return;
+    var fd=new FormData();
+    fd.append('action','change_rule'); fd.append('bbid',bbid);
+    fd.append('rule_so_mode',m); fd.append('rule_rbz_usd_pct',p);
+    fetch('balance.php?ajax=change_rule',{method:'POST',body:fd,headers:{'X-Requested-With':'XMLHttpRequest'}})
+    .then(function(r){return r.json();})
+    .then(function(d){
+        if(typeof fw!=='undefined') fw.toast(d.ok?d.msg:(d.error||'Failed'), d.ok?'success':'error');
+        else alert(d.ok?d.msg:(d.error||'Failed'));
+    })
+    .catch(function(e){ if(typeof fw!=='undefined') fw.toast('Error: '+e.message,'error'); });
+}
+
 function doBalance(gid){
-    if(!confirm('Balance this grower?\n\nCalculates net payout, applies deductions, creates sales sheet.\nCannot be undone without reversal.'))return;
+    var _rm=document.getElementById('rule-mode'), _rp=document.getElementById('rule-pct');
+    var _rule=_rm?('\n\nRule: TIMB stop orders '+_rm.value+' the RBZ split, USD '+_rp.value+'% / ZiG '+(100-parseFloat(_rp.value||0))+'%'):'';
+    if(!confirm('Balance this grower?\n\nCalculates net payout, applies deductions, creates sales sheet.\nCannot be undone without reversal.'+_rule))return;
     var btn=document.getElementById('balbtn');
     if(btn){btn.disabled=true;btn.textContent='Processing...';}
     var fd=new FormData();
@@ -1421,6 +1509,9 @@ function doBalance(gid){
     fd.append('tgid',AT);
     fd.append('splitid',AS||1);
     fd.append('growerid',gid);
+    var rm=document.getElementById('rule-mode'), rp=document.getElementById('rule-pct');
+    if(rm) fd.append('rule_so_mode',rm.value);
+    if(rp) fd.append('rule_rbz_usd_pct',rp.value);
     fetch('balance.php?ajax=balance',{method:'POST',body:fd,headers:{'X-Requested-With':'XMLHttpRequest'}})
     .then(function(r){
         return r.text().then(function(txt){

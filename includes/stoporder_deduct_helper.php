@@ -16,6 +16,49 @@ if (!function_exists('flowork_delivery_rules')) {
         $done = true;
     }
 
+    /** The floor's Settings: [so_mode 'before'|'after', rbz USD share 0..1]. */
+    function flowork_rule_defaults(mysqli $conn, int $spid): array {
+        $so_mode = 'before';
+        $sm_q = $conn->query("SELECT param_value FROM parameters WHERE param_key='so_deduction_mode' AND selling_pointid=$spid LIMIT 1");
+        if ($sm_q && $sm_q !== true && $sm_q->num_rows) $so_mode = $sm_q->fetch_assoc()['param_value'];
+        $_rbz = $conn->query("SELECT usd_percent FROM rbz_retention_rate LIMIT 1");
+        $rbz  = ($_rbz && $_rbz !== true) ? $_rbz->fetch_assoc() : null;
+        return [$so_mode === 'after' ? 'after' : 'before', $rbz ? (float)$rbz['usd_percent'] : 0.70];
+    }
+
+    /**
+     * A rule chosen by the user (stop-order mode, RBZ USD share in percent),
+     * validated; anything missing falls back to the floor's Settings.
+     * Returns [so_mode, share 0..1] or null when the input is invalid.
+     */
+    function flowork_rule_from_input(mysqli $conn, int $spid, $mode_in, $pct_in): ?array {
+        [$mode, $share] = flowork_rule_defaults($conn, $spid);
+        if ($mode_in !== null && $mode_in !== '') {
+            if (!in_array($mode_in, ['before', 'after'], true)) return null;
+            $mode = $mode_in;
+        }
+        if ($pct_in !== null && $pct_in !== '') {
+            if (!is_numeric($pct_in) || (float)$pct_in < 0 || (float)$pct_in > 100) return null;
+            $share = round((float)$pct_in / 100, 4);
+        }
+        return [$mode, $share];
+    }
+
+    /** Has the grower's payment for this delivery's day been made (paid or released)? */
+    function flowork_delivery_settled(mysqli $conn, int $tgid, string $date): bool {
+        $d = $conn->real_escape_string($date);
+        $q = $conn->query("SELECT 1 FROM payment_status WHERE transporter_growersid=$tgid AND sell_date='$d'
+            AND status IN ('paid','released') LIMIT 1");
+        return $q && $q !== true && $q->num_rows > 0;
+    }
+
+    /** Record a rule on a delivery (before it is calculated or recalculated). */
+    function flowork_set_delivery_rule(mysqli $conn, int $bbid, string $mode, float $share): void {
+        flowork_ensure_rule_columns($conn);
+        $mode = $mode === 'after' ? 'after' : 'before';
+        $conn->query("UPDATE balanced_bales SET rule_so_mode='$mode', rule_rbz_usd=" . round($share, 4) . " WHERE id=$bbid");
+    }
+
     /**
      * [so_mode, rbz_usd_share] for a delivery. Uses the rule recorded on the
      * delivery; if none is recorded yet (first calculation), takes today's
@@ -29,14 +72,8 @@ if (!function_exists('flowork_delivery_rules')) {
         if ($r && $r['rule_so_mode'] !== null && $r['rule_rbz_usd'] !== null) {
             return [$r['rule_so_mode'], (float)$r['rule_rbz_usd']];
         }
-        $so_mode = 'before';
-        $sm_q = $conn->query("SELECT param_value FROM parameters WHERE param_key='so_deduction_mode' AND selling_pointid=$spid LIMIT 1");
-        if ($sm_q && $sm_q !== true && $sm_q->num_rows) $so_mode = $sm_q->fetch_assoc()['param_value'];
-        $so_mode = $so_mode === 'after' ? 'after' : 'before';
-        $_rbz = $conn->query("SELECT usd_percent FROM rbz_retention_rate LIMIT 1");
-        $rbz  = ($_rbz && $_rbz !== true) ? $_rbz->fetch_assoc() : null;
-        $rbz_pct = $rbz ? (float)$rbz['usd_percent'] : 0.70;
-        $conn->query("UPDATE balanced_bales SET rule_so_mode='$so_mode', rule_rbz_usd=$rbz_pct WHERE id=$bbid");
+        [$so_mode, $rbz_pct] = flowork_rule_defaults($conn, $spid);
+        flowork_set_delivery_rule($conn, $bbid, $so_mode, $rbz_pct);
         return [$so_mode, $rbz_pct];
     }
 }

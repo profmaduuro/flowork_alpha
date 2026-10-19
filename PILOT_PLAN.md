@@ -14,8 +14,8 @@ Purpose: prove on one real floor, alongside the current way of working, that Flo
 - [ ] Apache restarted as administrator, so HTTPS and the new certificate are live; every device used on the floor trusts the Flowork Local CA (DEPLOYMENT.md, section 2).
 - [ ] `sysadmin` and `bright` have set up 2FA; every user has their own account (no shared logins).
 - [ ] `BACKUP_PASSPHRASE` and `BACKUP_COPY_DIR` set; the nightly task runs whether or not anyone is logged on; the passphrase is stored off the PC.
-- [ ] Settings checked for the season: stop-order mode and RBZ split (each new delivery records the rule in force when it is first calculated — see "Decisions" below), charges, exchange-rate routine.
-- [ ] The July and June payment differences have an agreed treatment (recovery, offset or write-off) recorded by accounts.
+- [ ] Settings checked for the season: the default stop-order mode and RBZ split (the user can change the rule per delivery when balancing), charges, exchange-rate routine.
+- [x] The July and June payment differences have an agreed treatment: written off 2026-10-19 (payment_writeoffs).
 - [ ] Smoke and money tests pass apart from the known payment differences:
   `C:\xampp\php\php.exe tests\smoke.php` and `C:\xampp\php\php.exe tests\money.php`
 
@@ -58,9 +58,9 @@ Stop using Flowork for the pilot (the manual process continues anyway) if figure
 ## Decisions taken / open
 
 - **Taken 2026-10-17:** rule A (stop orders after the RBZ split, 70/30) for the 8 July deliveries; all existing deliveries record rule A.
-- **Open:** the Settings still say stop orders *before* the split and an 80/20 split, so new deliveries will be calculated that way. Confirm which rule applies for the rest of the season and set it in Settings before day 1.
-- **Open:** stop order 158 (creditor 61631 Vision Leaf, $18,790.73, grower V108816) went from "processed" to "not processed" during the 8 July correction because nothing had been deducted from it; the next stop-order run for that grower will try to collect it. Confirm that is wanted.
-- **Open:** the June payments were made before the 2% bank charge ($101.29 in total); decide whether the bank charge applied then.
+- **Taken 2026-10-19:** Settings stay as they are (stop orders before the split, 80/20) as the default. The user chooses the rule on the Balance confirm panel for each delivery (it starts at Settings and says when it differs); an admin can change the rule of a balanced delivery until it is paid, which recalculates it and is audit-logged.
+- **Taken 2026-10-19:** the July ($748.86) and June ($101.29) payment differences are written off (table payment_writeoffs, one row per payment with the reason; payment notes and audit log updated). Total $850.15.
+- **Taken 2026-10-19:** stop order 158 (creditor 61631 Vision Leaf, $18,790.73, grower V108816) is marked processed again, so it is not collected.
 
 ## Difference log
 
