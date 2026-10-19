@@ -293,7 +293,7 @@ $sod_log = $conn->query("
            COALESCE(er.amount,0) rate,
            er.id er_id
     FROM start_of_day sod
-    LEFT JOIN exchange_rate er ON er.start_of_dayid=sod.id
+    LEFT JOIN exchange_rate er ON er.id = (SELECT er1.id FROM exchange_rate er1 WHERE er1.start_of_dayid = sod.id ORDER BY er1.active DESC, er1.id DESC LIMIT 1)
     WHERE sod.seasonid=$seasonid AND sod.active=1
     ORDER BY sod.id DESC LIMIT 60
 ");

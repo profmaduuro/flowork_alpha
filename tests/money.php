@@ -145,6 +145,18 @@ foreach ($rows as $r) {
 }
 if (!$rows) out('  [INFO] no paid or released payments');
 
+// A sale day can hold several exchange_rate rows (each rate change adds one).
+// A join that matched them all used to count every bale once per row, which
+// doubled delivery 77. Stored totals must match the delivery's real bales.
+$dup = $all($conn, "SELECT dt.balanced_balesid bbid, dt.laid_bales stored, COUNT(bj.id) actual
+    FROM daily_totals dt JOIN balanced_bales bb ON bb.id=dt.balanced_balesid
+    JOIN bale_junus bj ON bj.transporter_growersid=bb.transporter_growersid AND bj.splitid=bb.splitid
+    JOIN tickets tk ON tk.bale_junusid=bj.id JOIN sold_bales sb ON sb.ticketsid=tk.id
+    GROUP BY dt.id HAVING stored <> actual");
+check(!$dup, 'stored bale counts match the real bales', $dup
+    ? implode(', ', array_map(fn($d) => "delivery {$d['bbid']}: stored {$d['stored']}, actual {$d['actual']}", $dup))
+    : 'every delivery');
+
 out();
 out($failures ? "RESULT: FAIL ($failures)" : 'RESULT: PASS');
 exit($failures ? 1 : 0);

@@ -50,7 +50,7 @@ $bales_q = $conn->query("
     JOIN tickets tk ON tk.bale_junusid=bj.id
     JOIN sold_bales sb ON sb.ticketsid=tk.id
     JOIN start_of_day sd ON sd.id=tk.start_of_dayid
-    JOIN exchange_rate er ON er.start_of_dayid=sd.id
+    JOIN exchange_rate er ON er.id = (SELECT er1.id FROM exchange_rate er1 WHERE er1.start_of_dayid = sd.id ORDER BY er1.active DESC, er1.id DESC LIMIT 1)
     JOIN transporter_growers tg ON tg.id=bj.transporter_growersid
     WHERE bj.transporter_growersid=$transporter_growersid AND bj.splitid=$splitid
 ");

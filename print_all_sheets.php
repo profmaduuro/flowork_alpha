@@ -139,7 +139,7 @@ function maybe_fix_sheet(mysqli $conn, array &$bb): void {
         JOIN bale_mass bm ON bm.id=bj.bale_massid
         JOIN tickets tk ON tk.bale_junusid=bj.id
         LEFT JOIN sold_bales sb ON sb.ticketsid=tk.id
-        LEFT JOIN exchange_rate er ON tk.start_of_dayid=er.start_of_dayid
+        LEFT JOIN exchange_rate er ON er.id = (SELECT er1.id FROM exchange_rate er1 WHERE er1.start_of_dayid = tk.start_of_dayid ORDER BY er1.active DESC, er1.id DESC LIMIT 1)
         WHERE bj.transporter_growersid=$tgid AND bj.splitid=$split
     ");
     $gross=0; $mass=0; $sold=0; $rej=0; $er_fix=0; $er_id=0;

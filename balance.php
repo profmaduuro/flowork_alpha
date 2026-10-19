@@ -308,7 +308,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'balan
         JOIN bale_mass bm ON bm.id=bj.bale_massid
         JOIN tickets tk ON tk.bale_junusid=bj.id
         LEFT JOIN sold_bales sb ON sb.ticketsid=tk.id
-        LEFT JOIN exchange_rate er ON tk.start_of_dayid=er.start_of_dayid
+        LEFT JOIN exchange_rate er ON er.id = (SELECT er1.id FROM exchange_rate er1 WHERE er1.start_of_dayid = tk.start_of_dayid ORDER BY er1.active DESC, er1.id DESC LIMIT 1)
         WHERE bj.transporter_growersid=$tgid AND bj.splitid=$splitid");
     $bales = ($res && $res !== true) ? $res->fetch_all(MYSQLI_ASSOC) : [];
     if (empty($bales)) { echo json_encode(['error'=>'No bales found for this split.']); exit; }
