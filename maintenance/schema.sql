@@ -2306,3 +2306,16 @@ CREATE TABLE IF NOT EXISTS `year_to_date_totals` (
   `datetime` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `payment_writeoffs` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `payment_statusid` int(11) NOT NULL,
+  `amount` decimal(14,4) NOT NULL COMMENT 'paid minus stored net; positive = overpaid',
+  `currency` enum('usd','zig') NOT NULL DEFAULT 'usd',
+  `reason` varchar(255) NOT NULL,
+  `approved_by` varchar(120) NOT NULL,
+  `created_by` int(11) NOT NULL DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_writeoff_payment` (`payment_statusid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

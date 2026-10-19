@@ -130,11 +130,18 @@ $rows = $all($conn, "SELECT ps.id, ps.transporter_growersid tgid, ps.sell_date, 
            FROM balanced_bales bb JOIN daily_totals_net_amount n ON n.balanced_balesid=bb.id
           WHERE bb.transporter_growersid=ps.transporter_growersid AND DATE(bb.created_at)=ps.sell_date) owed
     FROM payment_status ps WHERE ps.status IN ('paid','released') ORDER BY ps.id");
+// A difference the owner has written off (includes/pay_writeoffs.php) counts as settled.
+require_once $root . '/includes/pay_writeoffs.php';
+$writeoffs = flowork_writeoffs($conn);
 foreach ($rows as $r) {
     $diff = (float)$r['paid'] - (float)$r['owed'];
-    check(abs($diff) < 0.01, "payment {$r['id']} equals stored net",
-        sprintf('tgid %d %s %s: paid %.2f, stored net %.2f%s', $r['tgid'], $r['sell_date'], strtoupper($r['currency']),
-            $r['paid'], $r['owed'], abs($diff) >= 0.01 ? sprintf(' (%s%.2f)', $diff > 0 ? 'over +' : 'under ', $diff) : ''));
+    $wo   = $writeoffs[(int)$r['id']] ?? 0.0;
+    $left = $diff - $wo;
+    check(abs($left) < 0.01, "payment {$r['id']} equals stored net",
+        sprintf('tgid %d %s %s: paid %.2f, stored net %.2f%s%s', $r['tgid'], $r['sell_date'], strtoupper($r['currency']),
+            $r['paid'], $r['owed'],
+            $wo ? sprintf(', written off %.2f', $wo) : '',
+            abs($left) >= 0.01 ? sprintf(' (%s%.2f unexplained)', $left > 0 ? 'over +' : 'under ', $left) : ''));
 }
 if (!$rows) out('  [INFO] no paid or released payments');
 

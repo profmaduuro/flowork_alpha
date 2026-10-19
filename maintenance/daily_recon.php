@@ -67,12 +67,14 @@ $bales_gross = function (int $tgid, int $split) use ($conn): float {
 };
 
 $payments = [];
-$pq = $conn->query("SELECT transporter_growersid tgid, currency, status, net_amount, amount_paid, payment_method, reference_number
+$pq = $conn->query("SELECT id, transporter_growersid tgid, currency, status, net_amount, amount_paid, payment_method, reference_number
     FROM payment_status WHERE sell_date='$date'");
+require_once $root . '/includes/pay_writeoffs.php';
+$writeoffs = flowork_writeoffs($conn);   // differences the owner accepted
 while ($pq && $pq !== true && $p = $pq->fetch_assoc()) $payments[$p['tgid']][$p['currency']] = $p;
 
-$fails = 0; $checks = []; $csv = [];
-$csv[] = ['bbid','grower_num','grower','rule','sold_bales','rejected','mass_kg','gross_usd','charges_usd','timb_so_usd','internal_so_usd','net_usd','net_zig','paid_usd_status','paid_usd','difference_usd'];
+$fails = 0; $checks = []; $notes = []; $csv = [];
+$csv[] = ['bbid','grower_num','grower','rule','sold_bales','rejected','mass_kg','gross_usd','charges_usd','timb_so_usd','internal_so_usd','net_usd','net_zig','paid_usd_status','paid_usd','difference_usd','written_off_usd'];
 $tot = array_fill_keys(['bales','mass','gross','charges','timb','internal','net','zig','paid'], 0.0);
 $by_tg = [];
 
@@ -99,15 +101,19 @@ foreach ($by_tg as $tg => $list) {
     $p = $payments[$tg]['usd'] ?? null;
     $paid = $p && in_array($p['status'], ['paid', 'released'], true) ? (float)($p['amount_paid'] ?: $p['net_amount']) : null;
     $tot['paid'] += (float)$paid;
+    $wo = $p ? ($writeoffs[(int)$p['id']] ?? 0.0) : 0.0;
     foreach ($list as $i => $x) {
         $csv[] = [$x['bbid'], $x['grower_num'], $x['grower'], $x['rule_so_mode'] . ' ' . $x['rule_rbz_usd'], $x['sold_bales'], $x['rejected_bales'],
             round((float)$x['mass'], 1), round((float)$x['gross_usd'], 2), round((float)$x['charges_usd'], 2), round((float)$x['timb_so'], 2),
             round((float)$x['internal_so'], 2), round((float)$x['net_usd'], 2), round((float)$x['net_zig'], 2),
             $i === 0 ? ($p['status'] ?? 'none') : '', $i === 0 && $paid !== null ? round($paid, 2) : '',
-            $i === 0 && $paid !== null ? round($paid - $owed, 2) : ''];
+            $i === 0 && $paid !== null ? round($paid - $owed, 2) : '', $i === 0 && $wo ? round($wo, 2) : ''];
     }
-    if ($paid !== null && abs($paid - $owed) >= 0.01) {
-        $checks[] = sprintf("grower %s: paid %.2f USD, stored net %.2f (%s%.2f)", $list[0]['grower_num'], $paid, $owed, $paid > $owed ? 'over +' : 'under ', $paid - $owed);
+    if ($paid !== null && abs($paid - $owed - $wo) >= 0.01) {
+        $checks[] = sprintf("grower %s: paid %.2f USD, stored net %.2f%s (%s%.2f unexplained)", $list[0]['grower_num'], $paid, $owed,
+            $wo ? sprintf(', written off %.2f', $wo) : '', $paid - $owed - $wo > 0 ? 'over +' : 'under ', $paid - $owed - $wo);
+    } elseif ($wo) {
+        $notes[] = sprintf("grower %s: paid %.2f USD, stored net %.2f, difference %.2f written off", $list[0]['grower_num'], $paid, $owed, $wo);
     }
 }
 
@@ -118,6 +124,7 @@ printf("\nPaid (USD, paid or released): %.2f   Stored net USD: %.2f\n\n", $tot['
 echo "Checks:\n";
 if (!$rows) echo "  [INFO] no balanced deliveries on this day\n";
 foreach ($checks as $c) { echo "  [FAIL] $c\n"; $fails++; }
+foreach ($notes as $n) echo "  [WRITTEN OFF] $n\n";
 if ($rows && !$checks) echo "  [OK] gross matches the bales, one net and a rule per delivery, payments equal the stored net\n";
 
 if (!empty($o['csv'])) {
