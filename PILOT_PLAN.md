@@ -60,6 +60,8 @@ Stop using Flowork for the pilot (the manual process continues anyway) if figure
 - **Taken 2026-10-17:** rule A (stop orders after the RBZ split, 70/30) for the 8 July deliveries; all existing deliveries record rule A.
 - **Taken 2026-10-19:** Settings stay as they are (stop orders before the split, 80/20) as the default. The user chooses the rule on the Balance confirm panel for each delivery (it starts at Settings and says when it differs); an admin can change the rule of a balanced delivery until it is paid, which recalculates it and is audit-logged.
 - **Taken 2026-10-19:** the July ($748.86) and June ($101.29) payment differences are written off (table payment_writeoffs, one row per payment with the reason; payment notes and audit log updated). Total $850.15.
+- **Taken 2026-10-19:** the old copy at C:
+mpp\htdocslowork stays as it is for now (unused since 14 Aug 2026; it shares the king database as MySQL root without a password, so root keeps no password until it is retired).
 - **Taken 2026-10-19:** stop order 158 (creditor 61631 Vision Leaf, $18,790.73, grower V108816) is marked processed again, so it is not collected.
 
 ## Difference log
