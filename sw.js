@@ -1,4 +1,4 @@
-const CACHE_NAME = 'flowork-cache-v3';
+const CACHE_NAME = 'flowork-cache-v4';   // bump to drop older caches (v3 also cached PHP data requests)
 const OFFLINE_URL = 'offline.html';
 const FONT_URL = 'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300&display=swap';
 
@@ -64,8 +64,11 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // 3. Handle static assets & trusted CDN resources (Google Fonts, Chart.js, local assets)
-    const isAllowedOrigin = requestUrl.origin === self.location.origin
+    // 3. Only static files are cached: scripts, styles, images, fonts, the manifest.
+    //    Everything else (PHP pages and data endpoints such as pay_ajax.php?action=…)
+    //    always goes to the network, so the app never shows stale figures.
+    const isStaticFile = /\.(js|css|png|jpe?g|gif|svg|ico|webp|woff2?|ttf|json|webmanifest)$/i.test(requestUrl.pathname);
+    const isAllowedOrigin = (requestUrl.origin === self.location.origin && isStaticFile)
         || requestUrl.origin === 'https://fonts.googleapis.com'
         || requestUrl.origin === 'https://fonts.gstatic.com'
         || requestUrl.origin === 'https://cdnjs.cloudflare.com';
