@@ -11,7 +11,7 @@ How Flowork runs on the floor PC today, how to turn on HTTPS for the LAN, and ho
 | `APP_ENV` | `production` (PHP errors go to `C:\xampp\apache\logs\error.log`, not to pages) |
 | Database user | `flowork_alpha`, rights on database `king` only (password in `.env`) |
 | Admin 2FA | required (`REQUIRE_ADMIN_2FA=1`): admins set it up at their next login |
-| Backups | task `\Flowork\Nightly backup`, 23:30, runs `php-win.exe` (no window); if the PC is off it runs at the next start; log `backups\scheduled_backup.log` |
+| Backups | task `\Flowork\Nightly backup`, 23:30, runs `php-win.exe` (no window); if the PC is off it runs at the next start; log `backups\scheduled_backup.log`. Encrypted with `BACKUP_PASSPHRASE` and copied to `C:\FloworkBackups` (same disk for now — move `BACKUP_COPY_DIR` to an external drive or cloud folder) |
 | HTTPS | certificate ready in `C:\xampp\apache\conf\flowork-ssl`; **active after Apache restarts** |
 | Previous `.env` | `backups\env_before_production_*` (to roll back: copy it back over `.env`) |
 
@@ -68,7 +68,7 @@ Edit `server.ext` first if the address changed, then restart Apache. Devices nee
 ## 5. Still to do on this server (needs an administrator)
 
 - **Restart Apache** (section 2, step 1).
-- **Backups:** set `BACKUP_PASSPHRASE` and `BACKUP_COPY_DIR` in `.env`; keep the passphrase off this PC too; in Task Scheduler set `\Flowork\Nightly backup` to "Run whether user is logged on or not".
+- **Backups:** copy `BACKUP_PASSPHRASE` from `.env` to a safe place off this PC; point `BACKUP_COPY_DIR` at an external drive or cloud folder when one is available (today: `C:\FloworkBackups`, same disk); in Task Scheduler set `\Flowork\Nightly backup` to "Run whether user is logged on or not".
 - **MySQL on this machine only:** add `bind-address=127.0.0.1` under `[mysqld]` in `C:\xampp\mysql\bin\my.ini` and restart the `mysql` service. Today port 3306 listens on the LAN (root can only log in from this PC, but the port need not be open).
 - **Root password:** after the `/flowork` copy is retired, give MySQL `root` a password and remove the passwordless `pma` user (phpMyAdmin).
 - **Admins:** `sysadmin` and `bright` must set up 2FA at their next login (an authenticator app on their phone).

@@ -13,7 +13,7 @@ Purpose: prove on one real floor, alongside the current way of working, that Flo
 
 - [ ] Apache restarted as administrator, so HTTPS and the new certificate are live; every device used on the floor trusts the Flowork Local CA (DEPLOYMENT.md, section 2).
 - [ ] `sysadmin` and `bright` have set up 2FA; every user has their own account (no shared logins).
-- [ ] `BACKUP_PASSPHRASE` and `BACKUP_COPY_DIR` set; the nightly task runs whether or not anyone is logged on; the passphrase is stored off the PC.
+- [ ] `BACKUP_PASSPHRASE` and `BACKUP_COPY_DIR` set (done 2026-10-19: encrypted copies in C:FloworkBackups); still to do: copy the passphrase off the PC, move the copy folder off this disk, and let the task run whether or not anyone is logged on.
 - [ ] Settings checked for the season: the default stop-order mode and RBZ split (the user can change the rule per delivery when balancing), charges, exchange-rate routine.
 - [x] The July and June payment differences have an agreed treatment: written off 2026-10-19 (payment_writeoffs).
 - [ ] Smoke and money tests pass apart from the known payment differences:
