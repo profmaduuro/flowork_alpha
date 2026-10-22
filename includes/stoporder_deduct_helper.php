@@ -330,7 +330,8 @@ if (!function_exists('flowork_recalculate_balance_batch')) {
                 elseif ($ch['ct_d']==='Bales')          $ca_u=$sold_cnt*$a;
                 elseif ($ch['ct_d']==='Amount')         $ca_u=$a;
             } else {
-                if ($ch['ct_d']==='Value')             $ca_z=$zig_portion_zig*$a;
+                // On the full ZiG gross (gross USD × the day's exchange rate), not the ZiG portion.
+                if ($ch['ct_d']==='Value')             $ca_z=$gross*$ex_rate_amt*$a;
                 // The parameter is a USD rate per kg: sold mass × rate × the day's exchange rate.
                 elseif ($ch['ct_d']==='Mass')           $ca_z=$ytd_mass*$a*$ex_rate_amt;
                 elseif ($ch['ct_d']==='Bales')          $ca_z=$sold_cnt*$a;

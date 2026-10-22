@@ -109,9 +109,10 @@ check((string)$norule === '0', 'every delivery has a recorded rule', "$norule wi
 
 // Pinned: the 8 July 2026 deliveries under rule A (stop orders after the
 // split, 70/30), as decided by the owner on 2026-10-17 — reconciliation column A.
-// Recalculated with the ZiG Mass charge at mass × rate × exchange rate (2026-10-22);
+// Recalculated with ZiG Mass charges at mass × rate × exchange rate and ZiG Value
+// charges (Afforestation) on the full ZiG gross (2026-10-22);
 // they were paid on the earlier figures, which section 2 checks are still stored.
-$pinned = [73 => [0.00, 20295.86], 74 => [190.69, 8148.53], 75 => [0.00, 7423.79], 76 => [0.00, 6707.63]];
+$pinned = [73 => [0.00, 19931.06], 74 => [190.69, 8001.00], 75 => [0.00, 7289.97], 76 => [0.00, 6587.32]];
 $paid_pins = [73 => [0.00, 20675.06], 74 => [190.69, 8358.90], 75 => [0.00, 7582.89], 76 => [0.00, 6819.23]];
 foreach ($pinned as $id => [$usd, $zig]) {
     $n = $net($id);
