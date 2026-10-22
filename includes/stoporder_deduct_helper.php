@@ -331,7 +331,8 @@ if (!function_exists('flowork_recalculate_balance_batch')) {
                 elseif ($ch['ct_d']==='Amount')         $ca_u=$a;
             } else {
                 if ($ch['ct_d']==='Value')             $ca_z=$zig_portion_zig*$a;
-                elseif ($ch['ct_d']==='Mass')           $ca_z=$ytd_mass*$a;
+                // The parameter is a USD rate per kg: sold mass × rate × the day's exchange rate.
+                elseif ($ch['ct_d']==='Mass')           $ca_z=$ytd_mass*$a*$ex_rate_amt;
                 elseif ($ch['ct_d']==='Bales')          $ca_z=$sold_cnt*$a;
                 elseif ($ch['ct_d']==='Amount')         $ca_z=$a;
             }
@@ -439,7 +440,7 @@ if (!function_exists('flowork_deduct_stoporders')) {
 
                 // Find the latest balanced batch for this grower
                 $bb_q = $conn->query("
-                    SELECT bb.id AS bbid, g.selling_pointid
+                    SELECT bb.id AS bbid, g.selling_pointid, bb.transporter_growersid tgid, DATE(bb.created_at) d
                     FROM balanced_bales bb
                     JOIN growers g ON g.id = bb.growerid
                     WHERE bb.growerid = $growerid
@@ -451,6 +452,8 @@ if (!function_exists('flowork_deduct_stoporders')) {
                     $bb_row = $bb_q->fetch_assoc();
                     $bbid = (int)$bb_row['bbid'];
                     $row_spid = (int)$bb_row['selling_pointid'];
+                    // A paid delivery keeps the figures it was paid on.
+                    if (flowork_delivery_settled($conn, (int)$bb_row['tgid'], (string)$bb_row['d'])) continue;
 
                     // Run the unified settings-compliant calculation pipeline on the batch
                     $calc = flowork_recalculate_balance_batch($conn, $bbid, $row_spid, $userid);

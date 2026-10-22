@@ -109,12 +109,15 @@ check((string)$norule === '0', 'every delivery has a recorded rule', "$norule wi
 
 // Pinned: the 8 July 2026 deliveries under rule A (stop orders after the
 // split, 70/30), as decided by the owner on 2026-10-17 — reconciliation column A.
-$pinned = [73 => [0.00, 20675.06], 74 => [190.69, 8358.90], 75 => [0.00, 7582.89], 76 => [0.00, 6819.23]];
+// Recalculated with the ZiG Mass charge at mass × rate × exchange rate (2026-10-22);
+// they were paid on the earlier figures, which section 2 checks are still stored.
+$pinned = [73 => [0.00, 20295.86], 74 => [190.69, 8148.53], 75 => [0.00, 7423.79], 76 => [0.00, 6707.63]];
+$paid_pins = [73 => [0.00, 20675.06], 74 => [190.69, 8358.90], 75 => [0.00, 7582.89], 76 => [0.00, 6819.23]];
 foreach ($pinned as $id => [$usd, $zig]) {
     $n = $net($id);
     if ((int)$n['n'] === 0) { out("  [SKIP] delivery $id not in this database"); continue; }
     $ok = abs((float)$n['usd'] - $usd) < 0.01 && abs((float)$n['zig'] - $zig) < 0.01;
-    check($ok, "delivery $id matches reconciliation (A)", sprintf('got USD %.2f ZiG %.2f, expected USD %.2f ZiG %.2f', $n['usd'], $n['zig'], $usd, $zig));
+    check($ok, "delivery $id recalculates to the pinned figure", sprintf('got USD %.2f ZiG %.2f, expected USD %.2f ZiG %.2f', $n['usd'], $n['zig'], $usd, $zig));
 }
 $t->close();
 
@@ -144,6 +147,14 @@ foreach ($rows as $r) {
             abs($left) >= 0.01 ? sprintf(' (%s%.2f unexplained)', $left > 0 ? 'over +' : 'under ', $left) : ''));
 }
 if (!$rows) out('  [INFO] no paid or released payments');
+
+// Paid deliveries keep the figures they were paid on; nothing recalculates them.
+foreach ($paid_pins as $id => [$usd, $zig]) {
+    $n = $all($conn, "SELECT COUNT(*) n, MAX(usd_net_value) usd, MAX(zim_net_value) zig FROM daily_totals_net_amount WHERE balanced_balesid=$id")[0];
+    if ((int)$n['n'] === 0) { out("  [SKIP] delivery $id not in this database"); continue; }
+    $ok = abs((float)$n['usd'] - $usd) < 0.01 && abs((float)$n['zig'] - $zig) < 0.01;
+    check($ok, "delivery $id stored net is the paid figure (A)", sprintf('stored USD %.2f ZiG %.2f, paid on USD %.2f ZiG %.2f', $n['usd'], $n['zig'], $usd, $zig));
+}
 
 // A sale day can hold several exchange_rate rows (each rate change adds one).
 // A join that matched them all used to count every bale once per row, which
