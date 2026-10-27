@@ -15,8 +15,12 @@ $uid      = (int)$user['id'];
 $seasonid = getSeasonid($user);
 
 // Helper: get current start_of_day id
+require_once __DIR__ . '/sell_day.php';
 function getCurrentSodId($db, $seasonid, $spid) {
-    // Try selling_days first
+    // This floor's active day (Day Control) first
+    $sod = apiActiveSod($db, (int)$spid);
+    if ($sod) return $sod['id'];
+    // Fallback: any active day this season
     $sd = $db->query("SELECT id FROM start_of_day
         WHERE seasonid=$seasonid AND active=1
         ORDER BY id DESC LIMIT 1");

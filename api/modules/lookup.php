@@ -1,7 +1,7 @@
 <?php
 /**
  * Lookup / sync — pulls all reference data for offline cache
- * Uses real selling_days for sell date
+ * Sell date: the floor's active start_of_day (see sell_day.php)
  */
 $user     = requireAuth();
 $spid     = getSpid($user);
@@ -10,19 +10,9 @@ $action   = $_GET['action'] ?? 'sync_data';
 $seasonid = getSeasonid($user);
 
 if ($action === 'sync_data') {
-    // Sell date from selling_days (authoritative)
-    $sell_date = '';
-    $sd_q = $db->query("SELECT sell_date FROM selling_days
-        WHERE selling_pointid=$spid AND status='open'
-        ORDER BY sell_date DESC LIMIT 1");
-    if ($sd_q && $sd_q !== true && $sd_q->num_rows > 0) {
-        $sell_date = $sd_q->fetch_assoc()['sell_date'];
-    } else {
-        $sod = $db->query("SELECT description FROM start_of_day
-            WHERE seasonid=$seasonid AND active=1 ORDER BY id DESC LIMIT 1");
-        if ($sod && $sod !== true && $sod->num_rows > 0)
-            $sell_date = $sod->fetch_assoc()['description'];
-    }
+    // Sell date — this floor's active start_of_day (Day Control), then selling_days, then today
+    require_once __DIR__ . '/sell_day.php';
+    $sell_date = apiSellDate($db, $spid);
 
     // Latest exchange rate
     $rate = 0.0;

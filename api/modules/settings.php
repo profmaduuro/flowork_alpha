@@ -1,7 +1,7 @@
 <?php
 /**
  * Settings — real DB schema
- * Uses: selling_days (authoritative sell date), start_of_day, exchange_rate, settings table
+ * Uses: start_of_day (authoritative sell date, per floor), selling_days (fallback), exchange_rate, settings table
  * selling_days: (selling_pointid, sell_date, status, opened_by, opened_at)
  * settings: (name, value) — simple key-value
  */
@@ -15,31 +15,25 @@ $seasonid = getSeasonid($user);
 
 // ── GET current settings ───────────────────────────────────────────────────────
 if ($action === 'get') {
-    // Sell date from selling_days
-    $sell_date = '';
-    $sd_q = $db->query("SELECT sell_date FROM selling_days
-        WHERE selling_pointid=$spid AND status='open'
-        ORDER BY sell_date DESC LIMIT 1");
-    if ($sd_q && $sd_q !== true && $sd_q->num_rows > 0) {
-        $sell_date = $sd_q->fetch_assoc()['sell_date'];
-    } else {
-        // Fallback: start_of_day
-        $sod = $db->query("SELECT description FROM start_of_day
-            WHERE seasonid=$seasonid AND active=1 ORDER BY id DESC LIMIT 1");
-        if ($sod && $sod !== true && $sod->num_rows > 0)
-            $sell_date = $sod->fetch_assoc()['description'];
-    }
+    // Sell date — this floor's active start_of_day (Day Control), then selling_days, then today
+    require_once __DIR__ . '/sell_day.php';
+    $sell_date = apiSellDate($db, $spid);
+    $floor_sod = apiActiveSod($db, $spid);
     // Exchange rate — latest for this season
     $rate = 0.0;
     $er = $db->query("SELECT amount FROM exchange_rate
         WHERE seasonid=$seasonid ORDER BY id DESC LIMIT 1");
     if ($er && $er !== true && $er->num_rows > 0)
         $rate = (float)$er->fetch_assoc()['amount'];
-    // Active start_of_day id
-    $sod2 = $db->query("SELECT id FROM start_of_day
-        WHERE seasonid=$seasonid AND active=1 ORDER BY id DESC LIMIT 1");
-    $sod_id = ($sod2 && $sod2 !== true && $sod2->num_rows > 0)
-        ? (int)$sod2->fetch_assoc()['id'] : 0;
+    // Active start_of_day id — this floor's, else any active this season
+    if ($floor_sod) {
+        $sod_id = $floor_sod['id'];
+    } else {
+        $sod2 = $db->query("SELECT id FROM start_of_day
+            WHERE seasonid=$seasonid AND active=1 ORDER BY id DESC LIMIT 1");
+        $sod_id = ($sod2 && $sod2 !== true && $sod2->num_rows > 0)
+            ? (int)$sod2->fetch_assoc()['id'] : 0;
+    }
     ok(['sell_date'=>$sell_date,'exchange_rate'=>$rate,'sod_id'=>$sod_id,'seasonid'=>$seasonid]);
 }
 
@@ -96,12 +90,8 @@ if ($action === 'update_day' && $method === 'POST') {
 
 // ── SYNC DATA ─────────────────────────────────────────────────────────────────
 if ($action === 'sync_data') {
-    $sell_date = '';
-    $sd_q = $db->query("SELECT sell_date FROM selling_days
-        WHERE selling_pointid=$spid AND status='open'
-        ORDER BY sell_date DESC LIMIT 1");
-    if ($sd_q && $sd_q !== true && $sd_q->num_rows > 0)
-        $sell_date = $sd_q->fetch_assoc()['sell_date'];
+    require_once __DIR__ . '/sell_day.php';
+    $sell_date = apiSellDate($db, $spid);
 
     $rate = 0.0;
     $er = $db->query("SELECT amount FROM exchange_rate
