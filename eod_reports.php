@@ -5,6 +5,7 @@ require_once "includes/auth.php";
 require_once "includes/conn.php";
 require_once "includes/xlsx_writer.php";
 require_once "includes/pdf_table.php";
+require_once "includes/net_amount.php";
 require_login();
 
 $page_title  = "End of Day Reports";
@@ -45,11 +46,20 @@ $buyer_marks   = ($buyer_marks_q && $buyer_marks_q !== true) ? $buyer_marks_q->f
 $locs_q   = $conn->query("SELECT id,code,name,subcontractor FROM bale_locations WHERE $_locs_sp active=1 ORDER BY code");
 $locs     = ($locs_q && $locs_q !== true) ? $locs_q->fetch_all(MYSQLI_ASSOC) : [];
 
-// Exchange rate — exchange_rate table has a sell_date column, use it directly
-$er_q1 = $conn->query("SELECT amount FROM exchange_rate WHERE sell_date='$date_f' AND active=1 ORDER BY id DESC LIMIT 1");
-$er = ($er_q1 && $er_q1 !== true && $er_q1->num_rows) ? $er_q1->fetch_assoc() : null;
+// Exchange rate — the rate set in Day Control for this floor's selling day on $date_f
+// (exchange_rate.sell_date is never filled; rates hang off start_of_day). Same pick
+// as balancing: active rate first, then the latest. Legacy days have selling_pointid 0.
+function eod_day_rate($conn, int $spid, string $date): ?array {
+    $sp = $spid > 0 ? "sd.selling_pointid IN ($spid,0)" : "1=1";
+    $q = $conn->query("SELECT er.amount FROM exchange_rate er
+        JOIN start_of_day sd ON sd.id=er.start_of_dayid
+        WHERE sd.description='" . $conn->real_escape_string($date) . "' AND $sp
+        ORDER BY sd.selling_pointid DESC, er.active DESC, er.id DESC LIMIT 1");
+    return ($q && $q !== true && $q->num_rows) ? $q->fetch_assoc() : null;
+}
+$er = eod_day_rate($conn, $spid, $date_f);
 if (!$er) {
-    // Fallback: most recent active rate
+    // Fallback: no selling day on that date — most recent active rate
     $er_q2 = $conn->query("SELECT amount FROM exchange_rate WHERE active=1 ORDER BY id DESC LIMIT 1");
     $er = ($er_q2 && $er_q2 !== true) ? $er_q2->fetch_assoc() : null;
 }
@@ -89,7 +99,7 @@ function load_bales($conn, $date_f, $spid, $buyer_f, $loc_f, $ytd=false) {
         ? "(bm.selling_pointid=$spid OR g.selling_pointid=$spid)"
         : "1=1";
     $where = "$date_cond AND $sp_cond";
-    if ($buyer_f !== '') {
+    if ((string)$buyer_f !== '' && (string)$buyer_f !== '0') {   // 0 = every buyer (grower reports)
         if (is_numeric($buyer_f)) {
             $where .= " AND b.id=$buyer_f";
         } else {
@@ -228,6 +238,143 @@ function eod_stoporders($conn,$spid,$dc){
 }
 // levy lookup by partial name
 function eod_levy($lv,$needle){ foreach($lv as $k=>$v){ if(stripos($k,$needle)!==false) return $v; } return ['usd'=>0,'zwl'=>0]; }
+// Net paid [usd,zwl] as stored by balancing
+function eod_net_both($conn,$spid,$dc){
+    $sp = $spid>0 ? "(g.selling_pointid=$spid OR g.selling_pointid=0)" : "1=1";
+    $q=$conn->query("SELECT COALESCE(SUM(dtn.usd_net_value),0) usd, COALESCE(SUM(dtn.zim_net_value),0) zwl
+      FROM balanced_bales bb
+      JOIN transporter_growers tg ON tg.id=bb.transporter_growersid
+      JOIN growers g ON g.id=bb.growerid
+      LEFT JOIN daily_totals_net_amount dtn ON dtn.balanced_balesid=bb.id
+      WHERE $sp AND ".str_replace('%DATE%',"COALESCE(tg.sell_date,DATE(bb.created_at))",$dc));
+    $r=($q&&$q!==true)?$q->fetch_assoc():[];
+    return ['usd'=>(float)($r['usd']??0),'zwl'=>(float)($r['zwl']??0)];
+}
+// Creditor service charge on stop-order collections (same rate as the creditor summary TXT)
+const CRED_SVC_PCT = 0.02;
+
+// What balancing settled, per grower, for the deliveries matching $dc (a %DATE% condition).
+// Everything comes from what balancing stored: daily_totals (bales, mass, gross in
+// USD and in ZiG at that day's rate), balanced_bales_charges, stoporder_deductions
+// and the net payable. A grower is paid partly in USD and partly in ZiG, so per
+// currency: part paid in it = charges + stop orders + company deductions + net.
+function eod_settlement($conn,$spid,$dc){
+    $sp = $spid>0 ? "(g.selling_pointid=$spid OR g.selling_pointid=0)" : "1=1";
+    $q=$conn->query("SELECT g.id gid, g.grower_num, g.name gname, g.surname,
+          COALESCE(SUM(dt.bales),0) bales, COALESCE(SUM(dt.mass),0) mass,
+          COALESCE(SUM(dt.usd),0) gross_usd, COALESCE(SUM(dt.zig),0) gross_zig,
+          COALESCE(SUM(ch.usd),0) chg_usd, COALESCE(SUM(ch.zwl),0) chg_zig,
+          COALESCE(SUM(so.usd),0) so_usd,
+          COALESCE(SUM(dtn.usd_net_value),0) net_usd, COALESCE(SUM(dtn.zim_net_value),0) net_zig
+      FROM balanced_bales bb
+      JOIN transporter_growers tg ON tg.id=bb.transporter_growersid
+      JOIN growers g ON g.id=bb.growerid
+      LEFT JOIN (SELECT balanced_balesid, SUM(sold_bales) bales, SUM(mass) mass, SUM(usd_value) usd, SUM(zim_value) zig
+                 FROM daily_totals GROUP BY balanced_balesid) dt ON dt.balanced_balesid=bb.id
+      LEFT JOIN (SELECT balanced_balesid, SUM(usd_value) usd, SUM(zim_value) zwl
+                 FROM balanced_bales_charges GROUP BY balanced_balesid) ch ON ch.balanced_balesid=bb.id
+      LEFT JOIN (SELECT balanced_balesid, SUM(amount_deducted) usd
+                 FROM stoporder_deductions GROUP BY balanced_balesid) so ON so.balanced_balesid=bb.id
+      ".flowork_net_join('dtn','bb.id')."
+      WHERE $sp AND ".str_replace('%DATE%',"COALESCE(tg.sell_date,DATE(bb.created_at))",$dc)."
+      GROUP BY g.id ORDER BY g.grower_num");
+    // Company deductions (transport, advances, loans): what each balancing took, as recorded
+    $iso=[];
+    $iq=$conn->query("SELECT bb.growerid gid, SUM(d.amount_deducted) amt
+      FROM internal_stoporder_deductions d
+      JOIN balanced_bales bb ON bb.id=d.balanced_balesid
+      JOIN transporter_growers tg ON tg.id=bb.transporter_growersid
+      JOIN growers g ON g.id=bb.growerid
+      WHERE $sp AND ".str_replace('%DATE%',"COALESCE(tg.sell_date,DATE(bb.created_at))",$dc)."
+      GROUP BY bb.growerid");
+    if($iq&&$iq!==true) while($r=$iq->fetch_assoc()) $iso[(int)$r['gid']]=(float)$r['amt'];
+    $out=[];
+    if($q&&$q!==true) while($r=$q->fetch_assoc()){
+        foreach(['bales','mass','gross_usd','gross_zig','chg_usd','chg_zig','so_usd','net_usd','net_zig'] as $k) $r[$k]=(float)$r[$k];
+        $r['iso_usd']=$iso[(int)$r['gid']]??0.0;
+        $r['part_usd']=$r['net_usd']+$r['chg_usd']+$r['so_usd']+$r['iso_usd'];   // part of the sale settled in USD
+        $r['part_zig']=$r['net_zig']+$r['chg_zig'];                // part settled in ZiG
+        $r['rate']=$r['gross_usd']>0?$r['gross_zig']/$r['gross_usd']:0;   // balancing's rate
+        $out[]=$r;
+    }
+    return $out;
+}
+// A day's floor reconciliation, every figure in US$ (ZiG amounts at the rate balancing used).
+// Recon = gross - net - charges - stop orders, so 0.00 when the day balances.
+function eod_recon_row($conn,$spid,$dc){
+    $s=eod_sales_stats($conn,$spid,$dc);
+    $set=eod_settlement($conn,$spid,$dc);
+    $gu=array_sum(array_column($set,'gross_usd')); $gz=array_sum(array_column($set,'gross_zig'));
+    $rate=$gu>0?$gz/$gu:0; $eq=fn($u,$z)=>$u+($rate>0?$z/$rate:0);
+    $lv=eod_levies($conn,$spid,$dc);
+    $L=fn($n)=>eod_levy($lv,$n);
+    $net=$eq(array_sum(array_column($set,'net_usd')),array_sum(array_column($set,'net_zig')));
+    $c=['fc'=>$eq($L('Floor Commission')['usd'],$L('Floor Commission')['zwl']),'wa'=>$eq($L('Weighing')['usd'],$L('Weighing')['zwl']),
+        'aff'=>$eq($L('Afforestation')['usd'],$L('Afforestation')['zwl']),'moa'=>$eq($L('MOA')['usd'],$L('MOA')['zwl']),
+        'svc'=>$eq($L('Service Charge')['usd'],$L('Service Charge')['zwl']),'bank'=>$eq($L('Bank Charge')['usd'],$L('Bank Charge')['zwl'])];
+    $all=array_sum(array_map(fn($v)=>$eq($v['usd'],$v['zwl']),$lv));
+    $so=array_sum(array_column($set,'so_usd')); $iso=array_sum(array_column($set,'iso_usd'));
+    $gross=(float)$s['gross'];
+    return ['laid'=>(int)$s['laid'],'sold'=>(int)$s['sold'],'mass'=>(float)$s['mass'],'gross'=>$gross,'net'=>$net]
+        + $c + ['other'=>$all-array_sum($c),'so'=>$so,'iso'=>$iso,'recon'=>$gross-$net-$all-$so-$iso];
+}
+const EOD_RECON_COLS = ['laid'=>'Bales Laid','sold'=>'Bales Sold','mass'=>'Mass Sold','gross'=>'Gross Value','net'=>'Net Paid (US$ eq.)',
+    'fc'=>'Floor Comm','wa'=>'W/A','aff'=>'AFF Levy','moa'=>'MOA Levy','svc'=>'Service Charge','bank'=>'Bank Charge',
+    'other'=>'Other Charges','so'=>'Stop Orders','iso'=>'Company Deductions','recon'=>'Recon'];
+// A day's floor revenue (US$): charges kept by the floor, plus floor clearing and the
+// creditor service charge on the stop orders actually collected.
+function eod_revenue_row($conn,$spid,$dc){
+    $s=eod_sales_stats($conn,$spid,$dc); $set=eod_settlement($conn,$spid,$dc);
+    $gu=array_sum(array_column($set,'gross_usd')); $gz=array_sum(array_column($set,'gross_zig'));
+    $rate=$gu>0?$gz/$gu:0; $eq=fn($v)=>$v['usd']+($rate>0?$v['zwl']/$rate:0);
+    $lv=eod_levies($conn,$spid,$dc);
+    $fc=$eq(eod_levy($lv,'Floor Commission')); $wa=$eq(eod_levy($lv,'Weighing')); $svc=$eq(eod_levy($lv,'Service Charge'));
+    $net=array_sum(array_column($set,'net_usd'))+($rate>0?array_sum(array_column($set,'net_zig'))/$rate:0);
+    $flr=(int)$s['sold']*FLOOR_CLEARING_PER_BALE;
+    $cred=array_sum(array_column($set,'so_usd'))*CRED_SVC_PCT;
+    return ['laid'=>(int)$s['laid'],'sold'=>(int)$s['sold'],'mass'=>(float)$s['mass'],'gross'=>(float)$s['gross'],'net'=>$net,
+            'fc'=>$fc,'wa'=>$wa,'flr'=>$flr,'svc'=>$svc,'cred'=>$cred,'total'=>$fc+$wa+$flr+$svc+$cred];
+}
+const EOD_REVENUE_COLS = ['laid'=>'Bales Laid','sold'=>'Bales Sold','mass'=>'Mass Sold','gross'=>'Gross Value (USD)','net'=>'Net Paid (US$ eq.)',
+    'fc'=>'Floor Commission','wa'=>'W/A','flr'=>'Floor Clearing','svc'=>'Grower Svc Charge','cred'=>'Creditor Svc Charge','total'=>'Total Revenue'];
+// Render rows of [date, ...values] with a TOTALS row, as on the xlsx
+function eod_render_date_table(array $cols, array $rows, array $int_cols=['laid','sold']){
+    echo '<div class="table-wrap" style="overflow-x:auto"><table class="rpt-table" style="min-width:900px"><thead><tr><th>Date</th>';
+    foreach($cols as $lbl) echo '<th class="text-right">'.htmlspecialchars($lbl).'</th>';
+    echo '</tr></thead><tbody>';
+    $tot=array_fill_keys(array_keys($cols),0.0);
+    foreach($rows as $d=>$r){
+        $cur=($d===($GLOBALS['date_f']??''));
+        echo '<tr'.($cur?' style="background:var(--gold-bg);font-weight:500"':'').'><td style="font-size:0.78rem">'.htmlspecialchars($d).'</td>';
+        foreach($cols as $k=>$_){ $tot[$k]+=$r[$k];
+            echo '<td class="td-mono text-right">'.(in_array($k,$int_cols,true)?(int)$r[$k]:($k==='mass'?number_format($r[$k]):money($r[$k]))).'</td>'; }
+        echo '</tr>';
+    }
+    if(!$rows) echo '<tr><td colspan="'.(count($cols)+1).'" class="text-center" style="padding:1.5rem;color:var(--muted)">No balanced sales.</td></tr>';
+    echo '</tbody><tfoot><tr><td>TOTALS</td>';
+    foreach($cols as $k=>$_) echo '<td class="td-mono text-right">'.(in_array($k,$int_cols,true)?(int)$tot[$k]:($k==='mass'?number_format($tot[$k]):money($tot[$k]))).'</td>';
+    echo '</tr></tfoot></table></div>';
+}
+// Sales Control: gross -> charges -> net per currency, from the charges balancing deducted.
+// Each currency column adds up: charges + stop orders + net = the part of gross paid in it.
+function eod_sales_control($conn,$spid,$dc){
+    $lv=eod_levies($conn,$spid,$dc);
+    $rows=[];
+    foreach([['Floor Commission','Floor Commission'],['Weighing and Auction','Weighing'],['MOA Levy','MOA'],
+             ['Afforestation Levy','Afforestation'],['Service Charge Growers','Service Charge'],['Bank Charge','Bank Charge']] as [$lbl,$ndl]){
+        $rows[$lbl]=['usd'=>0,'zwl'=>0];
+        foreach($lv as $k=>$v) if(stripos($k,$ndl)!==false){ $rows[$lbl]=$v; unset($lv[$k]); break; }
+    }
+    foreach($lv as $k=>$v) $rows[$k?:'Other charges']=$v;   // any other charge set up on the floor
+    $so=[];
+    foreach(eod_stoporders($conn,$spid,$dc) as $name=>$usd) $so[$name]=['usd'=>$usd,'zwl'=>0];
+    $iso=array_sum(array_column(eod_settlement($conn,$spid,$dc),'iso_usd'));
+    if($iso>0) $so['Company deductions (transport, advances, loans)']=['usd'=>$iso,'zwl'=>0];
+    $net=eod_net_both($conn,$spid,$dc);
+    $tot=$net;
+    foreach(array_merge(array_values($rows),array_values($so)) as $v){ $tot['usd']+=$v['usd']; $tot['zwl']+=$v['zwl']; }
+    return ['stats'=>eod_sales_stats($conn,$spid,$dc),'levies'=>$rows,'stoporders'=>$so,'net'=>$net,'total'=>$tot];
+}
 function eod_distinct_dates($conn,$spid,$upto){
     $sp = $spid>0 ? "(g.selling_pointid=$spid OR g.selling_pointid=0)" : "1=1";
     $de=$conn->real_escape_string($upto);
@@ -748,9 +895,8 @@ if (isset($_GET['dl']) && $report) {
     if ($report==='sales_control') {
         $raw_sp=$_SESSION['selling_point_name'] ?? 'Flowork Floor';
         $de=$conn->real_escape_string($date_f); $dDay="%DATE%='$de'"; $dYtd="%DATE%<='$de'";
-        $sD=eod_sales_stats($conn,$spid,$dDay); $sY=eod_sales_stats($conn,$spid,$dYtd);
-        $lvD=eod_levies($conn,$spid,$dDay);     $lvY=eod_levies($conn,$spid,$dYtd);
-        $soD=eod_stoporders($conn,$spid,$dDay); $soY=eod_stoporders($conn,$spid,$dYtd);
+        $cD=eod_sales_control($conn,$spid,$dDay); $cY=eod_sales_control($conn,$spid,$dYtd);
+        $sD=$cD['stats']; $sY=$cY['stats'];
         $d=date('Y-m-d',strtotime($date_f));
         $R=[];
         $R[]=["Sales Control Report - $raw_sp",'','','',"Sales Control Report - $raw_sp",'',''];
@@ -763,61 +909,44 @@ if (isset($_GET['dl']) && $report) {
         $R[]=["Total Sold Mass",(float)$sD['mass'],'','',"Total Sold Mass",(float)$sY['mass'],''];
         $R[]=["Description","USD","ZWL",'',"Description","USD","ZWL"];
         $R[]=["Statutory Deductions",'','','',"Statutory Deductions",'',''];
-        foreach([['Floor Commission','Floor Commission'],['Weighing and Auction','Weighing'],['MOA Levy','MOA'],['Afforestation Levy','Afforestation'],['Service Charge Growers','Service Charge']] as [$lbl,$ndl]){
-            $a=eod_levy($lvD,$ndl); $b=eod_levy($lvY,$ndl);
-            $R[]=[$lbl,$a['usd'],$a['zwl'],'',$lbl,$b['usd'],$b['zwl']];
-        }
+        foreach($cY['levies'] as $lbl=>$y){ $t=$cD['levies'][$lbl]??['usd'=>0,'zwl'=>0];
+            $R[]=[$lbl,round($t['usd'],2),round($t['zwl'],2),'',$lbl,round($y['usd'],2),round($y['zwl'],2)]; }
         $R[]=["Stop Order and Invoice Deductions",'','','',"Stop Order and Invoice Deductions",'',''];
-        $R[]=["Stop Order Commission",0,0,'',"Stop Order Commission",0,0];
-        $R[]=[$raw_sp,(float)($soD[$raw_sp]??0),0,'',$raw_sp,(float)($soY[$raw_sp]??0),0];
-        $R[]=["SERVICE CHARGE",0,0,'',"SERVICE CHARGE",0,0];
-        foreach($soY as $name=>$amt){ if($name===$raw_sp) continue; $R[]=[$name,(float)($soD[$name]??0),0,'',$name,(float)$amt,0]; }
+        if(!$cY['stoporders']) $R[]=["None",0,0,'',"None",0,0];
+        foreach($cY['stoporders'] as $name=>$y){ $t=$cD['stoporders'][$name]??['usd'=>0,'zwl'=>0];
+            $R[]=[$name,round($t['usd'],2),0,'',$name,round($y['usd'],2),0]; }
+        $R[]=["Net Paid to Growers",round($cD['net']['usd'],2),round($cD['net']['zwl'],2),'',"Net Paid to Growers",round($cY['net']['usd'],2),round($cY['net']['zwl'],2)];
+        $R[]=["TOTAL",round($cD['total']['usd'],2),round($cD['total']['zwl'],2),'',"TOTAL",round($cY['total']['usd'],2),round($cY['total']['zwl'],2)];
         xlsx_send(strtoupper(preg_replace('/[^A-Za-z0-9]+/','_',$raw_sp))."_Sales_Control_$d.xlsx", ['Sales Control'=>$R]);
     }
     if ($report==='floor_recon' || $report==='daily_floor_recon') {
         $raw_sp=$_SESSION['selling_point_name'] ?? 'Flowork Floor';
-        $hdr=['Date','Bales Laid','Bales Sold','Mass Sold','Gross Value','Net Amount','Floor Comm','W/A','AFF Levy','MOA Levy','Stop Orders','SO Comm','Service Charge','Recon'];
-        $R=[["Floor Reconciliation Report - $raw_sp",'','','','','','','','','','','','',''],
-            ["Sale Point: $raw_sp",'','','','','','','','','','','','',''], $hdr];
+        $hdr=array_merge(['Date'],array_values(EOD_RECON_COLS));
+        $R=[["Floor Reconciliation Report - $raw_sp (US\$; ZiG at the day's rate)"],["Sale Point: $raw_sp"], $hdr];
         $dates = ($report==='daily_floor_recon') ? [$date_f] : eod_distinct_dates($conn,$spid,$date_f);
-        $tot=array_fill(0,13,0.0);
+        $tot=array_fill_keys(array_keys(EOD_RECON_COLS),0.0);
         foreach($dates as $dd){
-            $de=$conn->real_escape_string($dd); $dc="%DATE%='$de'";
-            $s=eod_sales_stats($conn,$spid,$dc); $net=eod_net($conn,$spid,$dc); $lv=eod_levies($conn,$spid,$dc);
-            $fc=eod_levy($lv,'Floor Commission'); $wa=eod_levy($lv,'Weighing');
-            $aff=eod_levy($lv,'Afforestation'); $moa=eod_levy($lv,'MOA'); $svc=eod_levy($lv,'Service Charge');
-            $floorComm=$fc['usd']; $wA=$wa['usd']; $affL=$aff['usd']+$aff['zwl']; $moaL=$moa['usd']+$moa['zwl'];
-            $svcL=$svc['usd']; $so=array_sum(eod_stoporders($conn,$spid,$dc)); $soc=0;
-            $gross=(float)$s['gross'];
-            $recon=$gross-$net-($floorComm+$wA+$affL+$moaL+$so+$soc+$svcL);
-            $vals=[(int)$s['laid'],(int)$s['sold'],(float)$s['mass'],$gross,$net,$floorComm,$wA,$affL,$moaL,$so,$soc,$svcL,$recon];
-            $R[]=array_merge([$dd],$vals);
-            foreach($vals as $i=>$v) $tot[$i]+=$v;
+            $row=eod_recon_row($conn,$spid,"%DATE%='".$conn->real_escape_string($dd)."'");
+            $R[]=array_merge([$dd],array_map(fn($k)=>round($row[$k],2),array_keys(EOD_RECON_COLS)));
+            foreach($tot as $k=>$_) $tot[$k]+=$row[$k];
         }
-        $R[]=array_merge(['TOTALS'],array_map(fn($i)=>$tot[$i], range(0,12)));
+        $R[]=array_merge(['TOTALS'],array_map(fn($v)=>round($v,2),array_values($tot)));
         xlsx_send(strtoupper(preg_replace('/[^A-Za-z0-9]+/','_',$raw_sp)).($report==='daily_floor_recon'?"_Daily_Floor_Recon_":"_Floor_Recon_").date('Y-m-d',strtotime($date_f)).".xlsx", ['Floor Reconciliation'=>$R]);
     }
     if ($report==='revenue_report') {
         $raw_sp=$_SESSION['selling_point_name'] ?? 'Flowork Floor';
         $from = $conn->real_escape_string($_GET['from'] ?? $date_f);
         $to   = $conn->real_escape_string($_GET['to']   ?? $date_f);
-        $hdr=['Date','Bales Laid','Bales Sold','Mass Sold','Gross Value (USD)','Net Cheque','Floor Commission','W/A','Floor Clearing','Grower Svc Charge','Creditor Svc Charge','Total Revenue'];
-        $R=[["$raw_sp - Detailed Revenue (USD)   ".date('d M Y',strtotime($from))." to ".date('d M Y',strtotime($to)),'','','','','','','','','','',''], $hdr];
+        $hdr=array_merge(['Date'],array_values(EOD_REVENUE_COLS));
+        $R=[["$raw_sp - Detailed Revenue (USD)   ".date('d M Y',strtotime($from))." to ".date('d M Y',strtotime($to))], $hdr];
         $dates=array_values(array_filter(eod_distinct_dates($conn,$spid,$to), fn($d)=>$d>=$from));
-        $tot=array_fill(0,11,0.0);
+        $tot=array_fill_keys(array_keys(EOD_REVENUE_COLS),0.0);
         foreach($dates as $dd){
-            $de=$conn->real_escape_string($dd); $dc="%DATE%='$de'";
-            $s=eod_sales_stats($conn,$spid,$dc); $net=eod_net($conn,$spid,$dc); $lv=eod_levies($conn,$spid,$dc);
-            $fc=eod_levy($lv,'Floor Commission')['usd']; $wa=eod_levy($lv,'Weighing')['usd'];
-            $svc=eod_levy($lv,'Service Charge')['usd'];
-            $flrClear=(int)$s['sold']*FLOOR_CLEARING_PER_BALE;
-            $credSvc=$svc*0.6610;   // creditor service-charge portion (approx — confirm rate)
-            $totRev=$fc+$wa+$flrClear+$svc+$credSvc;
-            $vals=[(int)$s['laid'],(int)$s['sold'],(float)$s['mass'],(float)$s['gross'],$net,$fc,$wa,$flrClear,$svc,$credSvc,$totRev];
-            $R[]=array_merge([$dd],$vals);
-            foreach($vals as $i=>$v) $tot[$i]+=$v;
+            $row=eod_revenue_row($conn,$spid,"%DATE%='".$conn->real_escape_string($dd)."'");
+            $R[]=array_merge([$dd],array_map(fn($k)=>round($row[$k],2),array_keys(EOD_REVENUE_COLS)));
+            foreach($tot as $k=>$_) $tot[$k]+=$row[$k];
         }
-        $R[]=array_merge(['TOTALS'],array_map(fn($i)=>$tot[$i], range(0,10)));
+        $R[]=array_merge(['TOTALS'],array_map(fn($v)=>round($v,2),array_values($tot)));
         xlsx_send(strtoupper(preg_replace('/[^A-Za-z0-9]+/','_',$raw_sp))."_Revenue_".date('Ymd',strtotime($from))."_to_".date('Ymd',strtotime($to)).".xlsx", ['USD Revenue'=>$R]);
     }
     if (in_array($report,['purchase_summary_x','origination','invoice_control','grower_sched_usd','grower_sched_zig','bank_summary','grower_sales_sum'],true)) {
@@ -844,22 +973,20 @@ if (isset($_GET['dl']) && $report) {
             xlsx_send($fname,['Invoice Control'=>$R]);
         }
         if ($report==='grower_sched_usd'||$report==='grower_sched_zig'){
-            $zig=$report==='grower_sched_zig';
-            $R=[['Grower #','Name','Bales','Mass','Gross '.($zig?'ZiG':'USD'),'Deductions','Net '.($zig?'ZiG':'USD')]];
-            foreach(grp($soldx,'grower_num') as $gn=>$gb){ $r0=$gb[0]; $gid=(int)$r0['grower_id'];
-                $gross=$zig?sum_col($gb,'zig_value'):sum_col($gb,'usd_value');
-                $dq=$conn->query("SELECT (SELECT COALESCE(SUM(amount_1+amount_2+amount_3),0) FROM stoporders WHERE growerid=$gid AND active=1) + (SELECT COALESCE(SUM(amount),0) FROM internal_stoporders WHERE growerid=$gid AND active=1) t");
-                $ded=($dq&&$dq!==true)?(float)$dq->fetch_assoc()['t']:0; if($zig)$ded*=$zig_rate;
-                $R[]=[$gn,trim($r0['gname'].' '.$r0['surname']),count($gb),(float)sum_col($gb,'mass'),(float)$gross,$ded,(float)$gross-$ded];
+            $zig=$report==='grower_sched_zig'; $c=$zig?'zig':'usd'; $cur=$zig?'ZiG':'USD';
+            $R=[['Grower #','Name','Bales','Mass',"Gross $cur",'Charges','Stop Orders','Company Deductions',"Net $cur"]];
+            foreach(eod_settlement($conn,$spid,"%DATE%='".$conn->real_escape_string($date_f)."'") as $g){
+                $R[]=[$g['grower_num'],trim($g['gname'].' '.$g['surname']),(int)$g['bales'],$g['mass'],round($g["part_$c"],2),
+                      round($g["chg_$c"],2),$zig?0:round($g['so_usd'],2),$zig?0:round($g['iso_usd'],2),round($g["net_$c"],2)];
             }
             xlsx_send($fname,[($zig?'Grower Schedule ZiG':'Grower Schedule USD')=>$R]);
         }
         if ($report==='bank_summary'){
-            $R=[['Grower #','Name','Bank','Branch','Account #','Net USD']];
-            foreach(grp($soldx,'grower_num') as $gn=>$gb){ $r0=$gb[0]; $gid=(int)$r0['grower_id'];
+            $R=[['Grower #','Name','Bank','Branch','Account #','Net USD','Net ZiG']];
+            foreach(eod_settlement($conn,$spid,"%DATE%='".$conn->real_escape_string($date_f)."'") as $g){ $gid=(int)$g['gid'];
                 $bk=$conn->query("SELECT bank_name,branch,account_num FROM grower_banking WHERE growerid=$gid LIMIT 1");
                 $bk=($bk&&$bk!==true&&$bk->num_rows)?$bk->fetch_assoc():[];
-                $R[]=[$gn,trim($r0['gname'].' '.$r0['surname']),$bk['bank_name']??'',$bk['branch']??'',$bk['account_num']??'',(float)sum_col($gb,'usd_value')];
+                $R[]=[$g['grower_num'],trim($g['gname'].' '.$g['surname']),$bk['bank_name']??'',$bk['branch']??'',$bk['account_num']??'',round($g['net_usd'],2),round($g['net_zig'],2)];
             }
             xlsx_send($fname,['Bank Summary'=>$R]);
         }
@@ -878,7 +1005,7 @@ if (isset($_GET['dl']) && $report) {
             $s=eod_sales_stats($conn,$spid,$dc);
             $pq=$conn->query("SELECT MAX(p) hi,MIN(NULLIF(p,0)) lo,AVG(NULLIF(p,0)) avg FROM (SELECT (CASE WHEN CAST(sb.price AS DECIMAL(12,4))>10 THEN CAST(sb.price AS DECIMAL(12,4))/100 ELSE CAST(sb.price AS DECIMAL(12,4)) END) p FROM sold_bales sb JOIN tickets tk ON tk.id=sb.ticketsid JOIN bale_junus bj ON bj.id=tk.bale_junusid JOIN transporter_growers tg ON tg.id=bj.transporter_growersid JOIN growers g ON g.id=bj.growerid WHERE (g.selling_pointid=$spid OR $spid=0) AND COALESCE(tg.sell_date,DATE(tk.created_at))='$de') x");
             $p=($pq&&$pq!==true)?$pq->fetch_assoc():['hi'=>0,'lo'=>0,'avg'=>0];
-            $R[]=[$dd,(int)$s['laid'],(int)$s['laid']-(int)$s['sold'],(int)$s['sold'],(float)$s['mass'],(float)$s['gross'],(float)$p['hi'],(float)$p['lo'],(float)$p['avg'],(float)$zig_rate];
+            $R[]=[$dd,(int)$s['laid'],(int)$s['laid']-(int)$s['sold'],(int)$s['sold'],(float)$s['mass'],(float)$s['gross'],(float)$p['hi'],(float)$p['lo'],(float)$p['avg'],(float)(eod_day_rate($conn,$spid,$dd)['amount']??0)];
         }
         xlsx_send(strtoupper(preg_replace('/[^A-Za-z0-9]+/','_',$raw_sp))."_PURCHASE_SUMMARY_".date('Ymd',strtotime($date_f)).".xlsx",['Purchase Summary'=>$R]);
     }
@@ -923,13 +1050,20 @@ if (isset($_GET['dl']) && $report) {
         $gcid=(int)$_GET['charge']; $de=$conn->real_escape_string($date_f);
         $sp=$spid>0?"(g.selling_pointid=$spid OR g.selling_pointid=0)":"1=1";
         $lq=$conn->query("SELECT s.description levy FROM grower_charges gc LEFT JOIN statutory s ON s.id=gc.statutoryid WHERE gc.id=$gcid LIMIT 1");
-        $levy=($lq&&$lq!==true&&$lq->num_rows)?$lq->fetch_assoc()['levy']:"Charge $gcid";
+        $levy=($lq&&$lq!==true&&$lq->num_rows)?$lq->fetch_assoc()['levy']:null;
+        // Every charge of this levy (MOA is charged in USD and in ZiG as two charges): one advice with both amounts
+        $ids=[$gcid];
+        if($levy!==null){
+            $iq=$conn->query("SELECT gc.id FROM grower_charges gc JOIN statutory s ON s.id=gc.statutoryid WHERE s.description='".$conn->real_escape_string($levy)."'");
+            if($iq&&$iq!==true) $ids=array_map('intval',array_column($iq->fetch_all(MYSQLI_ASSOC),'id')) ?: [$gcid];
+        } else $levy="Charge $gcid";
+        $in=implode(',',$ids);
         $q=$conn->query("SELECT g.grower_num, TRIM(CONCAT(g.name,' ',g.surname)) nm, SUM(bbc.usd_value) usd, SUM(bbc.zim_value) zwl
           FROM balanced_bales_charges bbc
           JOIN balanced_bales bb ON bb.id=bbc.balanced_balesid
           JOIN transporter_growers tg ON tg.id=bb.transporter_growersid
           JOIN growers g ON g.id=bb.growerid
-          WHERE bbc.grower_chargeid=$gcid AND $sp AND COALESCE(tg.sell_date,DATE(bb.created_at))='$de'
+          WHERE bbc.grower_chargeid IN ($in) AND $sp AND COALESCE(tg.sell_date,DATE(bb.created_at))='$de'
           GROUP BY g.id ORDER BY g.grower_num");
         $rows=[]; $tu=0;$tz=0;
         if($q&&$q!==true) while($r=$q->fetch_assoc()){ $rows[]=[$r['grower_num'],$r['nm'],number_format($r['usd'],2),number_format($r['zwl'],2)]; $tu+=(float)$r['usd']; $tz+=(float)$r['zwl']; }
@@ -1030,8 +1164,7 @@ if (isset($_GET['dl']) && $report) {
             $d=$dr['sd']; $de=$conn->real_escape_string($d);
             $dq_qr = $conn->query("SELECT COUNT(*) laid, SUM(CASE WHEN sb.id IS NOT NULL THEN 1 ELSE 0 END) sold, SUM(bm.mass) mass, SUM(CASE WHEN sb.id IS NOT NULL THEN (CASE WHEN CAST(sb.price AS DECIMAL(12,4))>10 THEN CAST(sb.price AS DECIMAL(12,4))/100 ELSE CAST(sb.price AS DECIMAL(12,4)) END)*bm.mass ELSE 0 END) gross, MAX(CASE WHEN CAST(sb.price AS DECIMAL(12,4))>10 THEN CAST(sb.price AS DECIMAL(12,4))/100 ELSE CAST(sb.price AS DECIMAL(12,4)) END) hi, MIN(CASE WHEN CAST(sb.price AS DECIMAL(12,4))>0 THEN (CASE WHEN CAST(sb.price AS DECIMAL(12,4))>10 THEN CAST(sb.price AS DECIMAL(12,4))/100 ELSE CAST(sb.price AS DECIMAL(12,4)) END) END) lo, AVG(CASE WHEN CAST(sb.price AS DECIMAL(12,4))>0 THEN (CASE WHEN CAST(sb.price AS DECIMAL(12,4))>10 THEN CAST(sb.price AS DECIMAL(12,4))/100 ELSE CAST(sb.price AS DECIMAL(12,4)) END) END) avg FROM tickets tk JOIN bale_junus bj ON bj.id=tk.bale_junusid JOIN transporter_growers tg ON tg.id=bj.transporter_growersid JOIN bale_mass bm ON bm.id=bj.bale_massid JOIN growers g ON g.id=bj.growerid LEFT JOIN sold_bales sb ON sb.ticketsid=tk.id WHERE g.selling_pointid=$spid AND COALESCE(tg.sell_date, DATE(tk.created_at))='$de'"); $dq = ($dq_qr && $dq_qr !== true) ? $dq_qr->fetch_assoc() : [];
             // Per-date exchange rate; fall back to latest active
-            $er2_q=$conn->query("SELECT amount FROM exchange_rate WHERE sell_date='$de' AND active=1 ORDER BY id DESC LIMIT 1");
-            $er2=($er2_q&&$er2_q!==true&&$er2_q->num_rows)?($er2_q->fetch_assoc()??['amount'=>0]):null;
+            $er2=eod_day_rate($conn,$spid,$d);
             if(!$er2){$er2_q2=$conn->query("SELECT amount FROM exchange_rate WHERE active=1 ORDER BY id DESC LIMIT 1");$er2=($er2_q2&&$er2_q2!==true)?($er2_q2->fetch_assoc()??['amount'=>0]):['amount'=>0];}
             $laid=(int)$dq['laid']; $sold=(int)$dq['sold']; $rej=$laid-$sold;
             // Cents→USD conversion happens per price inside the SQL — totals are already correct
@@ -1853,7 +1986,7 @@ elseif ($report==='cred_collection'):
     // List grower charges with deductions for this date — each downloadable as its own PDF
     $de_cc=$conn->real_escape_string($date_f);
     $sp_cc=$spid>0?"(g.selling_pointid=$spid OR g.selling_pointid=0)":"1=1";
-    $chg_q=$conn->query("SELECT gc.id gcid, s.description levy, COUNT(*) line_count,
+    $chg_q=$conn->query("SELECT MIN(gc.id) gcid, s.description levy, COUNT(DISTINCT bb.growerid) line_count,
         SUM(bbc.usd_value) usd, SUM(bbc.zim_value) zwl
       FROM balanced_bales_charges bbc
       JOIN grower_charges gc ON gc.id=bbc.grower_chargeid
@@ -1862,7 +1995,7 @@ elseif ($report==='cred_collection'):
       JOIN transporter_growers tg ON tg.id=bb.transporter_growersid
       JOIN growers g ON g.id=bb.growerid
       WHERE $sp_cc AND COALESCE(tg.sell_date,DATE(bb.created_at))='$de_cc'
-      GROUP BY gc.id ORDER BY s.description");
+      GROUP BY COALESCE(s.description, gc.id) ORDER BY s.description");
     $chg=($chg_q&&$chg_q!==true)?$chg_q->fetch_all(MYSQLI_ASSOC):[];
     ?>
     <div class="card" style="margin:1rem 1.15rem"><div class="card-head"><h3>Grower Charges — choose one to download</h3></div>
@@ -1967,21 +2100,6 @@ elseif ($report==='rejected_summary'):
 // REVENUE REPORT — matches Revenue Report.html structure
 // ═══════════════════════════════════════════════════════════════════════════
 elseif ($report==='revenue_report'):
-    $bales=load_bales($conn,$date_f,$spid,$buyer_f,$loc_f);
-    $sold=array_filter($bales,fn($b)=>!$b['is_rej']);
-    $gross=sum_col($sold,'usd_value'); $gross_zig=sum_col($sold,'zig_value');
-    $bales_laid=count($bales); $bales_sold=count($sold);
-    $mass=sum_col($sold,'mass');
-    // Grower service charge = 1.6% of gross (configurable — typical TIMB rate)
-    $svc_charge=round($gross*0.016,2);
-    // Floor clearing = 0.39c per kg
-    $floor_clearing=round($mass*0.0039,2);
-    // Cred service charge
-    $bales_gids=implode(',',array_map('intval',array_unique(array_column($bales,'grower_id'))))?:'0';
-    $ded_q_qr = $conn->query("SELECT COALESCE(SUM((st.amount_1+st.amount_2+st.amount_3)*0.02),0) csc FROM stoporders st JOIN growers g ON g.id=st.growerid WHERE g.id IN ($bales_gids) AND st.active=1"); $ded_q = ($ded_q_qr && $ded_q_qr !== true) ? $ded_q_qr->fetch_assoc() : [];
-    $cred_svc=(float)($ded_q['csc']??0);
-    $total_revenue=$svc_charge+$floor_clearing+$cred_svc;
-    $net_cheque=$gross-$total_revenue;
     rpt_head('Detailed Revenue Summary','US$ & ZiG Revenue');
     $rv_from=$_GET['from'] ?? $date_f; $rv_to=$_GET['to'] ?? $date_f;
     ?><div style="padding:0.6rem 1.15rem;display:flex;justify-content:space-between;align-items:center;gap:1rem;border-bottom:1px solid var(--border);flex-wrap:wrap">
@@ -1995,166 +2113,34 @@ elseif ($report==='revenue_report'):
       </form>
       <a href="?report=revenue_report&dl=1&from=<?=urlencode($rv_from)?>&to=<?=urlencode($rv_to)?>" class="btn btn-primary btn-sm">⬇ Download Revenue (.xlsx)</a>
     </div><?php
-
-    function revenue_table_row($label, $vals, $bold=false) {
-        $s=$bold?'font-weight:500':'';
-        echo "<tr style='border-bottom:1px solid var(--border)'>";
-        echo "<td style='padding:0.45rem 0.9rem;$s'>".htmlspecialchars($label)."</td>";
-        foreach ($vals as $v) {
-            echo "<td style='padding:0.45rem 0.9rem;font-family:monospace;text-align:right;$s'>".htmlspecialchars($v)."</td>";
-        }
-        echo "</tr>";
-    }
-    ?>
-    <!-- USD Revenue -->
-    <div style="padding:0.75rem 1.15rem;border-top:1px solid var(--border)">
-        <h5 style="font-size:0.8rem;font-weight:500;text-transform:uppercase;letter-spacing:0.08em">US$ Revenue</h5>
-    </div>
-    <div class="table-wrap" style="overflow-x:auto">
-    <table class="rpt-table" style="min-width:800px">
-    <thead><tr>
-        <th>Date</th><th class="text-right">Bales Laid</th><th class="text-right">Bales Sold</th>
-        <th class="text-right">Mass Sold</th><th class="text-right">Gross Value</th>
-        <th class="text-right">Net Cheque</th><th class="text-right">Floor Comm</th>
-        <th class="text-right">W/A</th><th class="text-right">Floor Clearing</th>
-        <th class="text-right">Grower Svc</th><th class="text-right">Cred Svc</th>
-        <th class="text-right">Total Revenue</th>
-    </tr></thead>
-    <tbody>
-    <?php revenue_table_row(date('Y-m-d',strtotime($date_f)),
-        [number_format($bales_laid),number_format($bales_sold),number_format($mass),
-         money($gross),money($net_cheque),money(0),money(0),
-         money($floor_clearing),money($svc_charge),money($cred_svc),money($total_revenue)]);
-    ?>
-    </tbody>
-    <tfoot><tr>
-        <td style="padding:0.5rem 0.9rem;font-weight:500">TOTALS</td>
-        <?php foreach ([number_format($bales_laid),number_format($bales_sold),number_format($mass),
-            money($gross),money($net_cheque),'0.00','0.00',
-            money($floor_clearing),money($svc_charge),money($cred_svc),money($total_revenue)] as $v): ?>
-        <td style="padding:0.5rem 0.9rem;font-family:monospace;text-align:right;font-weight:500"><?=htmlspecialchars($v)?></td>
-        <?php endforeach;?>
-    </tr></tfoot>
-    </table></div>
-
-    <?php if($zig_rate>0): $net_zig=$gross_zig-($total_revenue*$zig_rate); ?>
-    <div style="padding:0.75rem 1.15rem;border-top:1px solid var(--border)">
-        <h5 style="font-size:0.8rem;font-weight:500;text-transform:uppercase;letter-spacing:0.08em">ZiG Revenue</h5>
-    </div>
-    <div class="table-wrap"><table class="rpt-table">
-    <thead><tr>
-        <th>Date</th><th class="text-right">Bales Laid</th><th class="text-right">Bales Sold</th>
-        <th class="text-right">Mass Sold</th><th class="text-right">Gross ZiG</th>
-        <th class="text-right">Net Cheque ZiG</th><th class="text-right">Floor Comm</th>
-        <th class="text-right">W/A</th><th class="text-right">Floor Clearing</th>
-        <th class="text-right">Grower Svc</th><th class="text-right">Total Revenue</th>
-    </tr></thead>
-    <tfoot><tr>
-        <td style="padding:0.5rem 0.9rem;font-weight:500">TOTALS</td>
-        <?php foreach ([number_format($bales_laid),number_format($bales_sold),number_format($mass),
-            number_format($gross_zig,2),number_format($net_zig,2),'0.00','0.00',
-            number_format($floor_clearing*$zig_rate,2),number_format($svc_charge*$zig_rate,2),
-            number_format($total_revenue*$zig_rate,2)] as $v): ?>
-        <td style="padding:0.5rem 0.9rem;font-family:monospace;text-align:right;font-weight:500"><?=htmlspecialchars($v)?></td>
-        <?php endforeach;?>
-    </tr></tfoot>
-    </table></div>
-    <?php endif; rpt_foot();
+    $rv_rows=[];
+    foreach(array_filter(eod_distinct_dates($conn,$spid,$rv_to), fn($d)=>$d>=$rv_from) as $dd)
+        $rv_rows[$dd]=eod_revenue_row($conn,$spid,"%DATE%='".$conn->real_escape_string($dd)."'");
+    eod_render_date_table(EOD_REVENUE_COLS, $rv_rows);
+rpt_foot();
 
 // ═══════════════════════════════════════════════════════════════════════════
 // FLOOR RECONCILIATION — matches Floor_recon.html
 // ═══════════════════════════════════════════════════════════════════════════
 elseif ($report==='floor_recon'||$report==='daily_floor_recon'):
-    $dates_q=$conn->query("SELECT DISTINCT COALESCE(tg.sell_date, DATE(tk.created_at)) AS sd FROM tickets tk JOIN bale_junus bj ON bj.id=tk.bale_junusid JOIN transporter_growers tg ON tg.id=bj.transporter_growersid JOIN growers g ON g.id=bj.growerid WHERE g.selling_pointid=$spid ORDER BY sd DESC LIMIT 60");
     rpt_head('Floor Reconciliation','All sell dates — '.date('Y',strtotime($date_f)));
     ?><div style="padding:0.6rem 1.15rem;display:flex;justify-content:flex-end;border-bottom:1px solid var(--border)">
         <a href="?date=<?=urlencode($date_f)?>&report=<?=htmlspecialchars($report)?>&dl=1" class="btn btn-primary btn-sm">⬇ Download Floor Reconciliation (.xlsx)</a>
     </div><?php
-    ?><div class="table-wrap" style="overflow-x:auto">
-    <table class="rpt-table" style="min-width:900px">
-    <thead><tr>
-        <th>Date</th><th class="text-right">Laid</th><th class="text-right">Sold</th>
-        <th class="text-right">Mass Sold</th><th class="text-right">Gross USD</th>
-        <th class="text-right">Net Amount</th><th class="text-right">Floor Comm</th>
-        <th class="text-right">W/A</th><th class="text-right">Aff Levy</th>
-        <th class="text-right">MOA Levy</th><th class="text-right">Stop Orders</th>
-        <th class="text-right">SO Comm</th><th class="text-right">Svc Charge</th>
-        <th class="text-right">Recon</th>
-    </tr></thead><tbody>
-    <?php
-    $gtl=$gts=$gtm=$gtg=$gtn=$gta=$gtm2=$gts2=$gtso=$gtsc=$gtsvc=0;
-    while ($dates_q && $dr=$dates_q->fetch_assoc()):
-        $d=$dr['sd']; $de=$conn->real_escape_string($d);
-        $bq_qr = $conn->query("SELECT COUNT(*) laid, SUM(CASE WHEN sb.id IS NOT NULL THEN 1 ELSE 0 END) sold, SUM(CASE WHEN sb.id IS NOT NULL THEN bm.mass ELSE 0 END) mass, SUM(CASE WHEN sb.id IS NOT NULL THEN (CASE WHEN CAST(sb.price AS DECIMAL(12,4))>10 THEN CAST(sb.price AS DECIMAL(12,4))/100 ELSE CAST(sb.price AS DECIMAL(12,4)) END)*bm.mass ELSE 0 END) gross FROM tickets tk JOIN bale_junus bj ON bj.id=tk.bale_junusid JOIN transporter_growers tg ON tg.id=bj.transporter_growersid JOIN bale_mass bm ON bm.id=bj.bale_massid JOIN growers g ON g.id=bj.growerid LEFT JOIN sold_bales sb ON sb.ticketsid=tk.id WHERE g.selling_pointid=$spid AND COALESCE(tg.sell_date, DATE(tk.created_at))='$de'"); $bq = ($bq_qr && $bq_qr !== true) ? $bq_qr->fetch_assoc() : [];
-        $laid=(int)$bq['laid'];$sold=(int)$bq['sold'];$mass=(float)$bq['mass'];
-        $gross=(float)$bq['gross'];
-        $gids2_qr = $conn->query("SELECT DISTINCT g.id FROM tickets tk JOIN bale_junus bj ON bj.id=tk.bale_junusid JOIN transporter_growers tg ON tg.id=bj.transporter_growersid JOIN growers g ON g.id=bj.growerid WHERE g.selling_pointid=$spid AND COALESCE(tg.sell_date, DATE(tk.created_at))='$de'"); $gids2 = ($gids2_qr && $gids2_qr !== true) ? $gids2_qr->fetch_all(MYSQLI_ASSOC) : [];
-        $gidstr=implode(',',array_column($gids2,'id'))?:'0';
-        $so_q=$conn->query("SELECT COALESCE(SUM(amount_1+amount_2+amount_3),0) t FROM stoporders WHERE growerid IN ($gidstr) AND active=1");$so_total=$so_q&&$so_q!==true?(float)($so_q->fetch_assoc()['t']??0):0;
-        $so_comm=round($so_total*0.00667,2);
-        $svc=round($gross*0.016,2);
-        $aff=round($mass*0.0165,2); // typical aff levy
-        $moa=round($mass*0.028,2);  // typical moa levy
-        $net=$gross-$aff-$moa-$so_total-$so_comm-$svc;
-        $recon=$gross-($aff+$moa+$so_total+$so_comm+$svc+$net);
-        $gtl+=$laid;$gts+=$sold;$gtm+=$mass;$gtg+=$gross;$gtn+=$net;
-        $gta+=$aff;$gtm2+=$moa;$gtso+=$so_total;$gtsc+=$so_comm;$gtsvc+=$svc;
-        $is_cur=($d===$date_f);
-    ?>
-    <tr style="<?=$is_cur?'background:var(--gold-bg);font-weight:500':''?>">
-        <td style="font-size:0.78rem"><?=date('Y-m-d',strtotime($d))?></td>
-        <td class="td-mono text-right"><?=$laid?></td>
-        <td class="td-mono text-right"><?=$sold?></td>
-        <td class="td-mono text-right"><?=number_format($mass)?></td>
-        <td class="td-mono text-right"><?=money($gross)?></td>
-        <td class="td-mono text-right fw-500"><?=money($net)?></td>
-        <td class="td-mono text-right">0.00</td>
-        <td class="td-mono text-right">0.00</td>
-        <td class="td-mono text-right"><?=money($aff)?></td>
-        <td class="td-mono text-right"><?=money($moa)?></td>
-        <td class="td-mono text-right"><?=money($so_total)?></td>
-        <td class="td-mono text-right"><?=money($so_comm)?></td>
-        <td class="td-mono text-right"><?=money($svc)?></td>
-        <td class="td-mono text-right <?=abs($recon)<0.01?'recon-ok':($recon>0?'recon-warn':'recon-zero')?>"><?=money(abs($recon))?></td>
-    </tr>
-    <?php endwhile;?>
-    </tbody><tfoot><tr>
-        <td>TOTALS</td>
-        <td class="td-mono text-right"><?=number_format($gtl)?></td>
-        <td class="td-mono text-right"><?=number_format($gts)?></td>
-        <td class="td-mono text-right"><?=number_format($gtm)?></td>
-        <td class="td-mono text-right"><?=money($gtg)?></td>
-        <td class="td-mono text-right"><?=money($gtn)?></td>
-        <td class="td-mono text-right">0.00</td>
-        <td class="td-mono text-right">0.00</td>
-        <td class="td-mono text-right"><?=money($gta)?></td>
-        <td class="td-mono text-right"><?=money($gtm2)?></td>
-        <td class="td-mono text-right"><?=money($gtso)?></td>
-        <td class="td-mono text-right"><?=money($gtsc)?></td>
-        <td class="td-mono text-right"><?=money($gtsvc)?></td>
-        <td></td>
-    </tr></tfoot>
-    </table></div>
-    <?php rpt_foot();
+    $fr_rows=[];
+    foreach(($report==='daily_floor_recon') ? [$date_f] : eod_distinct_dates($conn,$spid,$date_f) as $dd)
+        $fr_rows[$dd]=eod_recon_row($conn,$spid,"%DATE%='".$conn->real_escape_string($dd)."'");
+    echo '<div style="padding:.5rem 1.15rem;font-size:.75rem;color:var(--muted)">All figures in US$; ZiG amounts converted at the rate balancing used. Recon is 0.00 when gross = net + charges + stop orders + company deductions.</div>';
+    eod_render_date_table(EOD_RECON_COLS, $fr_rows);
+rpt_foot();
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SALES CONTROL — matches Sales_Control.html
 // ═══════════════════════════════════════════════════════════════════════════
 elseif ($report==='sales_control'):
-    $bales=load_bales($conn,$date_f,$spid,$buyer_f,$loc_f);
-    $sold=array_filter($bales,fn($b)=>!$b['is_rej']);
-    $gross=sum_col($sold,'usd_value');$mass=sum_col($sold,'mass');
-    $gids=implode(',',array_map('intval',array_unique(array_column($bales,'grower_id'))))?:'0';
-    // Get all deductions
-    $ded_q=$conn->query("SELECT st.creditor_no AS cred_no, COALESCE(tcs.creditor_name,'Unknown') AS cred_name, SUM(st.amount_1+st.amount_2+st.amount_3) total FROM stoporders st JOIN growers g ON g.id=st.growerid LEFT JOIN grower_creditors tcs ON tcs.creditor_no=st.creditor_no WHERE g.id IN ($gids) AND st.active=1 GROUP BY st.creditor_no ORDER BY total DESC");
-    $deductions=[];$total_ded=0;
-    while($ded_q && $r=$ded_q->fetch_assoc()){$deductions[]=$r;$total_ded+=$r['total'];}
-    $iso_q=$conn->query("SELECT COALESCE(charge_type,'other') AS t, SUM(amount) total FROM internal_stoporders WHERE growerid IN ($gids) AND sell_date='$date_f' AND active=1 GROUP BY charge_type");
-    while($iso_q && $r=$iso_q->fetch_assoc()){$deductions[]=['cred_name'=>'Internal: '.$r['t'],'total'=>$r['total']];$total_ded+=$r['total'];}
-    // Levies
-    $aff=round($mass*0.0165,2);$moa=round($mass*0.028,2);$svc=round($gross*0.016,2);
-    $total_all_ded=$total_ded+$aff+$moa+$svc;
-    $net_paid=$gross-$total_all_ded;
+    // Floor-wide, from what balancing deducted (charges are per grower, not per buyer or location)
+    $sc=eod_sales_control($conn,$spid,"%DATE%='".$conn->real_escape_string($date_f)."'");
+    $st=$sc['stats'];
     rpt_head('Sales Control','Gross to net reconciliation — '.date('d/m/Y',strtotime($date_f)));
     ?><div style="padding:0.6rem 1.15rem;display:flex;justify-content:flex-end;border-bottom:1px solid var(--border)">
         <a href="?date=<?=urlencode($date_f)?>&report=sales_control&dl=1" class="btn btn-primary btn-sm">⬇ Download Sales Control (.xlsx)</a>
@@ -2166,10 +2152,12 @@ elseif ($report==='sales_control'):
     <table style="width:100%;font-size:0.8rem;border-collapse:collapse">
     <tr><td style="padding:4px 0;color:var(--muted)">Sale Date</td><td style="text-align:right;font-weight:500;font-family:monospace"><?=date('Y-m-d',strtotime($date_f))?></td></tr>
     <tr><td style="padding:4px 0;color:var(--muted)">Exchange Rate</td><td style="text-align:right;font-family:monospace"><?=$zig_rate?></td></tr>
-    <tr><td style="padding:4px 0;color:var(--muted)">Total Bales Laid</td><td style="text-align:right;font-family:monospace"><?=count($bales)?></td></tr>
-    <tr><td style="padding:4px 0;color:var(--muted)">Total Bales Sold</td><td style="text-align:right;font-family:monospace fw-500"><?=count($sold)?></td></tr>
-    <tr><td style="padding:4px 0;color:var(--muted)">Gross Value</td><td style="text-align:right;font-weight:500;font-family:monospace"><?=m($gross)?></td></tr>
-    <tr><td style="padding:4px 0;color:var(--muted)">Total Sold Mass</td><td style="text-align:right;font-family:monospace"><?=number_format($mass)?></td></tr>
+    <tr><td style="padding:4px 0;color:var(--muted)">Total Bales Laid</td><td style="text-align:right;font-family:monospace"><?=(int)$st['laid']?></td></tr>
+    <tr><td style="padding:4px 0;color:var(--muted)">Total Bales Sold</td><td style="text-align:right;font-family:monospace fw-500"><?=(int)$st['sold']?></td></tr>
+    <tr><td style="padding:4px 0;color:var(--muted)">Gross Value</td><td style="text-align:right;font-weight:500;font-family:monospace"><?=m($st['gross'])?></td></tr>
+    <tr><td style="padding:4px 0;color:var(--muted)">Total Sold Mass</td><td style="text-align:right;font-family:monospace"><?=number_format($st['mass'])?></td></tr>
+    <tr><td style="padding:4px 0;color:var(--muted)">Paid in USD</td><td style="text-align:right;font-family:monospace"><?=m($sc['total']['usd'])?></td></tr>
+    <tr><td style="padding:4px 0;color:var(--muted)">Paid in ZiG</td><td style="text-align:right;font-family:monospace">ZiG <?=money($sc['total']['zwl'])?></td></tr>
     </table>
     </div>
     <!-- Right: deductions -->
@@ -2181,30 +2169,33 @@ elseif ($report==='sales_control'):
         <td style="text-align:right;padding:4px 0;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted)">ZiG</td>
     </tr>
     <tr><td colspan="3" style="padding:6px 0 2px;font-size:0.68rem;color:var(--muted);text-transform:uppercase">Statutory Deductions</td><td colspan="2"></td></tr>
-    <?php foreach ([['Floor Commission',0],['Weighing and Auction',0],['MOA Levy',$moa],['Afforestation Levy',$aff],['Service Charge Growers',$svc]] as [$n,$v]):?>
+    <?php foreach ($sc['levies'] as $n=>$v):?>
     <tr style="border-bottom:1px solid rgba(26,18,8,0.04)">
-        <td colspan="3" style="padding:3px 0"><?=$n?></td>
-        <td style="text-align:right;font-family:monospace"><?=money($v)?></td>
-        <td style="text-align:right;font-family:monospace;color:var(--muted)"><?=$zig_rate>0?number_format($v*$zig_rate,2):'—'?></td>
+        <td colspan="3" style="padding:3px 0"><?=htmlspecialchars($n)?></td>
+        <td style="text-align:right;font-family:monospace"><?=money($v['usd'])?></td>
+        <td style="text-align:right;font-family:monospace"><?=money($v['zwl'])?></td>
     </tr>
     <?php endforeach;?>
     <tr><td colspan="3" style="padding:6px 0 2px;font-size:0.68rem;color:var(--muted);text-transform:uppercase">Stop Order & Invoice Deductions</td><td colspan="2"></td></tr>
-    <?php foreach ($deductions as $d):?>
+    <?php if(!$sc['stoporders']):?>
+    <tr><td colspan="3" style="padding:3px 0;color:var(--muted)">None deducted</td><td style="text-align:right;font-family:monospace">0.00</td><td style="text-align:right;font-family:monospace">0.00</td></tr>
+    <?php endif;?>
+    <?php foreach ($sc['stoporders'] as $n=>$v):?>
     <tr style="border-bottom:1px solid rgba(26,18,8,0.04)">
-        <td colspan="3" style="padding:3px 0"><?=htmlspecialchars(substr($d['cred_name'],0,40))?></td>
-        <td style="text-align:right;font-family:monospace"><?=money($d['total'])?></td>
-        <td style="text-align:right;font-family:monospace;color:var(--muted)"><?=$zig_rate>0?number_format($d['total']*$zig_rate,2):'—'?></td>
+        <td colspan="3" style="padding:3px 0"><?=htmlspecialchars(substr($n,0,40))?></td>
+        <td style="text-align:right;font-family:monospace"><?=money($v['usd'])?></td>
+        <td style="text-align:right;font-family:monospace"><?=money($v['zwl'])?></td>
     </tr>
     <?php endforeach;?>
     <tr style="border-top:2px solid var(--border);font-weight:500">
         <td colspan="3" style="padding:5px 0">Net Paid to Growers</td>
-        <td style="text-align:right;font-family:monospace"><?=money($net_paid)?></td>
-        <td style="text-align:right;font-family:monospace"><?=$zig_rate>0?number_format($net_paid*$zig_rate,2):'—'?></td>
+        <td style="text-align:right;font-family:monospace"><?=money($sc['net']['usd'])?></td>
+        <td style="text-align:right;font-family:monospace"><?=money($sc['net']['zwl'])?></td>
     </tr>
     <tr style="border-top:1px solid var(--border);font-weight:500;background:var(--cream)">
         <td colspan="3" style="padding:5px 0">TOTAL</td>
-        <td style="text-align:right;font-family:monospace"><?=money($gross)?></td>
-        <td style="text-align:right;font-family:monospace"><?=$zig_rate>0?number_format($gross*$zig_rate,2):'—'?></td>
+        <td style="text-align:right;font-family:monospace"><?=money($sc['total']['usd'])?></td>
+        <td style="text-align:right;font-family:monospace"><?=money($sc['total']['zwl'])?></td>
     </tr>
     </table>
     </div>
@@ -2217,56 +2208,37 @@ elseif ($report==='sales_control'):
 elseif ($report==='invoice_control'):
     // Per selling point / buyer: bales, USD value, deductions, service charge, paid, obligations
     $buyers_q=$conn->query("SELECT id,name,buyer_code FROM buyer WHERE selling_pointid=$spid ORDER BY name");
-    rpt_head('Invoice Control','Buyer obligations — USD & ZiG');
+    rpt_head('Invoice Control','What each buyer bought — USD & ZiG at the day\'s rate');
     ?><div style="padding:0.6rem 1.15rem;display:flex;justify-content:flex-end;border-bottom:1px solid var(--border)">
         <a href="?date=<?=urlencode($date_f)?>&report=invoice_control&dl=1" class="btn btn-primary btn-sm">⬇ Download Invoice Control (.xlsx)</a>
     </div><?php
     ?><div class="table-wrap" style="overflow-x:auto">
-    <table class="rpt-table" style="min-width:1200px">
+    <table class="rpt-table">
     <thead><tr>
-        <th>Code</th><th>Name</th><th class="text-right">Paid Bales</th>
-        <th class="text-right">US Value</th><th class="text-right">US Deductions</th>
-        <th class="text-right">US Svc Charge</th><th class="text-right">US Paid</th>
-        <th class="text-right">US Obligations</th>
-        <th class="text-right">ZW Value</th><th class="text-right">ZW Paid</th>
-        <th class="text-right">ZW Deductions</th><th class="text-right">ZW Svc Charge</th>
-        <th class="text-right">Aff Levy</th><th class="text-right">MOA Levy</th>
-        <th class="text-right">ZW Obligations</th>
+        <th>Code</th><th>Name</th><th class="text-right">Bales Bought</th><th class="text-right">Mass kg</th>
+        <th class="text-right">US Value</th><th class="text-right">ZiG Value</th>
     </tr></thead><tbody>
-    <?php while ($buyers_q && $byr=$buyers_q->fetch_assoc()):
+    <?php $tb=$tm=$tu=$tz=0;
+    while ($buyers_q && $byr=$buyers_q->fetch_assoc()):
         if ($buyer_f !== '' && $byr['name'] !== $buyer_f) continue;
-        $bid=(int)$byr['id'];
-        $bb=load_bales($conn,$date_f,$spid,$bid,0);
-        $sold_b=array_filter($bb,fn($b)=>!$b['is_rej']);
+        $sold_b=array_filter(load_bales($conn,$date_f,$spid,(int)$byr['id'],0),fn($b)=>!$b['is_rej'] && !empty($b['buyer_id']));
+        if(!count($sold_b)) continue;
         $usd=sum_col($sold_b,'usd_value'); $zig=sum_col($sold_b,'zig_value'); $mass=sum_col($sold_b,'mass');
-        $svc=round($usd*0.016,2); $aff=round($mass*0.0165,2); $moa=round($mass*0.028,2);
-        $gids3=implode(',',array_map('intval',array_unique(array_column($bb,'grower_id'))))?:'0';
-        $so_t_q=$conn->query("SELECT COALESCE(SUM(amount_1+amount_2+amount_3),0) t FROM stoporders WHERE growerid IN ($gids3) AND active=1");$so_t=$so_t_q&&$so_t_q!==true?(float)($so_t_q->fetch_assoc()['t']??0):0;
-        $us_ded=$so_t+$svc; $zw_ded=$so_t*$zig_rate; $zw_svc=$svc*$zig_rate;
-        $ps_q_qr = $conn->query("SELECT COALESCE(SUM(CASE WHEN ps.currency='usd' AND ps.status='paid' THEN ps.net_amount END),0) us_p, COALESCE(SUM(CASE WHEN ps.currency='zig' AND ps.status='paid' THEN ps.net_amount END),0) zw_p FROM payment_status ps JOIN transporter_growers tg ON tg.id=ps.transporter_growersid JOIN growers g ON g.id=tg.growerid WHERE g.selling_pointid=$spid AND ps.sell_date='$date_f'"); $ps_q = ($ps_q_qr && $ps_q_qr !== true) ? $ps_q_qr->fetch_assoc() : [];
-        $us_paid=(float)($ps_q['us_p']??0);$zw_paid=(float)($ps_q['zw_p']??0);
-        $us_obl=$us_ded+$us_paid; $zw_obl=$aff+$moa+$zw_ded+$zw_svc+$zw_paid;
-        if(!count($sold_b))continue;
+        $tb+=count($sold_b); $tm+=$mass; $tu+=$usd; $tz+=$zig;
     ?>
     <tr>
         <td class="fw-500"><?=htmlspecialchars($byr['buyer_code']??'')?></td>
         <td style="font-size:0.82rem"><?=htmlspecialchars($byr['name'])?></td>
-        <td class="td-mono text-right"><?=number_format(count($sold_b),2)?></td>
-        <td class="td-mono text-right"><?=money($usd)?></td>
-        <td class="td-mono text-right"><?=money($us_ded)?></td>
-        <td class="td-mono text-right"><?=money($svc)?></td>
-        <td class="td-mono text-right"><?=money($us_paid)?></td>
-        <td class="td-mono text-right fw-500"><?=money($us_obl)?></td>
-        <td class="td-mono text-right"><?=$zig_rate>0?number_format($zig,2):'—'?></td>
-        <td class="td-mono text-right"><?=$zig_rate>0?number_format($zw_paid,2):'—'?></td>
-        <td class="td-mono text-right"><?=$zig_rate>0?number_format($zw_ded,2):'—'?></td>
-        <td class="td-mono text-right"><?=$zig_rate>0?number_format($zw_svc,2):'—'?></td>
-        <td class="td-mono text-right"><?=$zig_rate>0?number_format($aff,2):'—'?></td>
-        <td class="td-mono text-right"><?=$zig_rate>0?number_format($moa,2):'—'?></td>
-        <td class="td-mono text-right fw-500"><?=$zig_rate>0?number_format($zw_obl,2):'—'?></td>
+        <td class="td-mono text-right"><?=count($sold_b)?></td>
+        <td class="td-mono text-right"><?=number_format($mass,1)?></td>
+        <td class="td-mono text-right fw-500"><?=money($usd)?></td>
+        <td class="td-mono text-right"><?=money($zig)?></td>
     </tr>
     <?php endwhile;?>
-    </tbody></table></div>
+    </tbody><tfoot><tr>
+        <td colspan="2">TOTAL</td><td class="td-mono text-right"><?=$tb?></td><td class="td-mono text-right"><?=number_format($tm,1)?></td>
+        <td class="td-mono text-right"><?=money($tu)?></td><td class="td-mono text-right"><?=money($tz)?></td>
+    </tr></tfoot></table></div>
     <?php rpt_foot();
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2298,8 +2270,7 @@ elseif ($report==='purchase_summary'):
         $d=$dr['sd'];$de=$conn->real_escape_string($d);
         $dq_qr = $conn->query("SELECT COUNT(*) laid, SUM(CASE WHEN sb.id IS NOT NULL THEN 1 ELSE 0 END) sold, SUM(bm.mass) mass, SUM(CASE WHEN sb.id IS NOT NULL THEN (CASE WHEN CAST(sb.price AS DECIMAL(12,4))>10 THEN CAST(sb.price AS DECIMAL(12,4))/100 ELSE CAST(sb.price AS DECIMAL(12,4)) END)*bm.mass ELSE 0 END) gross, MAX(CASE WHEN CAST(sb.price AS DECIMAL(12,4))>10 THEN CAST(sb.price AS DECIMAL(12,4))/100 ELSE CAST(sb.price AS DECIMAL(12,4)) END) hi, MIN(CASE WHEN CAST(sb.price AS DECIMAL(12,4))>0 THEN (CASE WHEN CAST(sb.price AS DECIMAL(12,4))>10 THEN CAST(sb.price AS DECIMAL(12,4))/100 ELSE CAST(sb.price AS DECIMAL(12,4)) END) END) lo, AVG(CASE WHEN CAST(sb.price AS DECIMAL(12,4))>0 THEN (CASE WHEN CAST(sb.price AS DECIMAL(12,4))>10 THEN CAST(sb.price AS DECIMAL(12,4))/100 ELSE CAST(sb.price AS DECIMAL(12,4)) END) END) avg FROM tickets tk JOIN bale_junus bj ON bj.id=tk.bale_junusid JOIN transporter_growers tg ON tg.id=bj.transporter_growersid JOIN bale_mass bm ON bm.id=bj.bale_massid JOIN growers g ON g.id=bj.growerid LEFT JOIN sold_bales sb ON sb.ticketsid=tk.id WHERE g.selling_pointid=$spid AND COALESCE(tg.sell_date, DATE(tk.created_at))='$de'"); $dq = ($dq_qr && $dq_qr !== true) ? $dq_qr->fetch_assoc() : [];
         // Per-date exchange rate; fall back to latest active if not set for this date
-        $er2_q=$conn->query("SELECT amount FROM exchange_rate WHERE sell_date='$de' AND active=1 ORDER BY id DESC LIMIT 1");
-        $er2=($er2_q&&$er2_q!==true&&$er2_q->num_rows)?($er2_q->fetch_assoc()??['amount'=>0]):null;
+        $er2=eod_day_rate($conn,$spid,$d);
         if(!$er2){$er2_q2=$conn->query("SELECT amount FROM exchange_rate WHERE active=1 ORDER BY id DESC LIMIT 1");$er2=($er2_q2&&$er2_q2!==true)?($er2_q2->fetch_assoc()??['amount'=>0]):['amount'=>0];}
         $laid=(int)$dq['laid'];$sold=(int)$dq['sold'];$rej=$laid-$sold;
         // Cents→USD conversion happens per price inside the SQL — totals are already correct
@@ -2401,10 +2372,9 @@ elseif ($report==='origination'):
 // ═══════════════════════════════════════════════════════════════════════════
 elseif ($report==='grower_sched_usd'||$report==='grower_sched_zig'):
     $is_zig=$report==='grower_sched_zig';$cur=$is_zig?'ZiG':'USD';
-    $bales=load_bales($conn,$date_f,$spid,0,$loc_f);  // grower report — buyer filter not applied
-    $sold=array_filter($bales,fn($b)=>!$b['is_rej']);
-    $by_g=grp($sold,'grower_num');
-    rpt_head("Grower Payment Schedule — $cur",'Gross proceeds less deductions per grower');
+    $c=$is_zig?'zig':'usd';
+    $set=eod_settlement($conn,$spid,"%DATE%='".$conn->real_escape_string($date_f)."'");  // floor-wide, as balanced
+    rpt_head("Grower Payment Schedule — $cur","Part of each grower's sale paid in $cur, less charges and stop orders, as balanced");
     ?><div style="padding:0.6rem 1.15rem;display:flex;justify-content:flex-end;border-bottom:1px solid var(--border)">
         <a href="?date=<?=urlencode($date_f)?>&report=<?=htmlspecialchars($report)?>&dl=1" class="btn btn-primary btn-sm">⬇ Download Schedule (.xlsx)</a>
     </div><?php
@@ -2416,20 +2386,17 @@ elseif ($report==='grower_sched_usd'||$report==='grower_sched_zig'):
         <th class="text-right">Deductions</th><th class="text-right">Net <?=$cur?></th>
     </tr></thead><tbody>
     <?php $tg=$tm=$tgr=$td=$tn=0;
-    foreach ($by_g as $gn=>$gb):
-        $gid=(int)$gb[0]['grower_id'];
-        $mass=sum_col($gb,'mass');$usd=sum_col($gb,'usd_value');
-        $ded_q=$conn->query("SELECT (SELECT COALESCE(SUM(amount_1+amount_2+amount_3),0) FROM stoporders WHERE growerid=$gid AND active=1) + (SELECT COALESCE(SUM(amount),0) FROM internal_stoporders WHERE growerid=$gid AND sell_date='$date_f' AND active=1) AS t");$ded=$ded_q&&$ded_q!==true?(float)($ded_q->fetch_assoc()['t']??0):0;
-        $gross=$is_zig?$usd*$zig_rate:$usd;$ded_c=$is_zig?$ded*$zig_rate:$ded;
-        $net=max(0,$gross-$ded_c);
+    foreach ($set as $g):
+        $gid=(int)$g['gid']; $gn=$g['grower_num']; $mass=$g['mass'];
+        $gross=$g["part_$c"]; $ded_c=$g["chg_$c"]+($is_zig?0:$g['so_usd']+$g['iso_usd']); $net=$g["net_$c"];
         $bk_qr = $conn->query("SELECT bank_name,account_num FROM grower_banking WHERE growerid=$gid LIMIT 1"); $bk = ($bk_qr && $bk_qr !== true) ? $bk_qr->fetch_assoc() : [];
-        $tg+=count($gb);$tm+=$mass;$tgr+=$gross;$td+=$ded_c;$tn+=$net;
+        $tg+=(int)$g['bales'];$tm+=$mass;$tgr+=$gross;$td+=$ded_c;$tn+=$net;
     ?>
     <tr>
         <td><span class="badge badge-gold" style="font-size:0.62rem"><?=htmlspecialchars($gn)?></span></td>
-        <td style="font-size:0.8rem"><?=htmlspecialchars($gb[0]['gname'].' '.$gb[0]['surname'])?></td>
+        <td style="font-size:0.8rem"><?=htmlspecialchars($g['gname'].' '.$g['surname'])?></td>
         <td style="font-size:0.72rem;color:var(--muted)"><?=$bk?htmlspecialchars($bk['bank_name'].' · '.$bk['account_num']):'<span style="color:var(--danger)">No bank details</span>'?></td>
-        <td class="td-mono text-right"><?=count($gb)?></td>
+        <td class="td-mono text-right"><?=(int)$g['bales']?></td>
         <td class="td-mono text-right"><?=money($mass,1)?></td>
         <td class="td-mono text-right fw-500"><?=$is_zig?number_format($gross,2):m($gross)?></td>
         <td class="td-mono text-right text-danger"><?=$ded_c>0?($is_zig?number_format($ded_c,2):m($ded_c)):'—'?></td>
@@ -2450,9 +2417,7 @@ elseif ($report==='grower_sched_usd'||$report==='grower_sched_zig'):
 // BANK SUMMARY
 // ═══════════════════════════════════════════════════════════════════════════
 elseif ($report==='bank_summary'):
-    $bales=load_bales($conn,$date_f,$spid,0,$loc_f);  // grower report — buyer filter not applied
-    $sold=array_filter($bales,fn($b)=>!$b['is_rej']);
-    $by_g=grp($sold,'grower_num');
+    $set=eod_settlement($conn,$spid,"%DATE%='".$conn->real_escape_string($date_f)."'");  // net payable as balanced
     rpt_head('Bank Summary — USD / ZiG','Net payment amounts with bank details');
     ?><div style="padding:0.6rem 1.15rem;display:flex;justify-content:flex-end;border-bottom:1px solid var(--border)">
         <a href="?date=<?=urlencode($date_f)?>&report=bank_summary&dl=1" class="btn btn-primary btn-sm">⬇ Download Bank Summary (.xlsx)</a>
@@ -2464,29 +2429,27 @@ elseif ($report==='bank_summary'):
         <th class="text-right">Net USD</th><th class="text-right">Net ZiG</th>
     </tr></thead><tbody>
     <?php $tu=$tz=0;
-    foreach ($by_g as $gn=>$gb):
-        $gid=(int)$gb[0]['grower_id'];
-        $usd=sum_col($gb,'usd_value');
-        $ded_q=$conn->query("SELECT (SELECT COALESCE(SUM(amount_1+amount_2+amount_3),0) FROM stoporders WHERE growerid=$gid AND active=1) + (SELECT COALESCE(SUM(amount),0) FROM internal_stoporders WHERE growerid=$gid AND sell_date='$date_f' AND active=1) AS t");$ded=$ded_q&&$ded_q!==true?(float)($ded_q->fetch_assoc()['t']??0):0;
-        $net=max(0,$usd-$ded);$net_zig=$zig_rate>0?$net*$zig_rate:0;
+    foreach ($set as $g):
+        $gid=(int)$g['gid']; $gn=$g['grower_num'];
+        $net=$g['net_usd']; $net_zig=$g['net_zig'];
         $bk_qr = $conn->query("SELECT * FROM grower_banking WHERE growerid=$gid LIMIT 1"); $bk = ($bk_qr && $bk_qr !== true) ? $bk_qr->fetch_assoc() : [];
         $tu+=$net;$tz+=$net_zig;
     ?>
     <tr <?=$bk?'':' style="background:#fff8ee"'?>>
         <td><span class="badge badge-gold" style="font-size:0.62rem"><?=htmlspecialchars($gn)?></span></td>
-        <td style="font-size:0.8rem"><?=htmlspecialchars($gb[0]['gname'].' '.$gb[0]['surname'])?></td>
+        <td style="font-size:0.8rem"><?=htmlspecialchars($g['gname'].' '.$g['surname'])?></td>
         <td style="font-size:0.75rem"><?=$bk?htmlspecialchars($bk['bank_name']):'<span style="color:var(--danger);font-size:0.7rem">⚠ Missing</span>'?></td>
         <td style="font-size:0.72rem;color:var(--muted)"><?=$bk?htmlspecialchars($bk['branch']):'—'?></td>
         <td class="td-mono" style="font-size:0.72rem"><?=$bk?htmlspecialchars($bk['account_num']):'—'?></td>
         <td style="font-size:0.72rem"><?=$bk?htmlspecialchars($bk['account_name']):'—'?></td>
         <td class="td-mono text-right fw-500"><?=m($net)?></td>
-        <td class="td-mono text-right"><?=$zig_rate>0?number_format($net_zig,2):'—'?></td>
+        <td class="td-mono text-right"><?=number_format($net_zig,2)?></td>
     </tr>
     <?php endforeach;?>
     </tbody><tfoot><tr>
         <td colspan="6">TOTAL</td>
         <td class="td-mono text-right"><?=m($tu)?></td>
-        <td class="td-mono text-right"><?=$zig_rate>0?number_format($tz,2):'—'?></td>
+        <td class="td-mono text-right"><?=number_format($tz,2)?></td>
     </tr></tfoot></table></div>
     <?php rpt_foot();
 
@@ -2585,7 +2548,7 @@ elseif ($report==='extract_bank'):
     $bales=load_bales($conn,$date_f,$spid,0,$loc_f);  // full extract — buyer filter not applied
     $gids=array_unique(array_column($bales,'grower_id'));
     $dl_url="?date=".urlencode($date_f)."&report=extract_bank&dl=1".($buyer_f?"&buyer=$buyer_f":"").($loc_f?"&loc=$loc_f":"");
-    $has_bank=(int)$conn->query("SELECT COUNT(*) c FROM grower_banking WHERE growerid IN (".implode(',',array_map('intval',$gids)?:'0').")")->fetch_assoc()['c'];
+    $has_bank=(int)$conn->query("SELECT COUNT(*) c FROM grower_banking WHERE growerid IN (".(implode(',',array_map('intval',$gids))?:'0').")")->fetch_assoc()['c'];
     rpt_head('Extract Bank Grower Details','CSV for payment processing');
     ?><div style="padding:1.25rem">
     <p style="font-size:0.82rem;color:var(--muted);margin-bottom:1rem">
