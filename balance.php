@@ -374,6 +374,7 @@ function do_reverse($conn, $where_sql, $spid = 0, $userid = 0, &$skipped = []) {
         if ($paid && $paid !== true && $paid->num_rows > 0) { $skipped[] = $bid; continue; }
         $conn->begin_transaction();
         $conn->query("DELETE FROM internal_stop_order_deducted_amounts WHERE balanced_balesid=$bid");
+        $conn->query("DELETE FROM internal_stoporder_deductions WHERE balanced_balesid=$bid");
         $conn->query("DELETE FROM daily_totals_net_amount WHERE balanced_balesid=$bid");
         $conn->query("DELETE FROM balanced_bales_charges WHERE balanced_balesid=$bid");
         $conn->query("DELETE FROM daily_totals_split_amounts WHERE balanced_balesid=$bid");

@@ -13,6 +13,16 @@ if (!function_exists('flowork_delivery_rules')) {
         $conn->query("ALTER TABLE balanced_bales
             ADD COLUMN IF NOT EXISTS rule_so_mode VARCHAR(10) NULL DEFAULT NULL,
             ADD COLUMN IF NOT EXISTS rule_rbz_usd DECIMAL(6,4) NULL DEFAULT NULL");
+        // Which balancing took each company deduction (internal_stoporders): one row per
+        // deduction, so it is taken once, not again by every split or later sale day.
+        $conn->query("CREATE TABLE IF NOT EXISTS internal_stoporder_deductions (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            internal_stoporderid INT NOT NULL,
+            balanced_balesid INT NOT NULL,
+            amount_deducted DECIMAL(12,4) NOT NULL DEFAULT 0,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_iso (internal_stoporderid),
+            KEY idx_bb (balanced_balesid))");
         $done = true;
     }
 
@@ -178,6 +188,7 @@ if (!function_exists('flowork_recalculate_balance_batch')) {
         $conn->query("DELETE FROM stoporder_deductions WHERE balanced_balesid=$bbid");
 
         // Clean previous split values, daily totals, and charges
+        $conn->query("DELETE FROM internal_stoporder_deductions WHERE balanced_balesid=$bbid");
         $conn->query("DELETE FROM daily_totals_split_amounts WHERE balanced_balesid=$bbid");
         $conn->query("DELETE FROM daily_totals_net_amount WHERE balanced_balesid=$bbid");
         $conn->query("DELETE FROM balanced_bales_charges WHERE balanced_balesid=$bbid");
@@ -344,18 +355,23 @@ if (!function_exists('flowork_recalculate_balance_batch')) {
             $cur_zig -= $ca_z;
         }
 
-        // ── STEP 4: Internal company stop orders ──
-        $iq = $conn->query("SELECT id,amount FROM internal_stoporders
-            WHERE transporter_growersid=$tgid AND active=1");
+        // ── STEP 4: Internal company stop orders (transport, advances, loans) ──
+        // Each is taken once, by one balancing, and recorded in internal_stoporder_deductions:
+        // one tied to a delivery note by that note's own split (split 1 when none is set),
+        // one tied only to the grower by the grower's next balancing. Before this, every
+        // split and every later sale day took them again.
+        $iq = $conn->query("SELECT i.id, i.amount FROM internal_stoporders i
+            LEFT JOIN internal_stoporder_deductions d ON d.internal_stoporderid=i.id
+            WHERE i.active=1 AND i.amount>0 AND d.id IS NULL
+              AND ((i.transporter_growersid=$tgid AND COALESCE(NULLIF(i.splitid,0),1)=$splitid)
+                OR ((i.transporter_growersid IS NULL OR i.transporter_growersid=0) AND i.growerid=$growerid))
+            ORDER BY (i.transporter_growersid=$tgid) DESC, i.id");
         if ($iq && $iq !== true) while ($so=$iq->fetch_assoc()) {
-            $amt = (float)$so['amount'];
-            if ($amt > 0 && $cur_usd > 0) $cur_usd -= min($amt, $cur_usd);
-        }
-        $iq = $conn->query("SELECT id,amount FROM internal_stoporders
-            WHERE growerid=$growerid AND (transporter_growersid IS NULL OR transporter_growersid=0) AND active=1");
-        if ($iq && $iq !== true) while ($so=$iq->fetch_assoc()) {
-            $amt = (float)$so['amount'];
-            if ($amt > 0 && $cur_usd > 0) $cur_usd -= min($amt, $cur_usd);
+            $deduct = min((float)$so['amount'], max(0, $cur_usd));
+            if ($deduct <= 0) continue;
+            $cur_usd -= $deduct;
+            $conn->query("INSERT INTO internal_stoporder_deductions (internal_stoporderid, balanced_balesid, amount_deducted, created_at)
+                VALUES (".(int)$so['id'].", $bbid, $deduct, NOW())");
         }
 
         // ── STEP 4b: TIMB Stop Orders (After split deduction if configured) ──
