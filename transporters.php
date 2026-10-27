@@ -337,8 +337,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Only unbalanced deliveries move, and only when no bale was sold before the
     // active day: bales sold on an earlier day are balanced on that day. Bales
     // already sold on the active day (a hanging delivery sold before it was
-    // rolled over) move with it. The booking moves too, and the delivery's
-    // tickets move to the new day so its bales are valued at that day's rate.
+    // rolled over) move with it. The delivery's tickets move to the new day so
+    // its bales are valued at that day's rate. The booking does not move: the
+    // grower must be booked for the new day (with that day's booking ID)
+    // before the delivery can be balanced.
     if ($action === 'rollover_selected') {
         $sod = flowork_active_sale_day($conn, $spid);
         $ids = array_values(array_unique(array_filter(array_map('intval', (array)($_POST['tgids'] ?? [])))));
@@ -349,7 +351,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $new_date = $conn->real_escape_string($sod['date']);
             $sodid    = (int)$sod['id'];
-            $moved = []; $skipped = [];
+            $moved = []; $skipped = []; $unbooked = [];
             foreach ($ids as $tgid) {
                 $q = $conn->query("SELECT tg.id, tg.growerid, tg.sell_date, g.grower_num,
                         (SELECT COUNT(*) FROM balanced_bales WHERE transporter_growersid=tg.id) bal,
@@ -364,13 +366,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ((string)$r['sell_date'] >= $sod['date']) { $skipped[] = "{$r['grower_num']} is already on {$r['sell_date']}"; continue; }
 
                 $gid = (int)$r['growerid'];
-                $old = $conn->real_escape_string((string)$r['sell_date']);
                 $conn->begin_transaction();
                 $ok = $conn->query("UPDATE transporter_growers SET sell_date='$new_date', datetime=NOW() WHERE id=$tgid");
-                // The booking for the old day moves too, unless the grower is already booked on the new day.
-                $has_new = $conn->query("SELECT 1 FROM booked_bales WHERE growerid=$gid AND sell_date='$new_date' LIMIT 1");
-                if ($ok && !($has_new && $has_new->num_rows))
-                    $ok = $conn->query("UPDATE booked_bales SET sell_date='$new_date' WHERE growerid=$gid AND sell_date='$old'");
                 $tix = 0;
                 if ($ok) {
                     $ok = $conn->query("UPDATE tickets tk JOIN bale_junus bj ON bj.id=tk.bale_junusid
@@ -385,8 +382,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 audit_log($conn, $spid, $userid, 'transporter_growers', 'rollover', $tgid,
                     ['sell_date' => $r['sell_date']], ['sell_date' => $sod['date'], 'start_of_dayid' => $sodid, 'tickets_moved' => $tix]);
                 $moved[] = $r['grower_num'];
+                if (!flowork_delivery_booking($conn, $tgid)) $unbooked[] = $r['grower_num'];
             }
-            if ($moved) $msg = count($moved) . " delivery note(s) rolled over to {$sod['date']}: " . implode(', ', $moved) . ".";
+            if ($moved) {
+                $msg = count($moved) . " delivery note(s) rolled over to {$sod['date']}: " . implode(', ', $moved) . ".";
+                if ($unbooked) $msg .= " Not booked for {$sod['date']} yet (book them before balancing): " . implode(', ', $unbooked) . ".";
+            }
             if ($skipped) $err = "Not rolled over: " . implode('; ', $skipped) . ".";
         }
     }
@@ -497,7 +498,8 @@ include "includes/layout.php";
 <?php else: ?>
 <p style="margin:0 0 .65rem;font-size:.8rem;color:var(--muted)">
   Deliveries from earlier selling days that were not balanced or sold on their day. Tick the growers to move to the active selling day,
-  <strong><?= htmlspecialchars(date('D j M Y', strtotime($active_sod['date']))) ?></strong>. Their booking and tickets move with them, including bales already sold today.
+  <strong><?= htmlspecialchars(date('D j M Y', strtotime($active_sod['date']))) ?></strong>. Their tickets move with them, including bales already sold today. The booking does not:
+  book each grower for this day (with its booking ID) before balancing.
   Deliveries with bales sold on an earlier day are not listed: balance those on their own day.
 </p>
 <form method="POST" onsubmit="var n=this.querySelectorAll('input[name=&quot;tgids[]&quot;]:checked').length; if(!n){alert('Tick at least one grower.');return false;} return confirm('Roll '+n+' delivery note(s) over to <?= htmlspecialchars($active_sod['date']) ?>?')">

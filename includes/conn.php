@@ -202,3 +202,25 @@ if (!function_exists('sync_booked_delivery_bales')) {
     }
 }
 
+if (!function_exists('flowork_delivery_booking')) {
+    /**
+     * The booking that lets a delivery be balanced: the grower's booking for the
+     * delivery's own sell date, with bales and a booking ID. A booking on another
+     * day does not count, so a delivery rolled over to a new selling day must be
+     * booked again for that day. Returns the booked_bales row, or null.
+     */
+    function flowork_delivery_booking(mysqli $conn, int $tgid): ?array {
+        $q = $conn->query("SELECT growerid, sell_date FROM transporter_growers WHERE id=$tgid LIMIT 1");
+        $tg = ($q && $q !== true) ? $q->fetch_assoc() : null;
+        if (!$tg || !$tg['sell_date']) return null;
+        $gid = (int)$tg['growerid'];
+        $sd  = $conn->real_escape_string($tg['sell_date']);
+        $alt = $conn->real_escape_string(date('d-M-y', strtotime($tg['sell_date'])));
+        $b = $conn->query("SELECT id, bales_booked, booked_id, sell_date FROM booked_bales
+            WHERE growerid=$gid AND (sell_date='$sd' OR sell_date='$alt')
+              AND bales_booked > 0 AND TRIM(COALESCE(booked_id,'')) <> ''
+            ORDER BY id DESC LIMIT 1");
+        return ($b && $b !== true && $b->num_rows) ? $b->fetch_assoc() : null;
+    }
+}
+

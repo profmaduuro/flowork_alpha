@@ -26,11 +26,9 @@ if (!flowork_on_floor($conn, 'tg', $transporter_growersid, $spid) || !flowork_on
     echo json_encode(['response'=>'Delivery not found on this floor']); exit;
 }
 
-// Check grower is booked
-$booked_q = $conn->query("SELECT booked FROM transporter_growers WHERE id=$transporter_growersid LIMIT 1");
-$booked   = ($booked_q && $booked_q !== true) ? (int)$booked_q->fetch_assoc()['booked'] : 0;
-if (!$booked) {
-    echo json_encode(['response'=>'Grower is not booked. Book the grower first.']); exit;
+// Check grower is booked for this delivery's own sell date
+if (!flowork_delivery_booking($conn, $transporter_growersid)) {
+    echo json_encode(['response'=>'Grower is not booked for this selling day. Book the grower (with a booking ID) for that day first.']); exit;
 }
 
 // Check not already balanced

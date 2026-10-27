@@ -90,19 +90,10 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'panel') {
     $already_balanced = ($_ab && $_ab !== true && $_ab->num_rows) ? (int)$_ab->fetch_assoc()['id'] : 0;
 
     $sell_dt     = $pg['sell_dt'];
-    $sell_dt_alt = date('d-M-y', strtotime($sell_dt));
-    $is_booked   = (int)($pg['booked'] ?? 0) === 1;
-    $bales_booked = 0;
-    $_bb = $conn->query("SELECT id,bales_booked FROM booked_bales
-        WHERE growerid=$growerid AND (sell_date='$sell_dt' OR sell_date='$sell_dt_alt')
-        ORDER BY id DESC LIMIT 1");
-    if (!$_bb || !$_bb->num_rows)
-        $_bb = $conn->query("SELECT id,bales_booked FROM booked_bales WHERE growerid=$growerid ORDER BY id DESC LIMIT 1");
-    if ($_bb && $_bb !== true && $_bb->num_rows) {
-        $bbr = $_bb->fetch_assoc();
-        $bales_booked = (int)$bbr['bales_booked'];
-        if ($bales_booked > 0) $is_booked = true;
-    }
+    // Booked only with a booking (and booking ID) for this delivery's own sell date.
+    $bbr = flowork_delivery_booking($conn, $tgid);
+    $is_booked    = $bbr !== null;
+    $bales_booked = $bbr ? (int)$bbr['bales_booked'] : 0;
 
     $split_where = $splitid > 0 ? "AND bj.splitid=$splitid" : "";
     $bale_q = $conn->query("
@@ -286,18 +277,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'balan
     // Booking check
     $_tgi = $conn->query("SELECT booked, COALESCE(sell_date,'$today') sell_dt FROM transporter_growers WHERE id=$tgid LIMIT 1");
     $tgi  = ($_tgi && $_tgi !== true) ? $_tgi->fetch_assoc() : null;
-    $is_booked   = $tgi && (int)$tgi['booked'] === 1;
     $sell_dt     = $tgi['sell_dt'] ?? $today;
-    $sell_dt_alt = date('d-M-y', strtotime($sell_dt));
-    $_bb = $conn->query("SELECT bales_booked FROM booked_bales
-        WHERE growerid=$growerid AND (sell_date='$sell_dt' OR sell_date='$sell_dt_alt')
-        ORDER BY id DESC LIMIT 1");
-    if (!$_bb || !$_bb->num_rows)
-        $_bb = $conn->query("SELECT bales_booked FROM booked_bales WHERE growerid=$growerid ORDER BY id DESC LIMIT 1");
-    if ($_bb && $_bb !== true && $_bb->num_rows) {
-        if ((int)$_bb->fetch_assoc()['bales_booked'] > 0) $is_booked = true;
+    // A booking for another day (for example before a roll-over) does not count.
+    if (!flowork_delivery_booking($conn, $tgid)) {
+        echo json_encode(['error'=>"Grower is not booked for $sell_dt. Book them for that selling day (with a booking ID) in Grower Booking first."]); exit;
     }
-    if (!$is_booked) { echo json_encode(['error'=>'Grower is not booked. Go to Grower Booking first.']); exit; }
 
     // Load bales to count unsold
     $res = $conn->query("
