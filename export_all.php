@@ -237,29 +237,37 @@ elseif ($page === 'eod') {
         'extract_bales','extract_bank'];
     // Collection advice = one PDF per grower charge deducted on the date
     $cc_charges = [];
-    $ccq = $conn->query("SELECT DISTINCT gc.id FROM balanced_bales_charges bbc
+    $ccq = $conn->query("SELECT MIN(gc.id) id FROM balanced_bales_charges bbc
         JOIN grower_charges gc ON gc.id=bbc.grower_chargeid
+        LEFT JOIN statutory s ON s.id=gc.statutoryid
         JOIN balanced_bales bb ON bb.id=bbc.balanced_balesid
         JOIN transporter_growers tg ON tg.id=bb.transporter_growersid
         JOIN growers g ON g.id=bb.growerid
         WHERE (g.selling_pointid=$filter_spid OR g.selling_pointid=0)
-          AND COALESCE(tg.sell_date,DATE(bb.created_at))='$date_f'");
+          AND COALESCE(tg.sell_date,DATE(bb.created_at))='$date_f'
+        GROUP BY COALESCE(s.description, gc.id)");
     if ($ccq && $ccq!==true) while($r=$ccq->fetch_assoc()) $cc_charges[]=(int)$r['id'];
 
     $cookie = session_name().'='.session_id();
-    $base = (isset($_SERVER['HTTPS'])&&$_SERVER['HTTPS']!=='off'?'https':'http').'://'
-          . ($_SERVER['HTTP_HOST']??'localhost')
+    // The sub-requests go to this same server over loopback HTTP. The browser's
+    // address (a LAN IP over HTTPS with the floor's self-signed certificate) fails
+    // certificate checks from here, so every report used to be dropped silently.
+    // .htaccess does not redirect 127.0.0.1 to HTTPS.
+    $base = 'http://127.0.0.1'
           . rtrim(str_replace('\\','/',dirname($_SERVER['PHP_SELF'])),'/') . '/eod_reports.php';
     session_write_close();   // release the lock so sub-requests can read the session
 
-    $fetch = function($url) use($cookie){
+    $failed = [];
+    $fetch = function($url) use($cookie,&$failed){
         $ch=curl_init($url);
         curl_setopt_array($ch,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_HEADER=>true,
             CURLOPT_COOKIE=>$cookie,CURLOPT_TIMEOUT=>90,CURLOPT_FOLLOWLOCATION=>false]);
         $resp=curl_exec($ch);
         $hs=curl_getinfo($ch,CURLINFO_HEADER_SIZE); $code=curl_getinfo($ch,CURLINFO_HTTP_CODE);
+        $cerr=curl_error($ch);
         curl_close($ch);
-        if($resp===false || $code!==200) return null;
+        $rep=preg_match('/[?&]report=([a-z_]+)/',$url,$rm)?$rm[1]:$url;
+        if($resp===false || $code!==200){ $failed[]="$rep: ".($resp===false?$cerr:"HTTP $code"); return null; }
         $headers=substr($resp,0,$hs); $body=substr($resp,$hs);
         // only accept real file downloads (must carry an attachment filename)
         if(!preg_match('/filename="([^"]+)"/i',$headers,$m)) return null;
@@ -281,7 +289,8 @@ elseif ($page === 'eod') {
         $res=$fetch($base."?report=cred_collection&dl=1&charge=$cid&date=".rawurlencode($date_f) . $filter_qs);
         if($res && $res[1]!==''){ $zip->addFromString($res[0], $res[1]); $files_added++; }
     }
-    if($files_added===0) $zip->addFromString('README.txt',"No report data for $date_f.\n");
+    if($failed) $zip->addFromString('ERRORS.txt',"These reports could not be fetched:\r\n".implode("\r\n",$failed)."\r\n");
+    elseif($files_added===0) $zip->addFromString('README.txt',"No report data for $date_f.\n");
 
     $zip->close();
     header('Content-Type: application/zip');
