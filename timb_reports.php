@@ -208,7 +208,7 @@ if (!empty($_GET['generate']) && !empty($_GET['date'])) {
          JOIN transporter_growers tg ON tg.id = bj.transporter_growersid
          LEFT JOIN sold_bales sb    ON sb.ticketsid = tk.id
          LEFT JOIN timb_grades tg_d ON tg_d.id = sb.timb_gradesid
-         WHERE tk.created_at LIKE '$date_raw%'
+         WHERE COALESCE(DATE(sb.created_at), DATE(tk.created_at)) = '$date_raw'
            AND g.selling_pointid = $spid
          ORDER BY g.grower_num ASC, bj.lot ASC, bj.bale_group ASC
     ");
@@ -295,8 +295,9 @@ if (!empty($_GET['generate']) && !empty($_GET['date'])) {
     // CS — Cumulative summary
     elseif ($type === 'CS') {
         $dates_q = $conn->query("
-            SELECT DISTINCT DATE(tk.created_at) AS sell_date
+            SELECT DISTINCT COALESCE(DATE(sb.created_at), DATE(tk.created_at)) AS sell_date
             FROM tickets tk
+            LEFT JOIN sold_bales sb ON sb.ticketsid = tk.id
             JOIN bale_junus bj ON bj.id = tk.bale_junusid
             JOIN growers g      ON g.id  = bj.growerid
             WHERE g.selling_pointid = $spid
@@ -324,7 +325,7 @@ if (!empty($_GET['generate']) && !empty($_GET['date'])) {
                     JOIN bale_mass bm  ON bm.id  = bj.bale_massid
                     JOIN growers g     ON g.id   = bj.growerid
                     LEFT JOIN sold_bales sb ON sb.ticketsid = tk.id
-                    WHERE tk.created_at LIKE '$d%' AND g.selling_pointid = $spid
+                    WHERE COALESCE(DATE(sb.created_at), DATE(tk.created_at)) = '$d' AND g.selling_pointid = $spid
                 ")->fetch_assoc();
                 $gross_raw = (float)($day_q['gross_usd_raw'] ?? 0);
                 $gross_usd = $gross_raw > ((int)($day_q['sold']??0) * 10) ? $gross_raw / 100 : $gross_raw;
@@ -440,7 +441,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'date_stats') {
         JOIN growers g     ON g.id  = bj.growerid
         LEFT JOIN sold_bales sb ON sb.ticketsid = tk.id
         WHERE g.selling_pointid = $spid
-          AND tk.created_at LIKE '$date%'
+          AND COALESCE(DATE(sb.created_at), DATE(tk.created_at)) = '$date'
     ");
     $stats = ($sq && $sq !== true) ? $sq->fetch_assoc() : [];
 
@@ -541,7 +542,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             SELECT g.grower_num, g.name, g.surname, g.national_id,
                    bm.temp_bacode timb_bc, tk.barcode floor_bc, bm.mass,
                    sb.price, tg2.description timb_grade, bg.description buyer_grade,
-                   b.buyer_code, b.name buyer_name, DATE(tk.datetime) sell_date
+                   b.buyer_code, b.name buyer_name, DATE(sb.created_at) sell_date
             FROM tickets tk
             JOIN bale_junus bj  ON bj.id = tk.bale_junusid
             JOIN bale_mass bm   ON bm.id = bj.bale_massid
@@ -550,7 +551,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             JOIN timb_grades tg2 ON tg2.id = sb.timb_gradesid
             JOIN buyer_grades bg ON bg.id  = sb.buyer_gradesid
             JOIN buyer b         ON b.id   = bg.buyerid
-            WHERE g.selling_pointid = $spid AND DATE(tk.datetime) = '$rpt_date'
+            WHERE g.selling_pointid = $spid AND DATE(sb.created_at) = '$rpt_date'
             ORDER BY g.grower_num, bm.temp_bacode
         ");
         header('Content-Type: text/csv');
@@ -584,7 +585,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // ── Load sell dates for table ─────────────────────────────────────────────────
 $sell_dates_q = $conn->query("
-    SELECT DATE(tk.created_at)        AS sell_date,
+    SELECT COALESCE(DATE(sb.created_at), DATE(tk.created_at)) AS sell_date,
            COUNT(DISTINCT tk.id)      AS tickets,
            COUNT(DISTINCT sb.id)      AS sold,
            COUNT(DISTINCT g.id)       AS growers,
@@ -595,7 +596,7 @@ $sell_dates_q = $conn->query("
     JOIN growers g     ON g.id  = bj.growerid
     LEFT JOIN sold_bales sb ON sb.ticketsid = tk.id
     WHERE g.selling_pointid = $spid
-    GROUP BY DATE(tk.created_at)
+    GROUP BY COALESCE(DATE(sb.created_at), DATE(tk.created_at))
     ORDER BY sell_date DESC
     LIMIT 60
 ");

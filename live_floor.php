@@ -18,6 +18,58 @@ if (isset($_GET['ajax'])) {
     function safe_val($conn,$sql){$r=$conn->query($sql);return($r&&$r!==true)?($r->fetch_assoc()??[]):[];}
     function safe_all($conn,$sql){$r=$conn->query($sql);return($r&&$r!==true)?$r->fetch_all(MYSQLI_ASSOC):[];}
 
+    // One floor's figures for sale day $d, counted the way the reports count them:
+    // sold = bales sold on $d; ticketed = bales on $d's selling day (rolled-over
+    // deliveries included, as their tickets move to that day); weighed = this
+    // floor's bales weighed on $d.
+    function live_summary($conn, int $sp, string $d): array {
+        $sold = safe_val($conn,"
+            SELECT
+              COUNT(sb.id) sold,
+              COUNT(CASE WHEN LEFT(UPPER(TRIM(sb.sale_code)),1)='R' THEN sb.id END) rejected,
+              COALESCE(SUM(bm.mass),0) sold_mass,
+              COALESCE(SUM(CASE WHEN sb.price>10 THEN sb.price/100*bm.mass WHEN sb.price>0 THEN sb.price*bm.mass ELSE 0 END),0) usd_value,
+              MAX(CASE WHEN sb.price>10 THEN sb.price/100 WHEN sb.price>0 THEN sb.price END) hi_price,
+              MIN(CASE WHEN sb.price>10 THEN sb.price/100 WHEN sb.price>0 THEN sb.price END) lo_price,
+              AVG(CASE WHEN sb.price>10 THEN sb.price/100 WHEN sb.price>0 THEN sb.price END) avg_price
+            FROM sold_bales sb
+            JOIN tickets tk ON tk.id=sb.ticketsid
+            JOIN bale_junus bj ON bj.id=tk.bale_junusid
+            JOIN bale_mass bm ON bm.id=bj.bale_massid
+            JOIN growers g ON g.id=bj.growerid
+            WHERE DATE(sb.created_at)='$d' AND g.selling_pointid=$sp");
+        // Tickets on this floor's selling day for $d; tickets made on $d when no day was opened
+        $day = safe_all($conn,"SELECT id FROM start_of_day WHERE description='$d' AND selling_pointid=$sp");
+        $sods = implode(',', array_map('intval', array_column($day, 'id')));
+        $tk_on_day = $sods ? "tk.start_of_dayid IN ($sods)" : "DATE(tk.created_at)='$d'";
+        $tix = safe_val($conn,"
+            SELECT COUNT(DISTINCT tk.id) ticketed,
+                   COUNT(DISTINCT CASE WHEN sb.id IS NULL OR DATE(sb.created_at)='$d' THEN g.id END) growers
+            FROM tickets tk
+            JOIN bale_junus bj ON bj.id=tk.bale_junusid
+            JOIN growers g ON g.id=bj.growerid
+            LEFT JOIN sold_bales sb ON sb.ticketsid=tk.id
+            WHERE $tk_on_day AND g.selling_pointid=$sp
+              AND (sb.id IS NULL OR DATE(sb.created_at)='$d')");
+        // Weighed on $d on this floor, not yet ticketed to a day
+        $wq = safe_val($conn,"
+            SELECT COUNT(DISTINCT bm.id) weighed,
+                   COUNT(DISTINCT CASE WHEN tk.id IS NULL THEN bm.id END) waiting,
+                   COUNT(DISTINCT bj.id) junus_bales
+            FROM bale_mass bm
+            LEFT JOIN bale_junus bj ON bj.bale_massid=bm.id
+            LEFT JOIN tickets tk ON tk.bale_junusid=bj.id
+            WHERE DATE(bm.created_at)='$d' AND bm.selling_pointid=$sp");
+        $ticketed = max((int)($tix['ticketed'] ?? 0), (int)($sold['sold'] ?? 0));
+        return $sold + [
+            'ticketed'    => $ticketed,
+            'total_bales' => $ticketed + (int)($wq['waiting'] ?? 0),
+            'weighed'     => (int)($wq['weighed'] ?? 0),
+            'junus_bales' => (int)($wq['junus_bales'] ?? 0),
+            'growers'     => (int)($tix['growers'] ?? 0),
+        ];
+    }
+
     $d = $conn->real_escape_string($_GET['date'] ?? $today);
     $view_multi = (!empty($_GET['all_floors']) || !empty($_GET['multi'])) && is_master_user();
 
@@ -31,27 +83,7 @@ if (isset($_GET['ajax'])) {
 
         foreach ($sp_list as $fl) {
             $f_spid = (int)$fl['id'];
-            $summary = safe_val($conn,"
-                SELECT
-                  COUNT(DISTINCT bm.id) total_bales,
-                  COUNT(DISTINCT bj.id) junus_bales,
-                  COUNT(DISTINCT tk.id) ticketed,
-                  COUNT(DISTINCT sb.id) sold,
-                  COUNT(DISTINCT CASE WHEN LEFT(UPPER(TRIM(sb.sale_code)),1)='R' AND sb.id IS NOT NULL THEN sb.id END) rejected,
-                  COALESCE(SUM(CASE WHEN sb.id IS NOT NULL THEN bm.mass ELSE 0 END),0) sold_mass,
-                  COALESCE(SUM(CASE WHEN sb.price>10 THEN sb.price/100*bm.mass WHEN sb.price>0 THEN sb.price*bm.mass ELSE 0 END),0) usd_value,
-                  MAX(CASE WHEN sb.price>10 THEN sb.price/100 WHEN sb.price>0 THEN sb.price END) hi_price,
-                  MIN(CASE WHEN sb.price>10 THEN sb.price/100 WHEN sb.price>0 THEN sb.price END) lo_price,
-                  AVG(CASE WHEN sb.price>10 THEN sb.price/100 WHEN sb.price>0 THEN sb.price END) avg_price,
-                  COUNT(DISTINCT g.id) growers
-                FROM bale_mass bm
-                LEFT JOIN bale_junus bj ON bj.bale_massid=bm.id
-                LEFT JOIN growers g ON g.id=bj.growerid AND g.selling_pointid=$f_spid
-                LEFT JOIN tickets tk ON tk.bale_junusid=bj.id AND DATE(tk.created_at)='$d'
-                LEFT JOIN sold_bales sb ON sb.ticketsid=tk.id
-                WHERE DATE(bm.created_at)='$d'
-                  AND (g.selling_pointid=$f_spid OR g.id IS NULL)
-            ");
+            $summary = live_summary($conn, $f_spid, $d);
 
             $grand_total_bales += (int)($summary['total_bales'] ?? 0);
             $grand_sold_bales  += (int)($summary['sold'] ?? 0);
@@ -80,27 +112,7 @@ if (isset($_GET['ajax'])) {
         exit;
     }
 
-    $summary = safe_val($conn,"
-        SELECT
-          COUNT(DISTINCT bm.id) total_bales,
-          COUNT(DISTINCT bj.id) junus_bales,
-          COUNT(DISTINCT tk.id) ticketed,
-          COUNT(DISTINCT sb.id) sold,
-          COUNT(DISTINCT CASE WHEN LEFT(UPPER(TRIM(sb.sale_code)),1)='R' AND sb.id IS NOT NULL THEN sb.id END) rejected,
-          COALESCE(SUM(CASE WHEN sb.id IS NOT NULL THEN bm.mass ELSE 0 END),0) sold_mass,
-          COALESCE(SUM(CASE WHEN sb.price>10 THEN sb.price/100*bm.mass WHEN sb.price>0 THEN sb.price*bm.mass ELSE 0 END),0) usd_value,
-          MAX(CASE WHEN sb.price>10 THEN sb.price/100 WHEN sb.price>0 THEN sb.price END) hi_price,
-          MIN(CASE WHEN sb.price>10 THEN sb.price/100 WHEN sb.price>0 THEN sb.price END) lo_price,
-          AVG(CASE WHEN sb.price>10 THEN sb.price/100 WHEN sb.price>0 THEN sb.price END) avg_price,
-          COUNT(DISTINCT g.id) growers
-        FROM bale_mass bm
-        LEFT JOIN bale_junus bj ON bj.bale_massid=bm.id
-        LEFT JOIN growers g ON g.id=bj.growerid AND g.selling_pointid=$spid
-        LEFT JOIN tickets tk ON tk.bale_junusid=bj.id AND DATE(tk.created_at)='$d'
-        LEFT JOIN sold_bales sb ON sb.ticketsid=tk.id
-        WHERE DATE(bm.created_at)='$d'
-          AND (g.selling_pointid=$spid OR g.id IS NULL)
-    ");
+    $summary = live_summary($conn, $spid, $d);
 
     $by_buyer = safe_all($conn,"
         SELECT COALESCE(NULLIF(b.buyer_code,''), b.name) buyer, b.buyer_code code,
