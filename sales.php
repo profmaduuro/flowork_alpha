@@ -13,18 +13,21 @@ $today    = date('Y-m-d');
 
 // ── Resolve active sell date (used by both page render AND AJAX) ──────────────
 $active_sell_date = '';
-// 1. Try selling_days (authoritative)
-$_sd_q = $conn->query("SELECT sell_date FROM selling_days
-    WHERE selling_pointid=$spid AND status='open'
-    ORDER BY sell_date DESC LIMIT 1");
-if ($_sd_q && $_sd_q !== true && $_sd_q->num_rows > 0)
-    $active_sell_date = $_sd_q->fetch_assoc()['sell_date'];
-// 2. Fallback: active start_of_day description
+// 1. This floor's active selling day, as opened in Day Control (start_of_day).
+//    selling_days is only written by the mobile API and can keep an old day "open".
+$_sod_q = $conn->query("SELECT description FROM start_of_day
+    WHERE selling_pointid=$spid AND active=1 ORDER BY id DESC LIMIT 1");
+if ($_sod_q && $_sod_q !== true && $_sod_q->num_rows > 0) {
+    $_sod_d = strtotime($_sod_q->fetch_assoc()['description']);
+    if ($_sod_d) $active_sell_date = date('Y-m-d', $_sod_d);
+}
+// 2. Fallback: an open selling_days row for this floor
 if (!$active_sell_date) {
-    $_sod_q = $conn->query("SELECT description FROM start_of_day
-        WHERE seasonid=$seasonid AND active=1 ORDER BY id DESC LIMIT 1");
-    if ($_sod_q && $_sod_q !== true && $_sod_q->num_rows > 0)
-        $active_sell_date = $_sod_q->fetch_assoc()['description'];
+    $_sd_q = $conn->query("SELECT sell_date FROM selling_days
+        WHERE selling_pointid=$spid AND status='open'
+        ORDER BY sell_date DESC LIMIT 1");
+    if ($_sd_q && $_sd_q !== true && $_sd_q->num_rows > 0)
+        $active_sell_date = $_sd_q->fetch_assoc()['sell_date'];
 }
 // 3. Last resort: today
 if (!$active_sell_date) $active_sell_date = $today;
