@@ -334,9 +334,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // Roll selected hanging deliveries over to the floor's active selling day.
-    // Only unbalanced deliveries with no sold bales move: a delivery with sales
-    // is balanced on its own day instead. The booking moves with it, and its
-    // unsold tickets move to the new day so they sell at that day's rate.
+    // Only unbalanced deliveries move, and only when no bale was sold before the
+    // active day: bales sold on an earlier day are balanced on that day. Bales
+    // already sold on the active day (a hanging delivery sold before it was
+    // rolled over) move with it. The booking moves too, and the delivery's
+    // tickets move to the new day so its bales are valued at that day's rate.
     if ($action === 'rollover_selected') {
         $sod = flowork_active_sale_day($conn, $spid);
         $ids = array_values(array_unique(array_filter(array_map('intval', (array)($_POST['tgids'] ?? [])))));
@@ -352,11 +354,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $q = $conn->query("SELECT tg.id, tg.growerid, tg.sell_date, g.grower_num,
                         (SELECT COUNT(*) FROM balanced_bales WHERE transporter_growersid=tg.id) bal,
                         (SELECT COUNT(*) FROM sold_bales sb JOIN tickets tk ON tk.id=sb.ticketsid
-                            JOIN bale_junus bj ON bj.id=tk.bale_junusid WHERE bj.transporter_growersid=tg.id) sold
+                            JOIN bale_junus bj ON bj.id=tk.bale_junusid WHERE bj.transporter_growersid=tg.id
+                            AND sb.created_at < '$new_date') sold_before
                     FROM transporter_growers tg JOIN growers g ON g.id=tg.growerid WHERE tg.id=$tgid LIMIT 1");
                 $r = ($q && $q !== true) ? $q->fetch_assoc() : null;
                 if (!$r || !flowork_on_floor($conn, 'tg', $tgid, $spid)) { $skipped[] = "#$tgid not on this floor"; continue; }
-                if ((int)$r['bal'] || (int)$r['sold']) { $skipped[] = "{$r['grower_num']} has sold bales (balance it instead)"; continue; }
+                if ((int)$r['bal']) { $skipped[] = "{$r['grower_num']} is already balanced"; continue; }
+                if ((int)$r['sold_before']) { $skipped[] = "{$r['grower_num']} has bales sold before {$sod['date']} (balance it on its own day)"; continue; }
                 if ((string)$r['sell_date'] >= $sod['date']) { $skipped[] = "{$r['grower_num']} is already on {$r['sell_date']}"; continue; }
 
                 $gid = (int)$r['growerid'];
@@ -370,9 +374,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $tix = 0;
                 if ($ok) {
                     $ok = $conn->query("UPDATE tickets tk JOIN bale_junus bj ON bj.id=tk.bale_junusid
-                        LEFT JOIN sold_bales sb ON sb.ticketsid=tk.id
                         SET tk.start_of_dayid=$sodid
-                        WHERE bj.transporter_growersid=$tgid AND sb.id IS NULL");
+                        WHERE bj.transporter_growersid=$tgid");
                     $tix = $ok ? $conn->affected_rows : 0;
                 }
                 if (!$ok) { $e = $conn->error; $conn->rollback(); $skipped[] = "{$r['grower_num']}: $e"; continue; }
@@ -400,14 +403,17 @@ if ($active_sod) {
         SELECT tg.id tgid, tg.sell_date, tg.bales, tg.open_close, COALESCE(tg.status,'active') status,
                g.grower_num, g.name, g.surname, t.name transporter, t.truck_num,
                (SELECT COUNT(*) FROM tickets tk JOIN bale_junus bj ON bj.id=tk.bale_junusid
-                 WHERE bj.transporter_growersid=tg.id) tickets
+                 WHERE bj.transporter_growersid=tg.id) tickets,
+               (SELECT COUNT(*) FROM sold_bales sb JOIN tickets tk ON tk.id=sb.ticketsid
+                 JOIN bale_junus bj ON bj.id=tk.bale_junusid WHERE bj.transporter_growersid=tg.id) sold_today
         FROM transporter_growers tg
         JOIN growers g ON g.id=tg.growerid
         JOIN transporter t ON t.id=tg.transporterid
         WHERE tg.selling_pointid=$spid AND tg.sell_date < '$ad'
           AND NOT EXISTS (SELECT 1 FROM balanced_bales bb WHERE bb.transporter_growersid=tg.id)
           AND NOT EXISTS (SELECT 1 FROM sold_bales sb JOIN tickets tk ON tk.id=sb.ticketsid
-                JOIN bale_junus bj ON bj.id=tk.bale_junusid WHERE bj.transporter_growersid=tg.id)
+                JOIN bale_junus bj ON bj.id=tk.bale_junusid WHERE bj.transporter_growersid=tg.id
+                AND sb.created_at < '$ad')
         ORDER BY tg.sell_date DESC, g.grower_num");
     $hanging = ($hq && $hq !== true) ? $hq->fetch_all(MYSQLI_ASSOC) : [];
 }
@@ -487,12 +493,12 @@ include "includes/layout.php";
 <?php if (!$active_sod): ?>
   <p style="margin:0;color:var(--muted)">No selling day is active on this floor. Start the selling day in Day Control, then come back to roll deliveries over.</p>
 <?php elseif (!$hanging): ?>
-  <p style="margin:0;color:var(--muted)">No hanging deliveries: every delivery before <?= htmlspecialchars($active_sod['date']) ?> is balanced or has sold bales.</p>
+  <p style="margin:0;color:var(--muted)">No hanging deliveries: every delivery before <?= htmlspecialchars($active_sod['date']) ?> is balanced or was sold on its own day.</p>
 <?php else: ?>
 <p style="margin:0 0 .65rem;font-size:.8rem;color:var(--muted)">
-  Deliveries from earlier selling days that were not sold or balanced. Tick the growers to move to the active selling day,
-  <strong><?= htmlspecialchars(date('D j M Y', strtotime($active_sod['date']))) ?></strong>. Their booking and unsold tickets move with them.
-  Deliveries with sold bales are not listed: balance those on their own day.
+  Deliveries from earlier selling days that were not balanced or sold on their day. Tick the growers to move to the active selling day,
+  <strong><?= htmlspecialchars(date('D j M Y', strtotime($active_sod['date']))) ?></strong>. Their booking and tickets move with them, including bales already sold today.
+  Deliveries with bales sold on an earlier day are not listed: balance those on their own day.
 </p>
 <form method="POST" onsubmit="var n=this.querySelectorAll('input[name=&quot;tgids[]&quot;]:checked').length; if(!n){alert('Tick at least one grower.');return false;} return confirm('Roll '+n+' delivery note(s) over to <?= htmlspecialchars($active_sod['date']) ?>?')">
 <input type="hidden" name="action" value="rollover_selected">
@@ -500,7 +506,7 @@ include "includes/layout.php";
 <thead><tr style="text-align:left;border-bottom:1px solid var(--border)">
   <th style="padding:.4rem"><input type="checkbox" title="Select all" onclick="var on=this.checked;this.closest('table').querySelectorAll('input[name=&quot;tgids[]&quot;]').forEach(function(c){c.checked=on;})"></th>
   <th style="padding:.4rem">Grower</th><th style="padding:.4rem">Name</th><th style="padding:.4rem">Transporter</th>
-  <th style="padding:.4rem">Sell date</th><th style="padding:.4rem;text-align:right">Bales</th><th style="padding:.4rem;text-align:right">Tickets</th><th style="padding:.4rem">Note</th>
+  <th style="padding:.4rem">Sell date</th><th style="padding:.4rem;text-align:right">Bales</th><th style="padding:.4rem;text-align:right">Tickets</th><th style="padding:.4rem;text-align:right">Sold today</th><th style="padding:.4rem">Note</th>
 </tr></thead><tbody>
 <?php foreach ($hanging as $h): ?>
 <tr style="border-bottom:1px solid var(--border)">
@@ -511,6 +517,7 @@ include "includes/layout.php";
   <td style="padding:.4rem"><?= htmlspecialchars($h['sell_date']) ?></td>
   <td style="padding:.4rem;text-align:right;font-family:monospace"><?= (int)$h['bales'] ?></td>
   <td style="padding:.4rem;text-align:right;font-family:monospace"><?= (int)$h['tickets'] ?></td>
+  <td style="padding:.4rem;text-align:right;font-family:monospace"><?= (int)$h['sold_today'] ?: '' ?></td>
   <td style="padding:.4rem"><?= (int)$h['open_close'] === 0 ? 'Open' : 'Closed' ?><?= $h['status'] !== 'active' ? ' · ' . htmlspecialchars(ucfirst($h['status'])) : '' ?></td>
 </tr>
 <?php endforeach; ?>
