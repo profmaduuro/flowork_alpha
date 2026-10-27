@@ -47,3 +47,18 @@ if (!function_exists('flowork_on_floor')) {
         return $q && $q !== true && $q->num_rows > 0;
     }
 }
+
+/**
+ * SQL condition: delivery note $tg (a transporter_growers alias) may still be
+ * re-dated by a booking. A balanced delivery, or one with bales already sold,
+ * belongs to the day it was sold on: moving it would put those sales on
+ * another day in every report. Hanging deliveries move with the roll-over in
+ * transporters.php, which also moves their tickets.
+ */
+if (!function_exists('flowork_tg_movable_sql')) {
+    function flowork_tg_movable_sql(string $tg = 'tg'): string {
+        return "NOT EXISTS (SELECT 1 FROM balanced_bales bbm WHERE bbm.transporter_growersid=$tg.id)
+            AND NOT EXISTS (SELECT 1 FROM bale_junus bjm JOIN tickets tkm ON tkm.bale_junusid=bjm.id
+                JOIN sold_bales sbm ON sbm.ticketsid=tkm.id WHERE bjm.transporter_growersid=$tg.id)";
+    }
+}

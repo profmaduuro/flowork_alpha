@@ -336,7 +336,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             }
             
             $conn->query("UPDATE booked_bales SET bales_booked='$bales_booked', sell_date='$sell_dt', booked_id='$booked_id', datetime=NOW() WHERE id=$bb_id");
-            $conn->query("UPDATE transporter_growers SET sell_date='$sell_dt', datetime=NOW() WHERE growerid=$gid AND selling_pointid=$spid");
+            // Only deliveries not yet balanced or sold: a sold delivery stays on the day it was sold
+            $conn->query("UPDATE transporter_growers tg SET tg.sell_date='$sell_dt', tg.datetime=NOW()
+                WHERE tg.growerid=$gid AND tg.selling_pointid=$spid AND " . flowork_tg_movable_sql());
             
             sync_booked_delivery_bales($conn, $gid, $sell_dt);
             
@@ -362,7 +364,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             echo json_encode(["error"=>"Grower or transporter not found on this floor."]);
             exit;
         }
-        $tg_q = $conn->query("SELECT id,booked FROM transporter_growers WHERE growerid=$gid AND transporterid=$trid AND selling_pointid=$spid LIMIT 1");
+        // Reuse an open delivery only; a balanced or sold one keeps its day and a new delivery is made
+        $tg_q = $conn->query("SELECT tg.id,tg.booked FROM transporter_growers tg WHERE tg.growerid=$gid AND tg.transporterid=$trid AND tg.selling_pointid=$spid AND " . flowork_tg_movable_sql() . " ORDER BY tg.id DESC LIMIT 1");
         if ($tg_q && $tg_q->num_rows > 0) {
             $tg = $tg_q->fetch_assoc();
             $conn->query("UPDATE transporter_growers SET booked=1,bales=$bales,sell_date='$sell_dt', datetime=NOW() WHERE id={$tg["id"]}");
@@ -398,8 +401,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $sell_dt = $conn->real_escape_string($_POST["sell_date"] ?? $today);
         $all_q   = $conn->query("SELECT tg.id tgid,tg.growerid,tg.bales
             FROM transporter_growers tg JOIN growers g ON g.id=tg.growerid
-            LEFT JOIN balanced_bales bb ON bb.transporter_growersid=tg.id
-            WHERE (g.selling_pointid=$spid OR tg.selling_pointid=$spid) AND bb.id IS NULL");
+            WHERE (g.selling_pointid=$spid OR tg.selling_pointid=$spid) AND " . flowork_tg_movable_sql());
         $n = 0;
         while ($all_q && $r = $all_q->fetch_assoc()) {
             $conn->query("UPDATE transporter_growers SET booked=1,sell_date='$sell_dt', datetime=NOW() WHERE id={$r["tgid"]}");
@@ -475,7 +477,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $bid   = $conn->real_escape_string($rec['booking_id'] ?? '');
             upsert_booked_bales($conn, $userid, $gid, $bales, $sd, $today, $bid);
             // Upsert transporter_growers: first look for any existing entry for this grower at this selling point
-            $tq = $conn->query("SELECT id FROM transporter_growers WHERE growerid=$gid AND selling_pointid=$spid LIMIT 1");
+            $tq = $conn->query("SELECT tg.id FROM transporter_growers tg WHERE tg.growerid=$gid AND tg.selling_pointid=$spid AND " . flowork_tg_movable_sql() . " ORDER BY tg.id DESC LIMIT 1");
             if ($tq && $tq !== true && $tq->num_rows) {
                 $tid = (int)$tq->fetch_assoc()['id'];
                 $conn->query("UPDATE transporter_growers SET booked=1, bales=$bales, sell_date='$sd' WHERE id=$tid");
@@ -570,7 +572,7 @@ if (!empty($_SESSION['timb_raw_from_fm'])) {
             $bid   = $conn->real_escape_string($rec['booking_id'] ?? '');
             upsert_booked_bales($conn, $userid, $gid, $bales, $sd, $today, $bid);
             // Upsert transporter_growers
-            $tq = $conn->query("SELECT id FROM transporter_growers WHERE growerid=$gid AND selling_pointid=$spid LIMIT 1");
+            $tq = $conn->query("SELECT tg.id FROM transporter_growers tg WHERE tg.growerid=$gid AND tg.selling_pointid=$spid AND " . flowork_tg_movable_sql() . " ORDER BY tg.id DESC LIMIT 1");
             if ($tq && $tq !== true && $tq->num_rows) {
                 $tid = (int)$tq->fetch_assoc()['id'];
                 $conn->query("UPDATE transporter_growers SET booked=1, bales=$bales, sell_date='$sd' WHERE id=$tid");

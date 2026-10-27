@@ -2,6 +2,7 @@
 /**
  * Growers — mirrors web grower_registry.php + growers.php
  */
+require_once __DIR__ . '/../../includes/floor_scope.php';
 $user     = requireAuth();
 requireRight($user, 'growers');
 $spid     = getSpid($user);
@@ -210,8 +211,7 @@ if ($action === 'book_for_date' && $method === 'POST') {
     $r = $db->query("SELECT tg.id tgid,tg.growerid,tg.bales
         FROM transporter_growers tg
         JOIN growers g ON g.id=tg.growerid
-        LEFT JOIN balanced_bales bb ON bb.transporter_growersid=tg.id
-        WHERE ($spid=0 OR g.selling_pointid=$spid OR tg.selling_pointid=$spid) AND bb.id IS NULL");
+        WHERE ($spid=0 OR g.selling_pointid=$spid OR tg.selling_pointid=$spid) AND " . flowork_tg_movable_sql());
     $n = 0;
     while ($r && $row = $r->fetch_assoc()) {
         $db->query("UPDATE transporter_growers SET booked=1,sell_date='$sellDate' WHERE id={$row['tgid']}");
