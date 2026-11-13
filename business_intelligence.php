@@ -155,14 +155,14 @@ include "includes/layout.php";
 ?>
 <style>
 .bi-kpi-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:1.25rem; margin-bottom:1.5rem; }
-.bi-card { background:var(--cream); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; display:flex; flex-direction:column; }
+.bi-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; display:flex; flex-direction:column; }
 .bi-card-head { padding:0.85rem 1.15rem; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
 .bi-card-head h3 { font-size:0.92rem; margin:0; font-weight:600; color:var(--text-strong); }
 .bi-card-body { padding:1.15rem; flex:1; }
 .calc-input-group { background:rgba(200,149,42,0.04); border:1px dashed var(--gold); border-radius:8px; padding:1rem; margin-bottom:1rem; }
 .calc-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem; font-size:0.85rem; }
 .calc-row:last-child { margin-bottom:0; border-top:1px solid var(--border); padding-top:0.75rem; font-weight:600; }
-.input-number-percent { width:80px; padding:4px 8px; border:1px solid var(--border); border-radius:4px; text-align:right; font-family:monospace; outline:none; background:#fff; color:#000; }
+.input-number-percent { width:80px; padding:4px 8px; border:1px solid var(--border); border-radius:4px; text-align:right; font-family:monospace; outline:none; background:var(--surface); color:var(--text); }
 .input-number-percent:focus { border-color:var(--gold); }
 .text-right { text-align:right; }
 .td-mono { font-family:monospace; }

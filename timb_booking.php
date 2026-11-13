@@ -406,7 +406,7 @@ include "includes/layout.php";
   <?php if(!$local):?>
     <div class="card-body text-center text-muted">No bookings at this selling point.</div>
   <?php else:?>
-  <div class="table-wrap" style="max-height:600px;overflow-y:auto"><table>
+  <div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto"><table>
     <thead><tr>
       <th>Grower</th><th>Name</th><th class="text-right">Bales</th><th>Sale date</th>
       <th>TIMB reference</th><th></th>
@@ -425,7 +425,7 @@ include "includes/layout.php";
           <?php if($ref===''):?>
             <span style="color:var(--muted)">— none —</span>
           <?php elseif($is_manual):?>
-            <?=htmlspecialchars($ref)?> <span class="badge badge-gold" style="font-size:.55rem">local</span>
+            <?=htmlspecialchars($ref)?> <span class="badge badge-gold" style="font-size:.72rem">local</span>
           <?php else:?>
             <?=htmlspecialchars($ref)?>
           <?php endif;?>
@@ -446,7 +446,7 @@ include "includes/layout.php";
     </tbody>
   </table></div>
   <div class="card-body" style="border-top:1px solid var(--border);font-size:.72rem;color:var(--muted)">
-    A <span class="badge badge-gold" style="font-size:.55rem">local</span> reference was generated in Flowork,
+    A <span class="badge badge-gold" style="font-size:.72rem">local</span> reference was generated in Flowork,
     not issued by TIMB. Query the booking to replace it with the real <code>bookingID</code>.
   </div>
   <?php endif;?>
@@ -460,7 +460,7 @@ include "includes/layout.php";
   <?php if(!$ops):?>
     <div class="card-body text-center text-muted">Nothing yet.</div>
   <?php else:?>
-  <div class="table-wrap" style="max-height:600px;overflow-y:auto"><table>
+  <div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto"><table>
     <thead><tr><th>When</th><th>Operation</th><th>Grower</th><th>Sale date</th><th class="text-right">Bales</th>
       <th>Outcome</th><th>User</th></tr></thead>
     <tbody>
@@ -468,7 +468,7 @@ include "includes/layout.php";
       <tr>
         <td style="font-size:.7rem;color:var(--muted);white-space:nowrap"><?=htmlspecialchars(date('d M H:i', strtotime($o['created_at'])))?></td>
         <td><span class="badge <?= $o['operation']==='delete'?'badge-red':($o['operation']==='query'?'badge-gray':'badge-blue') ?>"
-              style="font-size:.6rem"><?=htmlspecialchars(strtoupper($o['operation']))?></span>
+              style="font-size:.72rem"><?=htmlspecialchars(strtoupper($o['operation']))?></span>
             <?= $o['simulated'] ? ' <span class="badge badge-gold" style="font-size:.55rem">sim</span>' : '' ?></td>
         <td class="td-mono" style="font-size:.75rem"><?=htmlspecialchars($o['grower_num'])?></td>
         <td class="td-mono" style="font-size:.72rem"><?=htmlspecialchars((string)$o['sale_date'])?></td>

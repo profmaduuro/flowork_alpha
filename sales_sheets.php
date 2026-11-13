@@ -146,7 +146,7 @@ include "includes/layout.php";
     </div>
     <div style="display:flex;gap:.6rem">
         <a href="timb_reports.php?date=<?= date('Y-m-d') ?>" class="btn btn-ghost" style="border-color:rgba(255,255,255,.4);color:#fff">TIMB Files</a>
-        <a href="eod_reports.php?date=<?= date('Y-m-d') ?>" style="background:#fff;color:var(--leaf);padding:.48rem .9rem;border-radius:var(--radius);font-size:.78rem;font-weight:500;text-decoration:none">EOD Reports →</a>
+        <a href="eod_reports.php?date=<?= date('Y-m-d') ?>" style="background:var(--surface);color:var(--leaf);padding:.48rem .9rem;border-radius:var(--radius);font-size:.78rem;font-weight:500;text-decoration:none">EOD Reports →</a>
     </div>
 </div>
 <?php elseif ($unprinted_ct > 0): ?>
@@ -154,7 +154,7 @@ include "includes/layout.php";
             border-radius:var(--radius);margin-bottom:1.25rem;display:flex;align-items:center;
             justify-content:space-between;flex-wrap:wrap;gap:.5rem">
     <div style="font-size:.8rem;color:var(--muted)">
-        <span style="font-weight:500;color:var(--ink)"><?= $unprinted_ct ?> sheet(s) still unprinted</span>
+        <span style="font-weight:500;color:var(--text)"><?= $unprinted_ct ?> sheet(s) still unprinted</span>
         — print all sheets to unlock EOD reports
     </div>
     <a href="eod_reports.php?date=<?= date('Y-m-d') ?>" style="font-size:.75rem;color:var(--gold)">View reports anyway →</a>
@@ -168,7 +168,7 @@ include "includes/layout.php";
     </div>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
         <a href="?printed=0" class="btn <?= $filter==='0'?'btn-primary':'btn-ghost' ?> btn-sm">
-            Unprinted <span class="badge badge-gold" style="font-size:.58rem;margin-left:3px"><?= $unprinted_ct ?></span>
+            Unprinted <span class="badge badge-gold" style="font-size:.72rem;margin-left:3px"><?= $unprinted_ct ?></span>
         </a>
         <a href="?printed=1" class="btn <?= $filter==='1'?'btn-primary':'btn-ghost' ?> btn-sm">Printed</a>
         <a href="?printed=all" class="btn <?= $filter==='all'?'btn-primary':'btn-ghost' ?> btn-sm">All</a>
@@ -288,7 +288,7 @@ include "includes/layout.php";
                 </td>
                 <td class="td-muted" style="font-size:.78rem"><?= htmlspecialchars($r['transporter_name']) ?></td>
                 <td>
-                    <span style="font-size:.7rem; background:#E8F5E9; color:#1B5E20;
+                    <span style="font-size:.7rem; background:var(--surface-2); color:var(--ok-text);
                           padding:.15rem .5rem; border-radius:99px; font-weight:600">
                         Sale <?= (int)$r['splitid'] ?>
                     </span>
@@ -296,7 +296,7 @@ include "includes/layout.php";
                 <td class="td-mono text-right" style="font-size:.78rem">
                     <?= (int)$r['sold_bales'] ?> / <?= (int)$r['laid_bales'] ?>
                     <?php if ($rej > 0): ?>
-                    <div style="font-size:.65rem;color:#c03030"><?= $rej ?> rej</div>
+                    <div style="font-size:.65rem;color:var(--bad-text)"><?= $rej ?> rej</div>
                     <?php endif; ?>
                 </td>
                 <td class="td-mono text-right" style="font-size:.78rem"><?= number_format((float)$r['mass'],0) ?> kg</td>
@@ -310,9 +310,9 @@ include "includes/layout.php";
                 </td>
                 <td>
                     <?php if ($r['printed']): ?>
-                    <span class="badge badge-green" style="font-size:.62rem">Printed</span>
+                    <span class="badge badge-green" style="font-size:.72rem">Printed</span>
                     <?php else: ?>
-                    <span class="badge badge-gold" style="font-size:.62rem">Pending</span>
+                    <span class="badge badge-gold" style="font-size:.72rem">Pending</span>
                     <?php endif; ?>
                 </td>
                 <td style="white-space:nowrap">

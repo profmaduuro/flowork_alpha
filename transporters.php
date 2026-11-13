@@ -252,8 +252,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $loc_val = $loc_id > 0 ? $loc_id : 'NULL';
             $conn->query("INSERT INTO transporter (userid,seasonid,selling_pointid,name,id_num,truck_num,location,location_id,created_at,datetime)
                 VALUES ($userid,$seasonid,$spid,'$name','$id_num','$truck_num','',$loc_val,'$now',NOW())");
-            $msg = "Transporter '$name' added.";
-            audit_log($conn,$spid,$userid,'transporter','create',(int)$conn->insert_id);
+            $new_tid = (int)$conn->insert_id;
+            if (!$new_tid) { $err = "Database error: " . $conn->error; }
+            else {
+                $msg = "Transporter '" . trim($_POST['name']) . "' added.";
+                audit_log($conn,$spid,$userid,'transporter','create',$new_tid);
+            }
+        }
+        // The page's fetch() submit wants JSON; a plain form post falls through to the page
+        if (strtolower($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'xmlhttprequest') {
+            header('Content-Type: application/json');
+            echo json_encode($err ? ['error' => $err] : ['ok' => true, 'msg' => $msg, 'id' => $new_tid]);
+            exit;
         }
     }
 
@@ -445,13 +455,13 @@ include "includes/layout.php";
 .t-table tr.t-row.selected{background:rgba(200,149,42,.12);outline:2px solid var(--gold)}
 /* Modal */
 #tg-modal{display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.55);overflow-y:auto;padding:2rem 1rem}
-#tg-modal-box{background:var(--cream);border-radius:10px;max-width:900px;margin:0 auto;box-shadow:0 8px 40px rgba(0,0,0,.3);overflow:hidden}
-.modal-head{background:var(--ink);color:var(--cream);padding:1rem 1.25rem;display:flex;align-items:center;gap:.75rem}
+#tg-modal-box{background:var(--surface);border-radius:10px;max-width:900px;margin:0 auto;box-shadow:0 8px 40px rgba(0,0,0,.3);overflow:hidden}
+.modal-head{background:var(--surface-2);color:var(--text);padding:1rem 1.25rem;display:flex;align-items:center;gap:.75rem}
 .modal-body{padding:1.25rem}
 .tg-row{display:grid;grid-template-columns:90px 1fr 60px 100px 80px 80px auto;gap:.5rem;align-items:center;
         padding:.55rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem}
 .tg-row:hover{background:rgba(200,149,42,.05)}
-.tg-row.tg-head{background:var(--ink);color:var(--cream);font-size:.68rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;border-radius:4px 4px 0 0}
+.tg-row.tg-head{background:var(--surface-2);color:var(--text);font-size:.78rem;font-weight:600;border-radius:4px 4px 0 0}
 .tg-row.balanced{opacity:.6}
 .inline-form{display:inline-flex;gap:3px;align-items:center}
 .tg-grower-wrap{border-bottom:1px solid var(--border)}
@@ -462,7 +472,7 @@ include "includes/layout.php";
 <div class="page-header">
   <div class="page-header-left"><h2>Transporters</h2><p>Manage truck delivery notes and grower assignments</p></div>
   <div style="display:flex;gap:.5rem">
-    <button class="btn btn-ghost btn-sm" onclick="togglePanel('rollover-panel')">📅 Roll Over Growers<?= $hanging ? ' (' . count($hanging) . ')' : '' ?></button>
+    <button class="btn btn-ghost btn-sm" id="rollover-btn" onclick="togglePanel('rollover-panel')">📅 Roll Over Growers<?= $hanging ? ' (' . count($hanging) . ')' : '' ?></button>
     <button class="btn btn-primary btn-sm" onclick="togglePanel('add-panel')">+ Add Transporter</button>
   </div>
 </div>
@@ -474,7 +484,8 @@ include "includes/layout.php";
 <div id="add-panel" style="display:none" class="card mb-3">
 <div class="card-head"><h3>Add Transporter</h3><button class="btn btn-ghost btn-sm" onclick="togglePanel('add-panel')">✕</button></div>
 <div class="card-body">
-<form method="POST" style="display:flex;gap:.65rem;flex-wrap:wrap;align-items:flex-end">
+<div id="add-transporter-msg" style="font-size:.75rem;margin-bottom:.5rem;display:none"></div>
+<form method="POST" id="add-transporter-form" onsubmit="return addTransporter(event)" style="display:flex;gap:.65rem;flex-wrap:wrap;align-items:flex-end">
 <input type="hidden" name="action" value="add_transporter">
 <div class="form-group" style="flex:1;min-width:150px;margin:0"><label>Name *</label><input type="text" name="name" class="form-control" required></div>
 <div class="form-group" style="width:130px;margin:0"><label>National ID</label><input type="text" name="id_num" class="form-control"></div>
@@ -490,7 +501,7 @@ include "includes/layout.php";
 <!-- Roll over hanging deliveries -->
 <div id="rollover-panel" style="display:none;border-left:3px solid var(--gold)" class="card mb-3">
 <div class="card-head"><h3>📅 Roll Over Hanging Deliveries</h3><button class="btn btn-ghost btn-sm" onclick="togglePanel('rollover-panel')">✕</button></div>
-<div class="card-body">
+<div class="card-body" id="rollover-body">
 <?php if (!$active_sod): ?>
   <p style="margin:0;color:var(--muted)">No selling day is active on this floor. Start the selling day in Day Control, then come back to roll deliveries over.</p>
 <?php elseif (!$hanging): ?>
@@ -513,7 +524,7 @@ include "includes/layout.php";
 <?php foreach ($hanging as $h): ?>
 <tr style="border-bottom:1px solid var(--border)">
   <td style="padding:.4rem"><input type="checkbox" name="tgids[]" value="<?= (int)$h['tgid'] ?>" id="ro-<?= (int)$h['tgid'] ?>"></td>
-  <td style="padding:.4rem"><label for="ro-<?= (int)$h['tgid'] ?>" class="badge badge-gold" style="font-size:.6rem;cursor:pointer"><?= htmlspecialchars($h['grower_num']) ?></label></td>
+  <td style="padding:.4rem"><label for="ro-<?= (int)$h['tgid'] ?>" class="badge badge-gold" style="font-size:.72rem;cursor:pointer"><?= htmlspecialchars($h['grower_num']) ?></label></td>
   <td style="padding:.4rem"><?= htmlspecialchars(trim($h['name'] . ' ' . $h['surname'])) ?></td>
   <td style="padding:.4rem"><?= htmlspecialchars($h['transporter']) ?> <span style="color:var(--muted)"><?= htmlspecialchars($h['truck_num']) ?></span></td>
   <td style="padding:.4rem"><?= htmlspecialchars($h['sell_date']) ?></td>
@@ -530,28 +541,28 @@ include "includes/layout.php";
 </div></div>
 
 <!-- ── TRANSPORTERS TABLE ────────────────────────────────────────────────── -->
-<div class="card">
-<div class="card-head"><h3>Transporters — <?=count($transporters)?></h3><span style="font-size:.72rem;color:var(--muted)">Click a row to manage delivery notes</span></div>
+<div class="card" id="transporters-card">
+<div class="card-head"><h3>Transporters —<?=count($transporters)?></h3><span style="font-size:.72rem;color:var(--muted)">Click a row to manage delivery notes</span></div>
 <div class="table-wrap"><table class="t-table" style="width:100%;border-collapse:collapse">
-<thead style="background:var(--ink);color:var(--cream)">
+<thead style="background:var(--surface-2);color:var(--text-muted)">
 <tr>
-  <th style="padding:.55rem .75rem;font-size:.68rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;text-align:left">Location</th>
-  <th style="padding:.55rem .75rem;font-size:.68rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;text-align:left">Name</th>
-  <th style="padding:.55rem .75rem;font-size:.68rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;text-align:left">ID</th>
-  <th style="padding:.55rem .75rem;font-size:.68rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;text-align:left">Truck</th>
-  <th style="padding:.55rem .75rem;font-size:.68rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;text-align:right">Growers</th>
-  <th style="padding:.55rem .75rem;font-size:.68rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;text-align:right">Bales</th>
-  <th style="padding:.55rem .75rem;font-size:.68rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;text-align:center">Status</th>
-  <th style="padding:.55rem .75rem;font-size:.68rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;text-align:center">Delivery Notes</th>
-  <th style="padding:.55rem .75rem;font-size:.68rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;text-align:center">Action</th>
+  <th style="padding:.55rem .75rem;font-size:.78rem;font-weight:600;text-align:left">Location</th>
+  <th style="padding:.55rem .75rem;font-size:.78rem;font-weight:600;text-align:left">Name</th>
+  <th style="padding:.55rem .75rem;font-size:.78rem;font-weight:600;text-align:left">ID</th>
+  <th style="padding:.55rem .75rem;font-size:.78rem;font-weight:600;text-align:left">Truck</th>
+  <th style="padding:.55rem .75rem;font-size:.78rem;font-weight:600;text-align:right">Growers</th>
+  <th style="padding:.55rem .75rem;font-size:.78rem;font-weight:600;text-align:right">Bales</th>
+  <th style="padding:.55rem .75rem;font-size:.78rem;font-weight:600;text-align:center">Status</th>
+  <th style="padding:.55rem .75rem;font-size:.78rem;font-weight:600;text-align:center">Delivery Notes</th>
+  <th style="padding:.55rem .75rem;font-size:.78rem;font-weight:600;text-align:center">Action</th>
 </tr>
 </thead>
 <tbody>
 <?php if(empty($transporters)):?>
 <tr><td colspan="9" style="padding:2.5rem;text-align:center;color:var(--muted)">No transporters yet. Add one above.</td></tr>
 <?php else: foreach($transporters as $t): ?>
-<tr class="t-row <?=$t['active']?'':'opacity-50'?>" onclick="openModal(<?=$t['id']?>,'<?=htmlspecialchars(addslashes($t['name']))?>')" style="border-bottom:1px solid var(--border)">
-  <td style="padding:.55rem .75rem;font-family:'Bebas Neue',sans-serif;font-size:1.05rem;color:var(--gold)">
+<tr class="t-row <?=$t['active']?'':'opacity-50'?>" id="t-<?=$t['id']?>" onclick="openModal(<?=$t['id']?>,'<?=htmlspecialchars(addslashes($t['name']))?>')" style="border-bottom:1px solid var(--border)">
+  <td style="padding:.55rem .75rem;font-family:'DM Sans',sans-serif;font-size:0.89rem;color:var(--gold);font-weight:600">
     <?=$t['loc_code']?htmlspecialchars($t['loc_code']):'<span style="color:var(--muted);font-size:.75rem;font-family:\'DM Sans\',sans-serif">—</span>'?>
   </td>
   <td style="padding:.55rem .75rem">
@@ -567,9 +578,9 @@ include "includes/layout.php";
       :'<span class="badge badge-red" style="font-size:.6rem">Inactive</span>'?>
   </td>
   <td style="padding:.55rem .75rem;text-align:center;font-size:.78rem">
-    <span class="badge badge-leaf" style="font-size:.6rem"><?=(int)$t['open_notes']?> open</span>
+    <span class="badge badge-leaf" style="font-size:.72rem"><?=(int)$t['open_notes']?> open</span>
     <?php if($t['balanced_count']>0):?>
-    <span class="badge badge-gray" style="font-size:.6rem;margin-left:2px"><?=(int)$t['balanced_count']?> balanced</span>
+    <span class="badge badge-gray" style="font-size:.72rem;margin-left:2px"><?=(int)$t['balanced_count']?> balanced</span>
     <?php endif;?>
   </td>
   <td style="padding:.55rem .75rem;text-align:center" onclick="event.stopPropagation()">
@@ -593,7 +604,7 @@ include "includes/layout.php";
   <!-- Modal header -->
   <div class="modal-head">
     <div>
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:1.15rem;color:var(--gold);letter-spacing:.08em" id="modal-title">Transporter</div>
+      <div style="font-family:'DM Sans',sans-serif;font-size:0.98rem;color:var(--gold);font-weight:600" id="modal-title">Transporter</div>
       <div style="font-size:.72rem;color:rgba(245,240,232,.55)" id="modal-sub">Delivery Notes</div>
     </div>
     <div style="margin-left:auto;display:flex;gap:.5rem;align-items:center">
@@ -720,16 +731,17 @@ async function addGrower() {
             body:    fd,
             headers: {'X-Requested-With':'XMLHttpRequest'}
         });
-        if (!r.ok) { showMsg('Server error (HTTP ' + r.status + '). Check PHP logs.', false); return; }
-        var data = await r.json();
-        if (data.error) {
-            showMsg(data.error, false);
+        var data = await r.json().catch(function(){ return null; });
+        if (!data) { showMsg('Server error (HTTP ' + r.status + '). Check PHP logs.', false); return; }
+        if (!data.ok) {
+            showMsg(data.error || data.msg || 'Could not add grower.', false);
         } else {
             showMsg('✓ ' + data.msg, true);
             document.getElementById('ag-grower').value = '';
             document.getElementById('ag-bales').value  = '0';
             document.getElementById('ag-grower').focus();
             loadGrowers(currentTid);
+            refreshTransporters(currentTid);
         }
     } catch(e) {
         showMsg('Network error: ' + e.message, false);
@@ -759,7 +771,7 @@ function renderGrowers(rows) {
 
         // The row itself
         html += '<div class="tg-row' + (balanced?' balanced':'') + '" id="tgrow-'+r.tgid+'">';
-        html += '<div><span class="badge badge-gold" style="font-size:.6rem">'+esc(r.grower_num)+'</span></div>';
+        html += '<div><span class="badge badge-gold" style="font-size:.72rem">'+esc(r.grower_num)+'</span></div>';
         html += '<div style="font-size:.78rem">'+esc(r.name+' '+r.surname)+
             '<div style="font-size:.65rem;color:var(--muted)">'+
             (junus>0?junus+' junused':'')+
@@ -767,8 +779,8 @@ function renderGrowers(rows) {
             '</div></div>';
         html += '<div style="text-align:right;font-family:monospace;font-weight:600">'+balesNum+'</div>';
         html += '<div style="font-size:.72rem">'+(r.sell_date||'—')+'</div>';
-        html += '<div><span class="badge '+stBadge+'" style="font-size:.58rem">'+r.status.toUpperCase()+'</span></div>';
-        html += '<div style="text-align:center"><span class="badge '+dnBadge+'" style="font-size:.58rem">'+dnLabel+'</span></div>';
+        html += '<div><span class="badge '+stBadge+'" style="font-size:.72rem">'+r.status.toUpperCase()+'</span></div>';
+        html += '<div style="text-align:center"><span class="badge '+dnBadge+'" style="font-size:.72rem">'+dnLabel+'</span></div>';
         if (!balanced) {
         rowDataStore[r.tgid] = r;
         html += '<div><button class="btn btn-ghost btn-sm" style="font-size:.65rem" onclick="toggleActions('+r.tgid+')">Edit ▾</button></div>';
@@ -859,8 +871,9 @@ async function saveActions(tgid) {
             var ap = document.getElementById('ap-'+tgid);
             if (ap) ap.style.display = 'none';
             loadGrowers(currentTid);
+            refreshTransporters();
         } else {
-            tpToast(data.error || 'Update failed.', 'error');
+            tpToast(data.error || data.msg || 'Update failed.', 'error');
         }
     } catch(e) { tpToast('Error: '+e.message, 'error'); }
 }
@@ -873,9 +886,74 @@ async function toggleTg(tgid, newOc) {
         var r    = await fetch('transporters.php?ajax=toggle_tg', {method:'POST', body:fd,
                                headers:{'X-Requested-With':'XMLHttpRequest'}});
         var data = await r.json();
-        if (data.ok) { loadGrowers(currentTid); }
-        else { tpToast(data.error || 'Toggle failed.', 'error'); }
+        if (data.ok) { loadGrowers(currentTid); refreshTransporters(); }
+        else { tpToast(data.error || data.msg || 'Toggle failed.', 'error'); }
     } catch(e) { tpToast('Error: '+e.message, 'error'); }
+}
+
+async function addTransporter(e) {
+    e.preventDefault();
+    var form  = document.getElementById('add-transporter-form');
+    var msgEl = document.getElementById('add-transporter-msg');
+    var btn   = form.querySelector('button[type="submit"]');
+
+    function showMsg(text, ok) {
+        msgEl.style.color   = ok ? 'var(--leaf)' : 'var(--danger)';
+        msgEl.style.display = 'block';
+        msgEl.textContent   = text;
+    }
+
+    btn.disabled = true;
+    showMsg('Saving…', true);
+    try {
+        var r    = await fetch('transporters.php', {method:'POST', body:new FormData(form),
+                               headers:{'X-Requested-With':'XMLHttpRequest'}});
+        var data = await r.json().catch(function(){ return null; });
+        if (!data)         { showMsg('Server error (HTTP ' + r.status + '). Check PHP logs.', false); return false; }
+        if (!data.ok)      { showMsg(data.error || data.msg || 'Could not add transporter.', false); return false; }
+        showMsg('✓ ' + data.msg, true);
+        form.reset();
+        refreshTransporters(data.id);
+    } catch(err) {
+        showMsg('Network error: ' + err.message, false);
+    } finally {
+        btn.disabled = false;
+    }
+    return false;
+}
+
+// Re-reads the page and swaps in the transporters table (counts and totals) and
+// the roll-over list, keeping any roll-over ticks. Scroll position is untouched.
+async function refreshTransporters(highlightTid) {
+    try {
+        var r   = await fetch('transporters.php', {headers:{'X-Requested-With':'XMLHttpRequest'}});
+        var doc = new DOMParser().parseFromString(await r.text(), 'text/html');
+        var card = doc.getElementById('transporters-card');
+        if (!r.ok || !card) throw new Error('could not read the updated list');
+        document.getElementById('transporters-card').innerHTML = card.innerHTML;
+
+        var ticked = Array.prototype.map.call(
+            document.querySelectorAll('#rollover-body input[name="tgids[]"]:checked'), function(c){ return c.value; });
+        var body = doc.getElementById('rollover-body');
+        if (body) {
+            document.getElementById('rollover-body').innerHTML = body.innerHTML;
+            ticked.forEach(function(v){
+                var c = document.querySelector('#rollover-body input[name="tgids[]"][value="' + v + '"]');
+                if (c) c.checked = true;
+            });
+        }
+        var rb = doc.getElementById('rollover-btn');
+        if (rb) document.getElementById('rollover-btn').textContent = rb.textContent;
+
+        var row = highlightTid ? document.getElementById('t-' + highlightTid) : null;
+        if (row) {
+            row.style.transition = 'background-color 1.5s ease';
+            row.style.backgroundColor = 'rgba(61,107,53,.18)';
+            setTimeout(function(){ row.style.backgroundColor = ''; }, 1500);
+        }
+    } catch(e) {
+        tpToast('Saved, but the list did not refresh (' + e.message + '). Reload the page to see it.', 'error');
+    }
 }
 
 function tpToast(msg, type) {

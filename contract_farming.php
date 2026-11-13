@@ -287,15 +287,15 @@ include "includes/layout.php";
 ?>
 
 <style>
-.cf-contract-card { background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem;position:relative;overflow:hidden;transition:all .2s; }
+.cf-contract-card { background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem;position:relative;overflow:hidden;transition:all .2s; }
 body.theme-dark .cf-contract-card { background:var(--ink-soft); }
 .cf-contract-card:hover { box-shadow:0 4px 16px rgba(0,0,0,.06); }
 .cf-contract-card::before { content:'';position:absolute;top:0;left:0;width:100%;height:3px;background:var(--gold); }
 .cf-progress { height:8px;background:var(--cream-d);border-radius:4px;overflow:hidden;margin-top:.5rem; }
 .cf-progress-fill { height:100%;border-radius:4px;transition:width .6s ease; }
-.cf-status { display:inline-flex;padding:2px 8px;border-radius:999px;font-size:.6rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase; }
+.cf-status { display:inline-flex;padding:2px 8px;border-radius:999px;font-size:.78rem;font-weight:600;}
 .cf-s-active { background:rgba(61,107,53,.12);color:#3d6b35; }
-.cf-s-suspended { background:rgba(200,149,42,.12);color:#92650e; }
+.cf-s-suspended { background:var(--warn-tint);color:var(--warn-text); }
 .cf-s-expired { background:var(--cream-d);color:var(--muted); }
 .cf-s-completed { background:rgba(26,107,154,.1);color:#1a6b9a; }
 .cf-s-withdrawn { background:rgba(192,57,43,.1);color:#c0392b; }
@@ -305,16 +305,16 @@ body.theme-dark .cf-contract-card { background:var(--ink-soft); }
 .tab-btn.active { color:var(--gold);border-bottom:2px solid var(--gold); }
 .tab-content { display:none; }
 .lifecycle-step { width:32px;height:32px;border-radius:50%;background:var(--border);color:var(--muted);display:flex;align-items:center;justify-content:center;font-weight:600;margin:0 auto .4rem; }
-.lifecycle-step.active { background:var(--gold);color:#fff; }
+.lifecycle-step.active { background:var(--gold);color:#1F1A14; }
 .lifecycle-step.completed { background:var(--leaf);color:#fff; }
 body.theme-dark .lifecycle-step.completed { color:#14110d; }
 
 /* Modal overlays */
 .modal-overlay { display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:999;backdrop-filter:blur(4px); }
-.modal-wrapper { position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:90%;max-width:900px;background:#fff;border-radius:var(--radius);overflow:hidden;box-shadow:0 12px 32px rgba(0,0,0,.3);border:1px solid var(--border); }
+.modal-wrapper { position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:90%;max-width:900px;background:var(--surface);border-radius:var(--radius);overflow:hidden;box-shadow:0 12px 32px rgba(0,0,0,.3);border:1px solid var(--border); }
 body.theme-dark .modal-wrapper { background:var(--ink-soft); }
 .modal-header { padding:1.2rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center; }
-.modal-body { padding:1.5rem;max-height:80vh;overflow-y:auto; }
+.modal-body { padding:1.5rem;max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto; }
 .modal-close-btn { font-size:1.5rem;color:var(--muted);background:none;border:none;cursor:pointer; }
 .modal-close-btn:hover { color:var(--danger); }
 </style>
@@ -347,7 +347,7 @@ body.theme-dark .modal-wrapper { background:var(--ink-soft); }
 
   <div class="card mb-3">
     <div class="card-head"><h3>📋 Buyer Contracts Overview</h3><span class="badge badge-gold"><?=count($contracts)?></span></div>
-    <div class="table-wrap" style="max-height:400px;overflow-y:auto">
+    <div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto">
       <table>
         <thead><tr><th>Buyer</th><th>Contract #</th><th>Season</th><th class="text-right">Target Bales</th><th class="text-right">Target kg</th><th class="text-right">Actual kg</th><th>Fulfillment</th><th>Credit</th><th>Status</th></tr></thead>
         <tbody>
@@ -358,7 +358,7 @@ body.theme-dark .modal-wrapper { background:var(--ink-soft); }
           $bar_color = $pct >= 80 ? 'var(--leaf)' : ($pct >= 40 ? 'var(--gold)' : 'var(--danger)');
         ?>
         <tr>
-          <td><div style="font-weight:500"><?=htmlspecialchars($c['buyer_name'])?></div><div style="font-size:.6rem;color:var(--muted)"><?=htmlspecialchars($c['buyer_code']??'')?></div></td>
+          <td><div style="font-weight:500"><?=htmlspecialchars($c['buyer_name'])?></div><div style="font-size:.72rem;color:var(--muted)"><?=htmlspecialchars($c['buyer_code']??'')?></div></td>
           <td class="td-mono" style="font-size:.72rem"><?=htmlspecialchars($c['contract_number']??'—')?></td>
           <td class="td-mono"><?=(int)$c['season_year']?></td>
           <td class="td-mono text-right"><?=number_format((int)$c['target_bales'])?></td>
@@ -367,7 +367,7 @@ body.theme-dark .modal-wrapper { background:var(--ink-soft); }
           <td style="min-width:100px">
             <div style="display:flex;align-items:center;gap:6px">
               <div class="cf-progress" style="flex:1"><div class="cf-progress-fill" style="width:<?=$pct?>%;background:<?=$bar_color?>"></div></div>
-              <span style="font-size:.62rem;font-weight:500;min-width:32px;text-align:right"><?=round($pct)?>%</span>
+              <span style="font-size:.72rem;font-weight:500;min-width:32px;text-align:right"><?=round($pct)?>%</span>
             </div>
           </td>
           <td class="td-mono text-right">$<?=number_format((float)$c['credit_limit_usd'],0)?></td>
@@ -392,7 +392,7 @@ body.theme-dark .modal-wrapper { background:var(--ink-soft); }
 
   <div class="card">
     <div class="card-head"><h3>🌿 Grower Season Registrations</h3><span class="badge badge-gold"><?=count($grower_contracts)?></span></div>
-    <div class="table-wrap" style="max-height:400px;overflow-y:auto">
+    <div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto">
       <table>
         <thead><tr><th>Grower</th><th>Farm</th><th>Crop</th><th class="text-right">Expected kg</th><th class="text-right">Delivered kg</th><th>Progress</th><th>Status</th></tr></thead>
         <tbody>
@@ -402,7 +402,7 @@ body.theme-dark .modal-wrapper { background:var(--ink-soft); }
           $gsclass = 'cf-s-'.($gc['status']??'active');
         ?>
         <tr>
-          <td><div style="font-weight:500"><?=htmlspecialchars($gc['grower_name'])?></div><div style="font-size:.6rem;color:var(--muted)"><?=htmlspecialchars($gc['grower_num'])?></div></td>
+          <td><div style="font-weight:500"><?=htmlspecialchars($gc['grower_name'])?></div><div style="font-size:.72rem;color:var(--muted)"><?=htmlspecialchars($gc['grower_num'])?></div></td>
           <td style="font-size:.75rem;color:var(--muted)"><?=htmlspecialchars($gc['farm_name']??'')?></td>
           <td style="font-size:.75rem"><?=htmlspecialchars($gc['crop_type']??'Virginia')?></td>
           <td class="td-mono text-right"><?=number_format((float)$gc['expected_kg'],0)?></td>
@@ -410,7 +410,7 @@ body.theme-dark .modal-wrapper { background:var(--ink-soft); }
           <td style="min-width:90px">
             <div style="display:flex;align-items:center;gap:6px">
               <div class="cf-progress" style="flex:1"><div class="cf-progress-fill" style="width:<?=$gpct?>%;background:<?=$gpct>=80?'var(--leaf)':($gpct>=40?'var(--gold)':'var(--danger)')?>"></div></div>
-              <span style="font-size:.62rem;font-weight:500"><?=round($gpct)?>%</span>
+              <span style="font-size:.72rem;font-weight:500"><?=round($gpct)?>%</span>
             </div>
           </td>
           <td><span class="cf-status <?=$gsclass?>"><?=htmlspecialchars($gc['status']??'active')?></span></td>
@@ -484,11 +484,11 @@ body.theme-dark .modal-wrapper { background:var(--ink-soft); }
               <td class="td-mono text-right">$<?=number_format((float)$c['input_value_usd'],2)?></td>
               <td class="td-mono text-right" style="font-weight:600;color:var(--leaf)"><?=number_format((float)$c['delivered_mass'],1)?> kg</td>
               <td>
-                <div style="display:flex;gap:4px;font-size:.6rem">
-                  <span class="badge badge-green" style="font-size:.55rem;padding:2px 4px" title="Agreement Complete">AGR</span>
-                  <span class="badge <?=$prog_inputs?'badge-green':'badge-gray'?>" style="font-size:.55rem;padding:2px 4px" title="Inputs Issued">INP</span>
-                  <span class="badge <?=$prog_delivery?'badge-green':'badge-gray'?>" style="font-size:.55rem;padding:2px 4px" title="Deliveries Received">DEL</span>
-                  <span class="badge <?=$prog_settled?'badge-green':'badge-gray'?>" style="font-size:.55rem;padding:2px 4px" title="Contract Fully Settled">SET</span>
+                <div style="display:flex;gap:4px;font-size:.72rem">
+                  <span class="badge badge-green" style="font-size:.72rem;padding:2px 4px" title="Agreement Complete">AGR</span>
+                  <span class="badge <?=$prog_inputs?'badge-green':'badge-gray'?>" style="font-size:.72rem;padding:2px 4px" title="Inputs Issued">INP</span>
+                  <span class="badge <?=$prog_delivery?'badge-green':'badge-gray'?>" style="font-size:.72rem;padding:2px 4px" title="Deliveries Received">DEL</span>
+                  <span class="badge <?=$prog_settled?'badge-green':'badge-gray'?>" style="font-size:.72rem;padding:2px 4px" title="Contract Fully Settled">SET</span>
                 </div>
               </td>
               <td>
@@ -543,7 +543,7 @@ body.theme-dark .modal-wrapper { background:var(--ink-soft); }
             <div class="form-group">
               <label>Initial Inputs Value ($)</label>
               <input type="number" name="initial_inputs_val" class="form-control" value="800.00" min="0" step="0.01">
-              <div style="font-size:.58rem;color:var(--muted);margin-top:2px">Auto-registers as a grower loan.</div>
+              <div style="font-size:.72rem;color:var(--muted);margin-top:2px">Auto-registers as a grower loan.</div>
             </div>
           </div>
 
@@ -624,7 +624,7 @@ body.theme-dark .modal-wrapper { background:var(--ink-soft); }
               
               <div class="form-row cols-2" style="margin-bottom:.4rem">
                 <div class="form-group" style="margin:0">
-                  <label style="font-size:.6rem">Input Type</label>
+                  <label style="font-size:.72rem">Input Type</label>
                   <select name="input_type" class="form-control" style="font-size:.7rem;padding:.3rem .5rem">
                     <option value="Fertilizer">Fertilizer (Compound D / AN)</option>
                     <option value="Seed">Tobacco Seeds</option>
@@ -635,22 +635,22 @@ body.theme-dark .modal-wrapper { background:var(--ink-soft); }
                   </select>
                 </div>
                 <div class="form-group" style="margin:0">
-                  <label style="font-size:.6rem">Description *</label>
+                  <label style="font-size:.72rem">Description *</label>
                   <input type="text" name="description" class="form-control" style="font-size:.7rem;padding:.3rem .5rem" required placeholder="e.g. 5x 50kg AN fertilizer">
                 </div>
               </div>
 
               <div class="form-row cols-3" style="margin-bottom:.4rem">
                 <div class="form-group" style="margin:0">
-                  <label style="font-size:.6rem">Quantity</label>
+                  <label style="font-size:.72rem">Quantity</label>
                   <input type="number" name="quantity" id="m-add-qty" class="form-control" style="font-size:.7rem;padding:.3rem .5rem" value="1.00" min="0.01" step="0.01" oninput="recalcCost()">
                 </div>
                 <div class="form-group" style="margin:0">
-                  <label style="font-size:.6rem">Unit</label>
+                  <label style="font-size:.72rem">Unit</label>
                   <input type="text" name="unit" class="form-control" style="font-size:.7rem;padding:.3rem .5rem" value="bags" placeholder="e.g. bags, kg, liters">
                 </div>
                 <div class="form-group" style="margin:0">
-                  <label style="font-size:.6rem">Unit Cost (USD)</label>
+                  <label style="font-size:.72rem">Unit Cost (USD)</label>
                   <input type="number" name="unit_cost_usd" id="m-add-cost" class="form-control" style="font-size:.7rem;padding:.3rem .5rem" value="35.00" min="0.01" step="0.01" oninput="recalcCost()">
                 </div>
               </div>
@@ -770,7 +770,7 @@ async function openContractDetails(cid) {
             d.inputs.forEach(i => {
                 var row = document.createElement('tr');
                 row.innerHTML = '<td>' + i.issued_date + '</td>' +
-                                '<td><span class="badge badge-gold" style="font-size:.58rem">' + i.input_type + '</span></td>' +
+                                '<td><span class="badge badge-gold" style="font-size:.72rem">' + i.input_type + '</span></td>' +
                                 '<td>' + i.description + '</td>' +
                                 '<td class="td-mono text-right">' + parseFloat(i.quantity).toFixed(1) + ' ' + i.unit + '</td>' +
                                 '<td class="td-mono text-right">$' + parseFloat(i.unit_cost_usd).toFixed(2) + '</td>' +

@@ -170,17 +170,17 @@ include "includes/layout.php";
 
 <style>
 .ba-score-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: .85rem; margin-bottom: 1.5rem; }
-.ba-score-card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 1.15rem; position: relative; overflow: hidden; transition: all .2s; }
+.ba-score-card { background:var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.15rem; position: relative; overflow: hidden; transition: all .2s; }
 body.theme-dark .ba-score-card { background: var(--ink-soft); }
 .ba-score-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.06); border-color: rgba(200,149,42,.25); }
 .ba-score-card::before { content:''; position:absolute; top:0; left:0; width:3px; height:100%; background: var(--gold); }
-.ba-score-rank { position:absolute; top:.75rem; right:.85rem; font-family:'Bebas Neue',sans-serif; font-size:1.8rem; color:rgba(200,149,42,.12); line-height:1; }
+.ba-score-rank { position:absolute; top:.75rem; right:.85rem; font-family:'DM Sans',sans-serif; font-size:1.53rem; color:rgba(200,149,42,.12); line-height:1;font-weight:600}
 .ba-score-name { font-weight:500; font-size:.9rem; margin-bottom:.15rem; }
-.ba-score-code { font-size:.65rem; color:var(--muted); letter-spacing:.08em; text-transform:uppercase; margin-bottom:.75rem; }
+.ba-score-code { font-size:.78rem; color:var(--muted); margin-bottom:.75rem; }
 .ba-score-stats { display:grid; grid-template-columns:1fr 1fr 1fr; gap:.5rem; }
 .ba-stat-mini { text-align:center; }
-.ba-stat-mini .val { font-family:'Bebas Neue',sans-serif; font-size:1.25rem; color:var(--text-strong); line-height:1; }
-.ba-stat-mini .lbl { font-size:.55rem; color:var(--muted); text-transform:uppercase; letter-spacing:.1em; font-weight:500; margin-top:.2rem; }
+.ba-stat-mini .val { font-family:'DM Sans',sans-serif; font-size:1.06rem; color:var(--text-strong); line-height:1;font-weight:600}
+.ba-stat-mini .lbl { font-size:.78rem; color:var(--muted); font-weight:500; margin-top:.2rem; }
 .ba-heat-row { display:flex; align-items:center; gap:.5rem; padding:.45rem 0; border-bottom:1px solid var(--border); }
 .ba-heat-row:last-child { border-bottom:none; }
 .ba-heat-grade { font-weight:500; font-size:.78rem; min-width:80px; }
@@ -188,7 +188,7 @@ body.theme-dark .ba-score-card { background: var(--ink-soft); }
 .ba-heat-fill { height:100%; border-radius:3px; transition: width .4s ease; }
 .ba-heat-info { font-size:.68rem; color:var(--muted); min-width:130px; text-align:right; }
 .ba-attend-grid { display:flex; flex-wrap:wrap; gap:4px; }
-.ba-attend-dot { width:18px; height:18px; border-radius:3px; font-size:.5rem; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:600; }
+.ba-attend-dot { width:18px; height:18px; border-radius:3px; font-size:.72rem; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:600; }
 @keyframes ba-slideIn { from { opacity:0; transform:translateX(-10px); } to { opacity:1; transform:translateX(0); } }
 .ba-score-card { animation: ba-slideIn .4s ease both; }
 .ba-score-card:nth-child(1) { animation-delay:.05s; }
@@ -200,7 +200,7 @@ body.theme-dark .ba-score-card { background: var(--ink-soft); }
 
 /* Heatmap table */
 .hm-table { width:100%; border-collapse:collapse; font-size:.72rem; }
-.hm-table th { font-size:.58rem; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); padding:.4rem .5rem; text-align:center; background:var(--cream); white-space:nowrap; border-bottom:1px solid var(--border); }
+.hm-table th { font-size:.78rem; font-weight:600; color:var(--muted); padding:.4rem .5rem; text-align:center; background:var(--surface); white-space:nowrap; border-bottom:1px solid var(--border); }
 .hm-table th:first-child { text-align:left; min-width:100px; }
 .hm-table td { padding:.35rem .5rem; text-align:center; font-variant-numeric:tabular-nums; font-size:.7rem; border-bottom:1px solid var(--border); }
 .hm-table td:first-child { text-align:left; font-weight:500; font-size:.72rem; }
@@ -433,7 +433,7 @@ body.theme-dark .ba-score-card { background: var(--ink-soft); }
       <h3>🔥 Grade Competition</h3>
       <span class="badge badge-gray">Buyers per Grade</span>
     </div>
-    <div class="card-body" style="max-height:400px;overflow-y:auto">
+    <div class="card-body" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto">
       <?php 
       $max_buyers = max(array_column($grade_competition, 'buyer_count') ?: [1]);
       foreach ($grade_competition as $gc):
@@ -478,7 +478,7 @@ body.theme-dark .ba-score-card { background: var(--ink-soft); }
   </div>
   <div class="card-body">
     <?php if(!empty($attendance_by_buyer)): ?>
-    <div class="table-wrap" style="max-height:400px;overflow-y:auto">
+    <div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto">
       <table>
         <thead><tr><th>Buyer</th><th>Active Days</th><th>Total Bales</th><th>Activity</th></tr></thead>
         <tbody>

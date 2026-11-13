@@ -71,11 +71,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ob_end_clean(); header('Content-Type: application/json');
         $u = (float)($_POST['usd_percent'] ?? 0) / 100;
         $o = (float)($_POST['other_percent'] ?? 0) / 100;
-        $_rq = $conn->query("SELECT id FROM rbz_retention_rate LIMIT 1");
+        if ($u < 0 || $u > 1 || $o < 0 || $o > 1) { echo json_encode(['error'=>'Percentages must be 0 to 100.']); exit; }
+        if (abs($u + $o - 1) > 0.00005) {
+            echo json_encode(['error'=>'USD and ZiG must add up to 100% (now '.round(($u+$o)*100, 2).'%).']); exit;
+        }
+        require_once __DIR__ . '/includes/rbz_change.php';
+        $_rq = $conn->query("SELECT id, usd_percent FROM rbz_retention_rate LIMIT 1");
         $ex  = ($_rq && $_rq !== true) ? $_rq->fetch_assoc() : null;
+        $old = $ex ? (float)$ex['usd_percent'] : null;
         if ($ex) $conn->query("UPDATE rbz_retention_rate SET usd_percent=$u,other_currency_percent=$o WHERE id={$ex['id']}");
         else     $conn->query("INSERT INTO rbz_retention_rate (usd_percent,other_currency_percent) VALUES ($u,$o)");
-        echo json_encode(['ok'=>true,'msg'=>'RBZ retention updated.']);
+        $msg = 'RBZ retention updated.';
+        if ($old === null || abs($old - $u) > 0.00005) {
+            flowork_rbz_record_change($conn, $old, $u, (int)$userid, (string)($_SESSION['username'] ?? ''));
+            audit_log($conn, $spid, $userid, 'rbz_retention_rate', 'update', $ex['id'] ?? null, ['usd_percent'=>$old], ['usd_percent'=>$u]);
+            $msg .= ' Balanced sales keep the old rate until you run Apply stop orders on Balance & Settlement.';
+        }
+        echo json_encode(['ok'=>true,'msg'=>$msg]);
         exit;
     }
 
@@ -192,6 +204,65 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         ob_end_clean(); header('Content-Type: application/json');
         echo json_encode(['ok'=>true,'msg'=>'Company profile saved.']);
+        exit;
+    }
+
+    // Add a brand-new company (AJAX): creates its floor, a trial licence like the
+    // Multi-Floor page does, and its company profile. Saving a profile on an
+    // existing floor's tab only ever changes that floor; this is how a new
+    // company is added. Master users only, as on the Multi-Floor page.
+    if ($action === 'add_company') {
+        ob_end_clean(); header('Content-Type: application/json');
+        if (!is_master_user()) {
+            echo json_encode(['error' => 'Only a master user can add a new company.']); exit;
+        }
+        $co_name  = trim($_POST['company_name'] ?? '');
+        $fl_name  = trim($_POST['floor_name'] ?? '') ?: $co_name;
+        $fl_code  = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $_POST['floor_code'] ?? ''));
+        $comm     = round((float)($_POST['offtaker_comm_pct'] ?? 0.13), 4);
+        if ($co_name === '')                   { echo json_encode(['error' => 'Enter the company name.']); exit; }
+        if ($fl_code === '' || strlen($fl_code) > 8) { echo json_encode(['error' => 'Enter a short floor code (letters and numbers, up to 8), e.g. SMX.']); exit; }
+        $dup = $conn->prepare("SELECT id, name FROM selling_point WHERE UPPER(floor_code)=? OR LOWER(name)=LOWER(?) LIMIT 1");
+        $dup->bind_param('ss', $fl_code, $fl_name);
+        $dup->execute();
+        $d = $dup->get_result()->fetch_assoc();
+        $dup->close();
+        if ($d) { echo json_encode(['error' => "A floor with that name or code already exists ({$d['name']}). Open its tab to edit its profile."]); exit; }
+
+        $addr  = trim($_POST['company_address'] ?? '');
+        $phone = trim($_POST['company_phone'] ?? '');
+        $email = trim($_POST['company_email'] ?? '');
+        $ins = $conn->prepare("INSERT INTO selling_point (name, floor_code, active, is_active, company_name, address, phone, email, offtaker_comm_pct)
+                               VALUES (?, ?, 1, 1, ?, ?, ?, ?, ?)");
+        if (!$ins) { echo json_encode(['error' => 'Could not prepare the new floor: ' . $conn->error]); exit; }
+        $ins->bind_param('ssssssd', $fl_name, $fl_code, $co_name, $addr, $phone, $email, $comm);
+        if (!$ins->execute()) { echo json_encode(['error' => 'Could not create the floor: ' . $ins->error]); exit; }
+        $new_spid = (int)$conn->insert_id;
+        $ins->close();
+
+        // Licence: same trial licence the Multi-Floor page gives a new floor
+        $far_future = date('Y-m-d', strtotime('+3650 days'));
+        $conn->query("INSERT INTO flowork_subscriptions (selling_pointid, status, license_key, start_date, end_date)
+                      VALUES ($new_spid, 'Active', 'TRIAL-ACTIVE-LICENSE', CURDATE(), '$far_future')
+                      ON DUPLICATE KEY UPDATE status='Active'");
+
+        // Company profile, stored like save_company does
+        $stmt_param = $conn->prepare("INSERT INTO parameters (param_key,param_value,selling_pointid) VALUES (?,?,?)
+                                      ON DUPLICATE KEY UPDATE param_value=?");
+        $_POST['company_floor_name'] = $_POST['company_floor_name'] ?? $fl_name;
+        foreach (['name','address','phone','email','website','reg_number','vat_number','tagline','floor_name'] as $fld) {
+            $key_str = 'company_' . $fld;
+            $val = trim($_POST['company_' . $fld] ?? '');
+            $stmt_param->bind_param("ssis", $key_str, $val, $new_spid, $val);
+            $stmt_param->execute();
+        }
+        $stmt_param->close();
+
+        // A master user can switch to it straight away (the list is otherwise built at sign-in)
+        $_SESSION['accessible_floors'][] = ['id' => $new_spid, 'name' => $fl_name, 'floor_code' => $fl_code];
+
+        audit_log($conn, 0, $userid, 'selling_point', 'create', $new_spid, null, ['name' => $fl_name, 'company' => $co_name, 'via' => 'settings_company']);
+        echo json_encode(['ok' => true, 'id' => $new_spid, 'msg' => "Company '$co_name' added with its own floor ($fl_code)."]);
         exit;
     }
 
@@ -449,14 +520,14 @@ body.theme-dark .premium-tab-btn:hover {
     background: rgba(255, 255, 255, 0.04);
 }
 .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
     box-shadow: 0 4px 12px rgba(26, 18, 8, 0.15);
     font-weight: 600;
 }
 body.theme-light .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
 }
 body.theme-dark .premium-tab-btn.active {
     background: var(--gold);
@@ -479,7 +550,7 @@ body.theme-dark .premium-tab-btn.active {
     animation: settingsFadeIn 0.25s ease-in-out;
 }
 .sm-box {
-    background: #fff;
+    background:var(--surface);
     border-radius: 12px;
     max-width: 100% !important;
     margin: 0;
@@ -494,20 +565,18 @@ body.theme-dark .sm-box {
     max-width: 100% !important;
 }
 .sm-head {
-    background: var(--ink);
-    color: var(--cream);
+    background:var(--surface-2);
+    color:var(--text);
     padding: 0.85rem 1.25rem;
     display: flex;
     align-items: center;
     gap: 0.75rem;
 }
 .sm-title {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 1.1rem;
+    font-family:'DM Sans',sans-serif;
+    font-size:0.94rem;
     color: var(--gold);
-    letter-spacing: 0.08em;
-    flex: 1;
-}
+    flex: 1;font-weight:600}
 .sm-close {
     display: none; /* Hide close buttons since it's tabbed */
 }
@@ -531,18 +600,17 @@ body.theme-dark .sm-box {
 
 /* ── Scrollable table inside modal ── */
 .modal-tbl-wrap{max-height:340px;overflow-y:auto;border:1px solid var(--border);border-radius:8px}
-.modal-tbl-wrap table thead th{position:sticky;top:0;background:var(--ink);color:var(--cream);
+.modal-tbl-wrap table thead th{position:sticky;top:0;background:var(--surface-2);color:var(--text-muted);
     font-size:.65rem;padding:.4rem .7rem;white-space:nowrap;z-index:2}
 .modal-tbl-wrap table tbody td{font-size:.78rem;padding:.42rem .7rem}
 .modal-tbl-wrap table tbody tr:hover td{background:rgba(200,149,42,.06)}
 
 .rate-inp{width:90px;padding:.3rem .45rem;font-family:monospace;font-size:.82rem;
-          border:1.5px solid var(--border);border-radius:5px;background:var(--cream);
-          color:var(--ink);text-align:right}
+          border:1.5px solid var(--border);border-radius:5px;background:var(--surface);
+          color:var(--text);text-align:right}
 .rate-inp:focus{border-color:var(--gold);outline:none}
 
-.sp-sect{font-size:.6rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;
-         color:var(--muted);margin:.9rem 0 .4rem}
+.sp-sect{font-size:.78rem;font-weight:600;color:var(--muted);margin:.9rem 0 .4rem}
 .sp-sect:first-child{margin-top:0}
 </style>
 
@@ -628,7 +696,7 @@ body.theme-dark .sm-box {
       <td style="font-weight:<?=$sod['description']===$today?'700':'400'?>;
           color:<?=$sod['description']===$today?'var(--gold)':'inherit'?>">
         <?=htmlspecialchars($sod['description'])?>
-        <?php if($sod['description']===$today):?><span class="badge badge-green" style="font-size:.55rem">Today</span><?php endif;?>
+        <?php if($sod['description']===$today):?><span class="badge badge-green" style="font-size:.72rem">Today</span><?php endif;?>
       </td>
       <td class="text-right">
         <input class="rate-inp" type="number" step="0.0001" min="0"
@@ -741,7 +809,7 @@ body.theme-dark .sm-box {
     <tr id="ch-<?=$ch['id']?>">
       <td style="font-weight:500"><?=htmlspecialchars($ch['sd'])?></td>
       <td style="font-size:.72rem;color:var(--muted)"><?=htmlspecialchars($ch['ctd'])?></td>
-      <td><span class="badge <?=$ch['cur']==='USD'?'badge-green':'badge-blue'?>" style="font-size:.6rem"><?=$ch['cur']?></span></td>
+      <td><span class="badge <?=$ch['cur']==='USD'?'badge-green':'badge-blue'?>" style="font-size:.72rem"><?=$ch['cur']?></span></td>
       <td class="text-right">
         <input class="rate-inp" type="number" step="0.0001" min="0"
                id="ch-amt-<?=$ch['id']?>"
@@ -755,9 +823,9 @@ body.theme-dark .sm-box {
                onkeydown="if(event.key==='Enter'){saveCharge(<?=$ch['id']?>);event.preventDefault();}">
       </td>
       <td style="white-space:nowrap">
-        <button class="btn btn-ghost btn-sm" style="font-size:.6rem;padding:2px 7px"
+        <button class="btn btn-ghost btn-sm" style="font-size:.72rem;padding:2px 7px"
                 onclick="saveCharge(<?=$ch['id']?>)">Save</button>
-        <button class="btn btn-ghost btn-sm" style="font-size:.6rem;padding:2px 7px;color:var(--danger)"
+        <button class="btn btn-ghost btn-sm" style="font-size:.72rem;padding:2px 7px;color:var(--danger)"
                 onclick="removeCharge(<?=$ch['id']?>)">Remove</button>
       </td>
     </tr>
@@ -784,7 +852,7 @@ body.theme-dark .sm-box {
     <div class="sm-title">Company Profiles</div>
     <button class="sm-close" onclick="closeModal('modal-company')">&times;</button>
   </div>
-  <div class="sm-body" style="max-height:75vh;overflow-y:auto">
+  <div class="sm-body" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto">
 
     <?php if(empty($sp_rows)):?>
     <p class="text-muted text-center">No selling points configured. Create selling points first.</p>
@@ -801,6 +869,69 @@ body.theme-dark .sm-box {
         <?php if($hasProf):?><span style="color:var(--gold)"> ✓</span><?php endif;?>
       </button>
       <?php endforeach;?>
+      <button type="button" class="btn btn-ghost btn-sm prof-tab" onclick="showProf('new',this)" style="font-size:.75rem">+ Add company</button>
+    </div>
+
+    <!-- New company: creates its own floor and profile -->
+    <div class="prof-panel" id="prof-new" style="display:none">
+    <?php if(!is_master_user()):?>
+      <div class="alert alert-info">Only a master user can add a new company. Ask a master user, or use the Multi-Floor page if you are one.</div>
+    <?php else:?>
+    <form class="company-form" id="add-company-form" onsubmit="return false">
+    <p style="font-size:.82rem;color:var(--muted);margin-bottom:.85rem">
+      Adds a new company with its <strong>own floor</strong>, so its sales sheets, bookings and reports stay separate.
+      It gets a trial licence and appears on the floor list straight away.
+    </p>
+    <div class="form-row cols-2">
+      <div class="form-group">
+        <label for="nc-name">Company name *</label>
+        <input type="text" id="nc-name" name="company_name" class="form-control" required placeholder="e.g. Servemox Tobacco (Pvt) Ltd">
+      </div>
+      <div class="form-group">
+        <label for="nc-code">Floor code *</label>
+        <input type="text" id="nc-code" name="floor_code" class="form-control" required maxlength="8" placeholder="e.g. SMX"
+               style="text-transform:uppercase" autocomplete="off">
+      </div>
+    </div>
+    <div class="form-row cols-2">
+      <div class="form-group">
+        <label for="nc-floor">Floor name</label>
+        <input type="text" id="nc-floor" name="floor_name" class="form-control" placeholder="Same as company name if left blank">
+      </div>
+      <div class="form-group">
+        <label for="nc-brand">Floor / brand name on sales sheets</label>
+        <input type="text" id="nc-brand" name="company_floor_name" class="form-control" placeholder="e.g. Servemox Tobacco Company">
+      </div>
+    </div>
+    <div class="form-group">
+      <label for="nc-addr">Address</label>
+      <input type="text" id="nc-addr" name="company_address" class="form-control">
+    </div>
+    <div class="form-row cols-2">
+      <div class="form-group"><label for="nc-phone">Phone</label><input type="text" id="nc-phone" name="company_phone" class="form-control"></div>
+      <div class="form-group"><label for="nc-email">Email</label><input type="email" id="nc-email" name="company_email" class="form-control"></div>
+    </div>
+    <div class="form-row cols-2">
+      <div class="form-group"><label for="nc-web">Website</label><input type="text" id="nc-web" name="company_website" class="form-control"></div>
+      <div class="form-group"><label for="nc-tag">Tagline</label><input type="text" id="nc-tag" name="company_tagline" class="form-control"></div>
+    </div>
+    <div class="form-row cols-2">
+      <div class="form-group"><label for="nc-reg">Registration number</label><input type="text" id="nc-reg" name="company_reg_number" class="form-control"></div>
+      <div class="form-group"><label for="nc-vat">VAT number</label><input type="text" id="nc-vat" name="company_vat_number" class="form-control"></div>
+    </div>
+    <div class="form-row cols-2">
+      <div class="form-group">
+        <label for="nc-comm">Offtaker commission rate (cents per kg)</label>
+        <input type="number" step="0.0001" id="nc-comm" name="offtaker_comm_pct" class="form-control" value="0.1300">
+      </div>
+      <div class="form-group"></div>
+    </div>
+    <p style="font-size:.8rem;color:var(--muted)">You can add the logo afterwards on the new company's tab.</p>
+    <div style="text-align:right;margin-top:.5rem">
+      <button type="button" class="btn btn-primary" onclick="addCompany(this)">+ Add company</button>
+    </div>
+    </form>
+    <?php endif;?>
     </div>
 
     <?php foreach($sp_rows as $i=>$sp):
@@ -814,7 +945,8 @@ body.theme-dark .sm-box {
     <p style="font-size:.72rem;color:var(--muted);margin-bottom:.85rem">
       Profile for <strong><?=htmlspecialchars($sp['name'])?></strong>
       (<?=htmlspecialchars($sp['floor_code'])?>)
-      — appears on all sales sheets for this floor
+      — appears on all sales sheets for this floor.
+      To add a different company, use <strong>+ Add company</strong> instead: saving here replaces this floor's profile.
     </p>
     <div class="form-row cols-2">
       <div class="form-group">
@@ -885,7 +1017,7 @@ body.theme-dark .sm-box {
       <label>Company Logo</label>
       <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
         <?php if($logo_path && file_exists(__DIR__.'/'.$logo_path)):?>
-        <img src="<?=htmlspecialchars($logo_path)?>" style="height:50px;border:1px solid var(--border);border-radius:6px;padding:4px;background:#fff">
+        <img src="<?=htmlspecialchars($logo_path)?>" style="height:50px;border:1px solid var(--border);border-radius:6px;padding:4px;background:var(--surface)">
         <?php endif;?>
         <input type="file" name="company_logo" accept="image/*" class="form-control" style="flex:1">
       </div>
@@ -999,7 +1131,7 @@ body.theme-dark .sm-box {
       </td>
       <td class="text-right" style="font-weight:600">$<?=number_format((float)$so['amount'],2)?></td>
       <td>
-        <span class="badge <?=$so['processed']?'badge-green':'badge-gold'?>" style="font-size:.58rem">
+        <span class="badge <?=$so['processed']?'badge-green':'badge-gold'?>" style="font-size:.72rem">
           <?=$so['processed']?'Processed':'Pending'?>
         </span>
       </td>
@@ -1034,7 +1166,7 @@ body.theme-dark .sm-box {
     <div class="sm-title">🔑 TIMB File Decryption Keys</div>
     <button class="sm-close" onclick="closeModal('modal-timb-keys')">&times;</button>
   </div>
-  <div class="sm-body" style="max-height:75vh;overflow-y:auto">
+  <div class="sm-body" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto">
     <p style="font-size:.78rem;color:var(--muted);margin-bottom:1rem;line-height:1.6">
       Enter the AES-256 encryption keys provided by TIMB for each selling point / floor.
       These are used to decrypt the encrypted booking and stop order files (<code>.encry_en</code>).
@@ -1080,12 +1212,12 @@ body.theme-dark .sm-box {
           <span style="font-size:.85rem">📋</span>
           <strong style="font-size:.82rem">Booking File Keys</strong>
           <?php if(!empty($bk['system_key'])):?>
-          <span class="badge badge-green" style="font-size:.58rem">✓ Configured</span>
+          <span class="badge badge-green" style="font-size:.72rem">✓ Configured</span>
           <?php if(!empty($bk['datetime'])):?>
           <span style="font-size:.65rem;color:var(--muted)">Updated <?=date('d M Y H:i',strtotime($bk['datetime']))?></span>
           <?php endif;?>
           <?php else:?>
-          <span class="badge badge-gray" style="font-size:.58rem">Not set</span>
+          <span class="badge badge-gray" style="font-size:.72rem">Not set</span>
           <?php endif;?>
         </div>
         <div class="form-row cols-2">
@@ -1110,12 +1242,12 @@ body.theme-dark .sm-box {
           <span style="font-size:.85rem">🛑</span>
           <strong style="font-size:.82rem">Stop Order File Keys</strong>
           <?php if(!empty($sk['system_key'])):?>
-          <span class="badge badge-green" style="font-size:.58rem">✓ Configured</span>
+          <span class="badge badge-green" style="font-size:.72rem">✓ Configured</span>
           <?php if(!empty($sk['datetime'])):?>
           <span style="font-size:.65rem;color:var(--muted)">Updated <?=date('d M Y H:i',strtotime($sk['datetime']))?></span>
           <?php endif;?>
           <?php else:?>
-          <span class="badge badge-gray" style="font-size:.58rem">Not set</span>
+          <span class="badge badge-gray" style="font-size:.72rem">Not set</span>
           <?php endif;?>
         </div>
         <div class="form-row cols-2">
@@ -1243,7 +1375,7 @@ function createSod(){
         var row = '<tr id="sod-row-'+res.sodid+'">'
             +'<td style="color:var(--muted)">'+count+'</td>'
             +'<td style="font-weight:'+(isToday?'700':'400')+';color:'+(isToday?'var(--gold)':'inherit')+'">'
-            +d+(isToday?' <span class="badge badge-green" style="font-size:.55rem">Today</span>':'')+'</td>'
+            +d+(isToday?' <span class="badge badge-green" style="font-size:.72rem">Today</span>':'')+'</td>'
             +'<td class="text-right"><input class="rate-inp" type="number" step="0.0001" id="rate-'+res.sodid+'" value="'+parseFloat(r||0).toFixed(4)+'" data-sodid="'+res.sodid+'" class="rate-inp sod-rate-inp"></td>'
             +'<td class="text-right"><button class="btn btn-ghost btn-sm" style="font-size:.65rem;padding:3px 8px" onclick="saveRate('+res.sodid+')">Save</button></td>'
             +'</tr>';
@@ -1313,12 +1445,12 @@ function addCharge(){
         var html = '<tr id="ch-'+r.id+'">'
             +'<td style="font-weight:500">'+xe(r.sd)+'</td>'
             +'<td style="font-size:.72rem;color:var(--muted)">'+xe(r.ctd)+'</td>'
-            +'<td><span class="badge '+badgeClass+'" style="font-size:.6rem">'+cur+'</span></td>'
+            +'<td><span class="badge '+badgeClass+'" style="font-size:.72rem">'+cur+'</span></td>'
             +'<td class="text-right"><input class="rate-inp" type="number" step="0.0001" min="0" id="ch-amt-'+r.id+'" value="'+parseFloat(r.amount).toFixed(4)+'" data-chid="'+r.id+'"></td>'
             +'<td class="text-right"><input class="rate-inp" type="number" step="1" min="0" style="width:70px" id="ch-cno-'+r.id+'" value="'+(parseInt(r.creditor_no)||0)+'"></td>'
             +'<td style="white-space:nowrap">'
-            +'<button class="btn btn-ghost btn-sm" style="font-size:.6rem;padding:2px 7px" onclick="saveCharge('+r.id+')">Save</button> '
-            +'<button class="btn btn-ghost btn-sm" style="font-size:.6rem;padding:2px 7px;color:var(--danger)" onclick="removeCharge('+r.id+')">Remove</button>'
+            +'<button class="btn btn-ghost btn-sm" style="font-size:.72rem;padding:2px 7px" onclick="saveCharge('+r.id+')">Save</button> '
+            +'<button class="btn btn-ghost btn-sm" style="font-size:.72rem;padding:2px 7px;color:var(--danger)" onclick="removeCharge('+r.id+')">Remove</button>'
             +'</td></tr>';
         tbody.insertAdjacentHTML('beforeend',html);
     })
@@ -1372,6 +1504,41 @@ function saveCompany(btn){
     })
     .catch(function(e){ btn.disabled=false; btn.innerHTML='&#10003; Save Profile'; toast(e.message,'error'); });
 }
+
+function addCompany(btn){
+    var form = document.getElementById('add-company-form');
+    var name = form.querySelector('[name="company_name"]'), code = form.querySelector('[name="floor_code"]');
+    if (!name.value.trim()) { name.focus(); toast('Enter the company name.','error'); return; }
+    if (!code.value.trim()) { code.focus(); toast('Enter a short floor code, e.g. SMX.','error'); return; }
+    var fd = new FormData(form);
+    fd.append('action','add_company');
+    fd.append('csrf_token', '<?= $_SESSION['csrf_token'] ?? '' ?>');
+    btn.disabled = true; btn.textContent = 'Adding…';
+    fetch('settings.php',{method:'POST',body:fd})
+    .then(function(r){ return r.text().then(function(t){ try{return JSON.parse(t);}catch(e){throw new Error(t.substring(0,200));} }); })
+    .then(function(d){
+        if (d.ok) {
+            toast(d.msg);
+            // reopen Company Profiles on the new company's tab
+            setTimeout(function(){ location.href = 'settings.php?company=' + d.id; }, 700);
+        } else {
+            btn.disabled = false; btn.textContent = '+ Add company';
+            toast(d.error || 'Error','error');
+        }
+    })
+    .catch(function(e){ btn.disabled = false; btn.textContent = '+ Add company'; toast(e.message,'error'); });
+}
+// After adding a company: open Company Profiles on its tab
+(function(){
+    var id = new URLSearchParams(location.search).get('company');
+    if (!id) return;
+    document.addEventListener('DOMContentLoaded', function(){
+        openModal('modal-company');
+        var panel = document.getElementById('prof-' + id);
+        var tab = [...document.querySelectorAll('.prof-tab')].find(function(b){ return (b.getAttribute('onclick')||'').indexOf('showProf(' + id + ',') === 0; });
+        if (panel && tab) showProf(id, tab);
+    });
+})();
 
 // ── SO Priorities ──────────────────────────────────────────────────────────
 // Delegated keydown for dynamically added rate/charge inputs

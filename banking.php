@@ -254,7 +254,7 @@ include "includes/layout.php";
     <span class="badge badge-gray"><?=count($accounts)?></span>
   </div>
 </div>
-<div class="table-wrap" style="max-height:420px;overflow-y:auto"><table>
+<div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto"><table>
 <thead><tr>
   <th>Grower</th><th>Bank</th><th>Account #</th><th>Account Name</th>
   <?php if($f_currency==='usd'):?><th>SWIFT</th><?php endif;?>
@@ -281,7 +281,7 @@ include "includes/layout.php";
 ?>
 <tr style="cursor:pointer" onclick="<?=$js?>" title="Click to edit">
   <td>
-    <span class="badge badge-gold" style="font-size:.6rem"><?=htmlspecialchars($a['grower_num'])?></span>
+    <span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($a['grower_num'])?></span>
     <div style="font-size:.7rem"><?=htmlspecialchars(trim($a['name'].' '.$a['surname']))?></div>
   </td>
   <td style="font-size:.78rem"><?=htmlspecialchars($a['bank_name'])?></td>

@@ -311,9 +311,9 @@ include "includes/layout.php";
 <!-- Create backup -->
 <div id="panel-create" class="tab-panel" data-tabs="backup">
 <div class="card">
-<div class="card-head" style="background:var(--ink);color:var(--cream)">
+<div class="card-head" style="background:var(--surface-2);color:var(--text)">
   <h3>Create Backup</h3>
-  <span class="badge badge-green" style="font-size:.62rem">PHP Export</span>
+  <span class="badge badge-green" style="font-size:.72rem">PHP Export</span>
 </div>
 <div class="card-body">
   <p style="font-size:.8rem;color:var(--muted);margin-bottom:1rem">
@@ -338,9 +338,9 @@ include "includes/layout.php";
 
 <div id="panel-dr" class="tab-panel" data-tabs="backup">
 <div class="card" style="border-left: 3px solid var(--gold)">
-<div class="card-head" style="background:var(--ink);color:var(--cream)">
+<div class="card-head" style="background:var(--surface-2);color:var(--text)">
   <h3>Emergency DR Export Packager</h3>
-  <span class="badge badge-gold" style="font-size:.62rem">ZIP Bundle</span>
+  <span class="badge badge-gold" style="font-size:.72rem">ZIP Bundle</span>
 </div>
 <div class="card-body">
   <p style="font-size:.8rem;color:var(--muted);margin-bottom:1rem">
@@ -427,21 +427,21 @@ include "includes/layout.php";
     <a href="backup.php" style="color: #fff; text-decoration: none; font-size: 1.1rem">&times;</a>
   </div>
   <div class="card-body" style="padding: 1rem; font-size: .83rem">
-    <div style="font-family: monospace; font-size: .8rem; margin-bottom: .6rem; font-weight: 600; color: var(--ink)">
+    <div style="font-family: monospace; font-size: .8rem; margin-bottom: .6rem; font-weight: 600; color:var(--text)">
       File: <?= htmlspecialchars($verify_results['name']) ?>
     </div>
     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: .75rem; margin-bottom: .75rem">
-      <div style="background: var(--cream); padding: .5rem; border-radius: 4px; border: 1px solid var(--border)">
-        <div style="color: var(--muted); font-size: .65rem; text-transform: uppercase">Tables Found</div>
-        <div style="font-size: 1.25rem; font-family: 'Bebas Neue', sans-serif; color: var(--ink)"><?= $verify_results['tables'] ?></div>
+      <div style="background:var(--surface); padding: .5rem; border-radius: 4px; border: 1px solid var(--border)">
+        <div style="color: var(--muted); font-size:.78rem; ">Tables Found</div>
+        <div style="font-size:1.06rem; font-family:'DM Sans',sans-serif; color:var(--text);font-weight:600"><?= $verify_results['tables'] ?></div>
       </div>
-      <div style="background: var(--cream); padding: .5rem; border-radius: 4px; border: 1px solid var(--border)">
-        <div style="color: var(--muted); font-size: .65rem; text-transform: uppercase">Insert Statements</div>
-        <div style="font-size: 1.25rem; font-family: 'Bebas Neue', sans-serif; color: var(--ink)"><?= number_format($verify_results['inserts']) ?></div>
+      <div style="background:var(--surface); padding: .5rem; border-radius: 4px; border: 1px solid var(--border)">
+        <div style="color: var(--muted); font-size:.78rem; ">Insert Statements</div>
+        <div style="font-size:1.06rem; font-family:'DM Sans',sans-serif; color:var(--text);font-weight:600"><?= number_format($verify_results['inserts']) ?></div>
       </div>
-      <div style="background: var(--cream); padding: .5rem; border-radius: 4px; border: 1px solid var(--border)">
-        <div style="color: var(--muted); font-size: .65rem; text-transform: uppercase">Verification Size</div>
-        <div style="font-size: 1.25rem; font-family: 'Bebas Neue', sans-serif; color: var(--ink)"><?= $verify_results['size'] ?> KB</div>
+      <div style="background:var(--surface); padding: .5rem; border-radius: 4px; border: 1px solid var(--border)">
+        <div style="color: var(--muted); font-size:.78rem; ">Verification Size</div>
+        <div style="font-size:1.06rem; font-family:'DM Sans',sans-serif; color:var(--text);font-weight:600"><?= $verify_results['size'] ?> KB</div>
       </div>
     </div>
     

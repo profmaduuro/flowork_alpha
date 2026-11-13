@@ -34,7 +34,7 @@ $pages = [
     'dashboard.php', 'role_dashboard.php', 'management_dashboard.php',
     'floor_map.php', 'floor_queue.php', 'floor_summary.php', 'live_floor.php', 'scale.php',
     'grower_booking.php', 'grower_registry.php', 'grower_loans.php', 'grower_performance.php',
-    'bales.php', 'bale_adjustments.php', 'bale_check.php', 'balance.php',
+    'bales.php', 'bale_adjustments.php', 'bale_check.php', 'balance.php', 'bale_import.php',
     'tickets.php', 'selling.php', 'sales.php', 'sales_sheets.php', 're_offer.php',
     'buyers.php', 'buyer_management.php', 'buyer_analytics.php',
     'stop_orders.php', 'stoporder_processing.php', 'stoporder_verification.php',

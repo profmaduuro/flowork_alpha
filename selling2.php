@@ -233,14 +233,14 @@ body.theme-dark .premium-tab-btn:hover {
     background: rgba(255, 255, 255, 0.04);
 }
 .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
     box-shadow: 0 4px 12px rgba(26, 18, 8, 0.15);
     font-weight: 600;
 }
 body.theme-light .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
 }
 body.theme-dark .premium-tab-btn.active {
     background: var(--gold);
@@ -280,10 +280,10 @@ body.theme-dark .premium-tab-btn.active {
         💵 Confirm Price
     </button>
     <button class="premium-tab-btn" data-tab="batch" onclick="switchSelling2Tab('batch')">
-        📦 Batch Delivery <span class="badge badge-gold" id="batch-tab-badge" style="display:none; font-size:.62rem; margin-left:4px"></span>
+        📦 Batch Delivery <span class="badge badge-gold" id="batch-tab-badge" style="display:none; font-size:.72rem; margin-left:4px"></span>
     </button>
     <button class="premium-tab-btn" data-tab="log" onclick="switchSelling2Tab('log')">
-        📋 Instructions &amp; Activity <span class="badge badge-gray" id="s2TodayBadge" style="font-size:.62rem; margin-left:4px"><?= $s2count ?></span>
+        📋 Instructions &amp; Activity <span class="badge badge-gray" id="s2TodayBadge" style="font-size:.72rem; margin-left:4px"><?= $s2count ?></span>
     </button>
 </div>
 
@@ -379,7 +379,7 @@ body.theme-dark .premium-tab-btn.active {
                 <!-- Column headers -->
                 <div style="display:grid; grid-template-columns:1fr auto auto; gap:.5rem;
                      padding:.2rem .2rem .4rem; border-bottom:1px solid rgba(0,0,0,.08);
-                     font-size:.68rem; font-weight:700; text-transform:uppercase; color:var(--text-muted)">
+                     font-size:.78rem; font-weight:700; color:var(--text-muted)">
                     <span>Barcode</span>
                     <span>Buyer / Grade</span>
                     <span style="text-align:right; min-width:70px">Price</span>
@@ -509,7 +509,7 @@ function showBaleInfo(d) {
         'Grower: <b>' + d.grower_num + '</b> — ' + d.grower_name + ' ' + d.surname + '<br>' +
         'Lot: <b>' + (d.lot||'—') + '</b> &nbsp; Group: <b>' + (d.bale_group||'—') + '</b>' +
         (d.timb_grade ? '<br>TIMB Grade: <b>' + d.timb_grade + '</b>' : '') +
-        (rej ? ' &nbsp; <span style="color:#c03030;font-weight:600">' + sc + ' (Rejected)</span>' : '');
+        (rej ? ' &nbsp; <span style="color:var(--bad-text);font-weight:600">' + sc + ' (Rejected)</span>' : '');
 
     document.getElementById('baleCard').style.display = '';
     document.getElementById('formCard').style.display = '';
@@ -679,11 +679,11 @@ function loadBatch(tgid) {
             html += '<span style="font-size:.7rem;color:var(--text-muted)">' + (t.buyer_grade || t.buyer_name || '—') + '</span>';
 
             if (rej) {
-                html += '<span style="font-size:.68rem;background:#FFEBEE;color:#C62828;padding:.15rem .4rem;border-radius:3px;text-align:right">' + t.sale_code.toUpperCase() + '</span>';
+                html += '<span style="font-size:.68rem;background:var(--surface-2);color:var(--bad-text);padding:.15rem .4rem;border-radius:3px;text-align:right">' + t.sale_code.toUpperCase() + '</span>';
             } else if (s2conf) {
                 html += '<span style="font-size:.72rem;font-family:monospace;font-weight:700;color:#1A4D2E;text-align:right;min-width:70px">$' + pr.toFixed(4) + '</span>';
             } else {
-                html += '<span style="font-size:.68rem;background:#F5F5F5;color:#9E9E9E;padding:.15rem .4rem;border-radius:3px;text-align:right">S2 pending</span>';
+                html += '<span style="font-size:.68rem;background:var(--surface-2);color:#9E9E9E;padding:.15rem .4rem;border-radius:3px;text-align:right">S2 pending</span>';
             }
             html += '</div>';
         });

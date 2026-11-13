@@ -477,23 +477,23 @@ include "includes/layout.php";
 <!-- Filters -->
 <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:.9rem">
     <div style="display:flex;flex-direction:column;gap:.2rem">
-        <label style="font-size:.6rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">From</label>
+        <label style="font-size:.78rem;font-weight:600;color:var(--muted)">From</label>
         <input id="fDateFrom" type="date" class="form-control" style="width:145px" onchange="loadBales(1)">
     </div>
     <div style="display:flex;flex-direction:column;gap:.2rem">
-        <label style="font-size:.6rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">To</label>
+        <label style="font-size:.78rem;font-weight:600;color:var(--muted)">To</label>
         <input id="fDateTo" type="date" class="form-control" style="width:145px" onchange="loadBales(1)">
     </div>
     <div style="display:flex;flex-direction:column;gap:.2rem">
-        <label style="font-size:.6rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">Sale Date</label>
+        <label style="font-size:.78rem;font-weight:600;color:var(--muted)">Sale Date</label>
         <input id="fSellDate" type="date" class="form-control" style="width:145px" onchange="loadBales(1)">
     </div>
     <div style="display:flex;flex-direction:column;gap:.2rem">
-        <label style="font-size:.6rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">Grower / Barcode</label>
+        <label style="font-size:.78rem;font-weight:600;color:var(--muted)">Grower / Barcode</label>
         <input id="fGrower" type="text" class="form-control" placeholder="Search…" style="width:200px" oninput="loadBalesDebounced()">
     </div>
     <div style="display:flex;flex-direction:column;gap:.2rem">
-        <label style="font-size:.6rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">Status</label>
+        <label style="font-size:.78rem;font-weight:600;color:var(--muted)">Status</label>
         <select id="fStatus" class="form-control" style="width:130px" onchange="loadBales(1)">
             <option value="">All</option>
             <option value="sold">Sold</option>
@@ -505,7 +505,7 @@ include "includes/layout.php";
         </select>
     </div>
     <div style="display:flex;flex-direction:column;gap:.2rem">
-        <label style="font-size:.6rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">Buyer</label>
+        <label style="font-size:.78rem;font-weight:600;color:var(--muted)">Buyer</label>
         <select id="fBuyerName" class="form-control" style="width:130px" onchange="filterBuyerMarksDropdown(); loadBales(1)">
             <option value="">All</option>
             <?php foreach ($buyer_names_list as $b_name): ?>
@@ -514,7 +514,7 @@ include "includes/layout.php";
         </select>
     </div>
     <div style="display:flex;flex-direction:column;gap:.2rem">
-        <label style="font-size:.6rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">Buyer Mark</label>
+        <label style="font-size:.78rem;font-weight:600;color:var(--muted)">Buyer Mark</label>
         <select id="fBuyerMark" class="form-control" style="width:120px" onchange="loadBales(1)">
             <option value="">All</option>
             <?php foreach ($buyers_list as $b): ?>
@@ -523,7 +523,7 @@ include "includes/layout.php";
         </select>
     </div>
     <div style="display:flex;flex-direction:column;gap:.2rem">
-        <label style="font-size:.6rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">Location</label>
+        <label style="font-size:.78rem;font-weight:600;color:var(--muted)">Location</label>
         <select id="fLocation" class="form-control" style="width:120px" onchange="loadBales(1)">
             <option value="">All</option>
             <?php foreach ($locations_list as $loc): ?>
@@ -536,7 +536,7 @@ include "includes/layout.php";
 </div>
 
 <!-- Bulk action bar (hidden until items selected) -->
-<div id="bulkBar" style="display:none;background:var(--ink);color:var(--gold-l);padding:.55rem 1rem;
+<div id="bulkBar" style="display:none;background:var(--surface-2);color:var(--text);padding:.55rem 1rem;
      border-radius:var(--radius);margin-bottom:.75rem;
      align-items:center;gap:.75rem;flex-wrap:wrap;font-size:.8rem">
     <span id="bulkCount" style="font-weight:600"></span>
@@ -685,12 +685,12 @@ include "includes/layout.php";
 .bale-modal{display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.55);
             align-items:center;justify-content:center}
 .bale-modal.open{display:flex}
-.modal-box{background:#fff;border-radius:10px;width:min(96vw,100%);
+.modal-box{background:var(--surface);border-radius:10px;width:min(96vw,100%);
            box-shadow:0 8px 40px rgba(0,0,0,.22);overflow:hidden}
 .modal-head{background:#1A4D2E;color:#fff;padding:.9rem 1.25rem;
             display:flex;align-items:flex-start;justify-content:space-between;gap:.75rem}
 .modal-foot{padding:.75rem 1.25rem;border-top:1px solid rgba(0,0,0,.08);
-            display:flex;justify-content:flex-end;gap:.6rem;background:#fafafa}
+            display:flex;justify-content:flex-end;gap:.6rem;background:var(--surface-2)}
 .modal-close-btn{background:rgba(255,255,255,.15);border:none;color:#fff;
                  border-radius:5px;padding:.3rem .65rem;cursor:pointer;font-size:.85rem;flex-shrink:0}
 .modal-close-btn:hover{background:rgba(255,255,255,.25)}
@@ -698,10 +698,10 @@ body.theme-dark .modal-box{background:#1f1a14}
 body.theme-dark .modal-foot{background:#191510;border-top-color:rgba(245,240,232,.10)}
 
 /* State badges */
-.state-sold     {background:#E8F5E9;color:#1B5E20;border:1px solid #9bcb94}
-.state-unsold   {background:#E3F2FD;color:#0D47A1;border:1px solid #aacde6}
-.state-rejected {background:#FFEBEE;color:#B71C1C;border:1px solid #f5b8b2}
-.state-balanced {background:#F3E5F5;color:#4A148C;border:1px solid #CE93D8}
+.state-sold     {background:var(--surface-2);color:var(--ok-text);border:1px solid #9bcb94}
+.state-unsold   {background:var(--info-tint);color:var(--info-text);border:1px solid #aacde6}
+.state-rejected {background:var(--bad-tint);color:var(--bad-text);border:1px solid #f5b8b2}
+.state-balanced {background:var(--info-tint);color:var(--info-text);border:1px solid #CE93D8}
 .state-pending  {background:var(--cream-d);color:var(--muted);border:1px solid var(--border)}
 
 /* Action icon buttons */
@@ -864,7 +864,7 @@ function renderBales(rows) {
             + '<td style="padding-left:.6rem"><input type="checkbox" class="row-chk" value="'
             + r.bjid + '" onchange="onChkChange()"></td>'
             + '<td class="text-muted" style="font-size:.72rem">' + (offset+i+1) + '</td>'
-            + '<td><span class="badge ' + st.cls + '" style="font-size:.6rem">' + st.label + '</span></td>'
+            + '<td><span class="badge ' + st.cls + '" style="font-size:.72rem">' + st.label + '</span></td>'
             + '<td><code style="font-size:.72rem;letter-spacing:.03em">' + escH(r.temp_bacode||'—') + '</code></td>'
             + '<td>' + (r.barcode
                 ? '<code style="font-size:.72rem;letter-spacing:.03em;color:var(--leaf)">' + escH(r.barcode) + '</code>'
@@ -875,10 +875,10 @@ function renderBales(rows) {
             + '<td>' + grower + '</td>'
             + '<td>' + dnote + '</td>'
             + '<td style="font-size:.75rem;color:var(--muted)">' + escH(r.location||'—') + '</td>'
-            + '<td>' + (r.timb_grade ? '<span class="badge badge-gold" style="font-size:.6rem">' + escH(r.timb_grade) + '</span>' : '<span style="color:var(--muted)">—</span>') + '</td>'
+            + '<td>' + (r.timb_grade ? '<span class="badge badge-gold" style="font-size:.72rem">' + escH(r.timb_grade) + '</span>' : '<span style="color:var(--muted)">—</span>') + '</td>'
             + '<td>' + buyer + '</td>'
             + '<td class="text-right">' + priceHtml + '</td>'
-            + '<td style="text-align:center"><span style="font-size:.72rem;background:#E8F5E9;color:#1B5E20;padding:2px 7px;border-radius:99px;font-weight:600">S' + (r.splitid||1) + '</span></td>'
+            + '<td style="text-align:center"><span style="font-size:.72rem;background:var(--surface-2);color:var(--ok-text);padding:2px 7px;border-radius:99px;font-weight:600">S' + (r.splitid||1) + '</span></td>'
             + '<td style="white-space:nowrap;text-align:right">' + editBtn + massBtn + moveBtn + delBtn + '</td>'
             + '</tr>';
     });
@@ -1079,7 +1079,7 @@ function searchDeliveries() {
             let html = '';
             rows.forEach(r => {
                 html += '<div class="gc-result-row" onclick="selectDelivery('+r.tgid+',\''+escH(r.grower_num)+'\',\''+escH(r.name+' '+r.surname)+'\',\''+escH(r.dnote)+'\',\''+escH(r.sell_date||'')+'\')" style="padding:.55rem .9rem;cursor:pointer;border-bottom:1px solid var(--border);font-size:.78rem;transition:background .1s">'
-                    + '<span class="badge badge-gold" style="font-size:.6rem;margin-right:.5rem">' + escH(r.grower_num) + '</span>'
+                    + '<span class="badge badge-gold" style="font-size:.72rem;margin-right:.5rem">' + escH(r.grower_num) + '</span>'
                     + '<strong>' + escH(r.name+' '+r.surname) + '</strong>'
                     + ' <span style="color:var(--muted)">' + escH(r.dnote) + '</span>'
                     + ' <span style="color:var(--muted);font-size:.72rem">' + (r.sell_date||'') + '</span>'

@@ -123,14 +123,14 @@ body.theme-dark .premium-tab-btn:hover {
     background: rgba(255, 255, 255, 0.04);
 }
 .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
     box-shadow: 0 4px 12px rgba(26, 18, 8, 0.15);
     font-weight: 600;
 }
 body.theme-light .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
 }
 body.theme-dark .premium-tab-btn.active {
     background: var(--gold);
@@ -206,7 +206,7 @@ body.theme-dark .premium-tab-btn.active {
           <td style="font-size:.78rem"><?=htmlspecialchars($l['name'])?></td>
           <td style="font-size:.72rem;color:var(--muted)"><?=htmlspecialchars($l['subcontractor'])?></td>
           <td class="td-mono text-right"><?=$l['truck_count']?></td>
-          <td><span class="badge <?=$l['active']?'badge-green':'badge-gray'?>" style="font-size:.6rem"><?=$l['active']?'Active':'Inactive'?></span></td>
+          <td><span class="badge <?=$l['active']?'badge-green':'badge-gray'?>" style="font-size:.72rem"><?=$l['active']?'Active':'Inactive'?></span></td>
           <td style="white-space:nowrap">
             <a href="?edit=<?=$l['id']?>" class="btn btn-ghost btn-sm" style="font-size:.65rem">Edit</a>
             <form method="POST" style="display:inline">

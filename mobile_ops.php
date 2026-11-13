@@ -34,18 +34,18 @@ include "includes/layout.php";
 .mob-wrap{max-width:480px;margin:0 auto}
 .mob-kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;margin-bottom:1rem}
 .mob-kpi-item{background:var(--cream-d);border:1px solid var(--border);border-radius:8px;padding:.65rem .5rem;text-align:center}
-.mob-kpi-item .v{font-size:1.4rem;font-weight:700;color:var(--gold);font-family:'Bebas Neue',sans-serif;line-height:1}
-.mob-kpi-item .l{font-size:.6rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-top:2px}
+.mob-kpi-item .v{font-size:1.19rem;font-weight:700;color:var(--gold);font-family:'DM Sans',sans-serif;line-height:1}
+.mob-kpi-item .l{font-size:.78rem;color:var(--muted);margin-top:2px}
 .mob-search{display:flex;gap:.5rem;margin-bottom:1rem}
-.mob-search input{flex:1;padding:.65rem .85rem;border:2px solid var(--border);border-radius:8px;font-size:.95rem;outline:none;background:var(--cream)}
+.mob-search input{flex:1;padding:.65rem .85rem;border:2px solid var(--border);border-radius:8px;font-size:.95rem;outline:none;background:var(--surface)}
 .mob-search input:focus{border-color:var(--gold)}
-.mob-search button{padding:.65rem 1rem;background:var(--gold);color:#fff;border:none;border-radius:8px;font-size:.9rem;cursor:pointer;font-weight:600}
-.mob-result{background:var(--cream);border:1px solid var(--border);border-radius:8px;padding:1rem;margin-bottom:1rem;display:none}
+.mob-search button{padding:.65rem 1rem;background:var(--accent);color:#1F1A14;border:none;border-radius:8px;font-size:.9rem;cursor:pointer;font-weight:600}
+.mob-result{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1rem;margin-bottom:1rem;display:none}
 .mob-result.show{display:block}
-.mob-result .big{font-size:1.8rem;font-weight:700;font-family:'Bebas Neue',sans-serif;color:var(--gold)}
+.mob-result .big{font-size:1.53rem;font-weight:700;font-family:'DM Sans',sans-serif;color:var(--gold)}
 .mob-feed-item{display:flex;align-items:center;gap:.65rem;padding:.55rem 0;border-bottom:1px solid rgba(200,149,42,.08);font-size:.8rem}
 .mob-feed-item:last-child{border-bottom:none}
-.mob-badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:.65rem;font-weight:600;background:#fef3d8;color:#8b6200}
+.mob-badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:.65rem;font-weight:600;background:var(--warn-tint);color:var(--warn-text)}
 @media(min-width:600px){.mob-wrap{max-width:100%}.mob-kpi{grid-template-columns:repeat(4,1fr)}}
 .pulse-ring{display:inline-block;width:8px;height:8px;border-radius:50%;background:#4caf50;animation:pulse-dot 1.8s infinite}
 </style>
@@ -75,8 +75,8 @@ include "includes/layout.php";
 </div>
 
 <!-- Live sales feed -->
-<div style="background:var(--cream);border:1px solid var(--border);border-radius:8px;overflow:hidden">
-  <div style="padding:.65rem 1rem;background:var(--ink);color:var(--cream);display:flex;justify-content:space-between;align-items:center">
+<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+  <div style="padding:.65rem 1rem;background:var(--surface-2);color:var(--text);display:flex;justify-content:space-between;align-items:center">
     <span style="font-size:.82rem;font-weight:600">Recent Sales</span>
     <span id="feed-updated" style="font-size:.65rem;opacity:.4"></span>
   </div>
@@ -92,7 +92,7 @@ include "includes/layout.php";
     ['tickets.php','🎫 Tickets'],['floor.php','🏷 Sell'],
     ['bale_check.php','🔍 Check Bale'],['live_floor.php','📡 Live Floor'],
   ] as [$href,$lbl]):?>
-  <a href="<?=$href?>" style="display:block;padding:.75rem;background:var(--cream-d);border:1px solid var(--border);border-radius:8px;text-align:center;font-size:.82rem;font-weight:500;color:var(--ink);text-decoration:none"><?=$lbl?></a>
+  <a href="<?=$href?>" style="display:block;padding:.75rem;background:var(--cream-d);border:1px solid var(--border);border-radius:8px;text-align:center;font-size:.82rem;font-weight:500;color:var(--text);text-decoration:none"><?=$lbl?></a>
   <?php endforeach;?>
 </div>
 

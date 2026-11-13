@@ -108,14 +108,14 @@ body.theme-dark .premium-tab-btn:hover {
     background: rgba(255, 255, 255, 0.04);
 }
 .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
     box-shadow: 0 4px 12px rgba(26, 18, 8, 0.15);
     font-weight: 600;
 }
 body.theme-light .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
 }
 body.theme-dark .premium-tab-btn.active {
     background: var(--gold);
@@ -207,7 +207,7 @@ body.theme-dark .premium-tab-btn.active {
         <div class="card">
             <div class="card-head"><h3>Void Bale</h3></div>
             <div class="card-body">
-                <div class="alert" style="background:#fce4ec;border-left:3px solid var(--danger);font-size:.78rem;padding:.5rem .75rem;margin-bottom:.75rem">⚠ This permanently removes the bale from the system.</div>
+                <div class="alert" style="background:var(--surface-2);border-left:3px solid var(--danger);font-size:.78rem;padding:.5rem .75rem;margin-bottom:.75rem">⚠ This permanently removes the bale from the system.</div>
                 <form method="POST" onsubmit="return confirm('Permanently void this bale?')">
                 <input type="hidden" name="action" value="void_bale">
                 <div class="form-group">
@@ -252,7 +252,7 @@ body.theme-dark .premium-tab-btn.active {
 <div id="panel-log" class="adj-tab-panel">
     <div class="card">
         <div class="card-head"><h3>Today's Bales</h3><span class="badge badge-gray"><?=count($bales)?></span></div>
-        <div class="table-wrap" style="max-height:560px;overflow-y:auto">
+        <div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto">
             <table>
                 <thead><tr><th>Floor BC</th><th>TIMB BC</th><th>Grower</th><th class="text-right">Mass</th><th>Status</th></tr></thead>
                 <tbody>
@@ -260,11 +260,11 @@ body.theme-dark .premium-tab-btn.active {
                 <tr>
                     <td style="font-family:monospace;font-size:.72rem"><?=htmlspecialchars($b['barcode'])?></td>
                     <td style="font-family:monospace;font-size:.7rem"><?=htmlspecialchars($b['temp_bacode'])?></td>
-                    <td><span class="badge badge-gold" style="font-size:.6rem"><?=htmlspecialchars($b['grower_num'])?></span></td>
+                    <td><span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($b['grower_num'])?></span></td>
                     <td class="td-mono text-right"><?=number_format((float)$b['mass'],2)?></td>
                     <td>
-                        <span class="badge <?=$b['status']==='Sold'?'badge-green':'badge-gold'?>" style="font-size:.58rem"><?=$b['status']?></span>
-                        <?php if($b['bal_status']==='Balanced'):?><span class="badge badge-blue" style="font-size:.58rem;margin-left:2px">Bal</span><?php endif;?>
+                        <span class="badge <?=$b['status']==='Sold'?'badge-green':'badge-gold'?>" style="font-size:.72rem"><?=$b['status']?></span>
+                        <?php if($b['bal_status']==='Balanced'):?><span class="badge badge-blue" style="font-size:.72rem;margin-left:2px">Bal</span><?php endif;?>
                     </td>
                 </tr>
                 <?php endforeach;?>

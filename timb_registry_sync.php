@@ -117,7 +117,7 @@ include "includes/layout.php";
 <div class="premium-tabs-nav" data-tabs="timbsync">
   <button type="button" class="premium-tab-btn active" data-tab="registry">📋 Registry</button>
   <button type="button" class="premium-tab-btn" data-tab="import">⬆ Import CSV</button>
-  <button type="button" class="premium-tab-btn" data-tab="unmatched">⚠ Unmatched<?php if(!empty($unmatched)):?> <span class="badge badge-gold" style="font-size:.58rem"><?=count($unmatched)?></span><?php endif;?></button>
+  <button type="button" class="premium-tab-btn" data-tab="unmatched">⚠ Unmatched<?php if(!empty($unmatched)):?> <span class="badge badge-gold" style="font-size:.72rem"><?=count($unmatched)?></span><?php endif;?></button>
   <button type="button" class="premium-tab-btn" data-tab="history">🕘 Sync History</button>
 </div>
 
@@ -149,7 +149,7 @@ include "includes/layout.php";
 <tbody>
 <?php foreach($unmatched as $u):?>
 <tr>
-  <td><span class="badge badge-gold" style="font-size:.6rem"><?=htmlspecialchars($u['grower_num'])?></span></td>
+  <td><span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($u['grower_num'])?></span></td>
   <td style="font-size:.78rem"><?=htmlspecialchars($u['name'].' '.$u['surname'])?></td>
   <td style="font-size:.7rem;color:var(--muted)"><?=htmlspecialchars($u['national_id']??'—')?></td>
 </tr>
@@ -173,7 +173,7 @@ include "includes/layout.php";
 <?php if(empty($registry)):?><tr><td colspan="5" class="text-center text-muted" style="padding:1.5rem">No registry data. Import a TIMB CSV file.</td></tr>
 <?php else:foreach($registry as $r):?>
 <tr>
-  <td><span class="badge badge-gold" style="font-size:.6rem"><?=htmlspecialchars($r['grower_num'])?></span></td>
+  <td><span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($r['grower_num'])?></span></td>
   <td style="font-size:.75rem"><?=htmlspecialchars($r['name'].' '.$r['surname'])?></td>
   <td style="font-size:.7rem;color:var(--muted)"><?=htmlspecialchars($r['province'])?></td>
   <td><?=$r['timb_verified']?'<span class="badge badge-green" style="font-size:.58rem">✓ Verified</span>':'<span class="badge badge-gray" style="font-size:.58rem">Pending</span>'?></td>
@@ -199,7 +199,7 @@ include "includes/layout.php";
   <td style="font-size:.7rem;color:var(--muted)"><?=str_replace('_',' ',$sl['sync_type'])?></td>
   <td class="td-mono text-right"><?=$sl['records_fetched']?></td>
   <td class="td-mono text-right"><?=$sl['records_matched']?></td>
-  <td><span class="badge <?=$sl['status']==='success'?'badge-green':'badge-red'?>" style="font-size:.58rem"><?=strtoupper($sl['status'])?></span></td>
+  <td><span class="badge <?=$sl['status']==='success'?'badge-green':'badge-red'?>" style="font-size:.72rem"><?=strtoupper($sl['status'])?></span></td>
 </tr>
 <?php endforeach;endif;?>
 </tbody>

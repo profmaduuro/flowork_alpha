@@ -81,7 +81,7 @@ include "includes/layout.php";
 <div class="card mb-3"><div class="card-body" style="padding:.65rem 1.15rem">
 <form method="GET" style="display:flex;gap:.5rem;align-items:flex-end">
   <div class="form-group" style="margin:0;flex:1">
-    <label style="font-size:.62rem">Search Grower</label>
+    <label style="font-size:.72rem">Search Grower</label>
     <input type="text" name="q" class="form-control" value="<?=htmlspecialchars($search)?>" placeholder="Grower # or name" style="padding:.35rem .6rem">
   </div>
   <button type="submit" class="btn btn-primary">Search</button>
@@ -95,7 +95,7 @@ include "includes/layout.php";
 <thead><tr><th>Grower #</th><th>Name</th><th></th></tr></thead><tbody>
 <?php foreach($search_results as $r):?>
 <tr>
-  <td><span class="badge badge-gold" style="font-size:.62rem"><?=htmlspecialchars($r['grower_num'])?></span></td>
+  <td><span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($r['grower_num'])?></span></td>
   <td style="font-size:.82rem"><?=htmlspecialchars($r['name'].' '.$r['surname'])?></td>
   <td><a href="?gid=<?=$r['id']?>" class="btn btn-ghost btn-sm">View History</a></td>
 </tr>
@@ -120,9 +120,9 @@ include "includes/layout.php";
 <div class="card">
 <div class="card-head"><h3>Bank Account</h3>
   <?php if($grower['verified']):?>
-  <span class="badge badge-green" style="font-size:.62rem">✓ Verified</span>
+  <span class="badge badge-green" style="font-size:.72rem">✓ Verified</span>
   <?php else:?>
-  <span class="badge badge-red" style="font-size:.62rem">Unverified</span>
+  <span class="badge badge-red" style="font-size:.72rem">Unverified</span>
   <?php endif;?>
 </div>
 <div class="card-body" style="padding:.75rem 1.15rem;font-size:.82rem">
@@ -172,7 +172,7 @@ include "includes/layout.php";
   <td class="td-mono text-right"><?=number_format((float)$h['mass'],0)?></td>
   <td class="td-mono text-right">$<?=number_format($h['gross'],2)?></td>
   <td class="td-mono text-right fw-500">$<?=number_format($h['net'],2)?></td>
-  <td><span class="badge <?=$sc?>" style="font-size:.6rem"><?=ucfirst($h['status'])?></span></td>
+  <td><span class="badge <?=$sc?>" style="font-size:.72rem"><?=ucfirst($h['status'])?></span></td>
   <td class="td-muted" style="font-size:.75rem"><?=htmlspecialchars($h['payment_method']??'—')?></td>
   <td class="td-mono" style="font-size:.72rem"><?=htmlspecialchars($h['reference_number']??'—')?></td>
   <td class="td-muted" style="font-size:.72rem"><?=$h['paid_at']?date('d M H:i',strtotime($h['paid_at'])):'—'?></td>

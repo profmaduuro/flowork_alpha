@@ -201,14 +201,14 @@ body.theme-dark .premium-tab-btn:hover {
     background: rgba(255, 255, 255, 0.04);
 }
 .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
     box-shadow: 0 4px 12px rgba(26, 18, 8, 0.15);
     font-weight: 600;
 }
 body.theme-light .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
 }
 body.theme-dark .premium-tab-btn.active {
     background: var(--gold);
@@ -375,7 +375,7 @@ body.theme-dark .premium-tab-btn.active {
             <h3>Recent Junus Entries</h3>
             <span class="badge badge-gray"><?=count($recent)?></span>
         </div>
-        <div class="table-wrap" style="max-height:600px;overflow-y:auto">
+        <div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto">
             <table>
                 <thead><tr>
                     <th>Scale BC</th><th>Grower</th>
@@ -391,7 +391,7 @@ body.theme-dark .premium-tab-btn.active {
                 <tr>
                     <td><code style="font-size:.68rem"><?=htmlspecialchars($r['temp_bacode'])?></code></td>
                     <td>
-                        <span class="badge badge-gold" style="font-size:.6rem"><?=htmlspecialchars($r['grower_num'])?></span>
+                        <span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($r['grower_num'])?></span>
                         <div style="font-size:.68rem;color:var(--muted)"><?=htmlspecialchars(trim($r['name'].' '.$r['surname']))?></div>
                     </td>
                     <td class="td-mono text-right"><?=number_format((float)$r['mass'],1)?></td>
@@ -404,9 +404,9 @@ body.theme-dark .premium-tab-btn.active {
                     </td>
                     <td>
                         <?php if($r['barcode']):?>
-                        <span class="badge badge-green" style="font-size:.58rem">✓ Ticketed</span>
+                        <span class="badge badge-green" style="font-size:.72rem">✓ Ticketed</span>
                         <?php else:?>
-                        <span class="badge badge-gray" style="font-size:.58rem">Pending</span>
+                        <span class="badge badge-gray" style="font-size:.72rem">Pending</span>
                         <?php endif;?>
                     </td>
                 </tr>

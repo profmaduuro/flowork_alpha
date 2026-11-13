@@ -39,7 +39,7 @@ $yoy_prices=safe($conn,"SELECT YEAR(sb.created_at) yr,AVG(CASE WHEN sb.price>10 
 include "includes/layout.php";
 ?>
 <style>
-.chart-card{background:var(--cream);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:1.25rem}
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:1.25rem}
 .chart-head{padding:.75rem 1.15rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
 .chart-head h3{font-size:.9rem;margin:0}
 .chart-body{padding:.85rem 1.15rem}
@@ -79,7 +79,7 @@ include "includes/layout.php";
     <?php $gt=array_sum(array_column($grade_mix,'bales'))?:1;
     foreach(array_slice($grade_mix,0,8) as $g):$pct=round($g['bales']/$gt*100,1);?>
     <div style="display:flex;justify-content:space-between;font-size:.72rem;margin-bottom:4px">
-      <span class="badge badge-gold" style="font-size:.58rem"><?=htmlspecialchars($g['grade'])?></span>
+      <span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($g['grade'])?></span>
       <span><?=$pct?>%</span>
     </div>
     <?php endforeach;?>

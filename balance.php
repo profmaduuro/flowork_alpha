@@ -6,6 +6,8 @@ require_once "includes/auth.php";
 require_once "includes/conn.php";
 require_once "includes/audit.php";
 require_once "includes/stoporder_deduct_helper.php";
+require_once "includes/balance_delivery.php";
+require_once "includes/rbz_change.php";
 require_login();
 
 // Ensure internal_stoporders has creditor_no column
@@ -270,135 +272,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'balan
     $rule = flowork_rule_from_input($conn, $spid, $_POST['rule_so_mode'] ?? null, $_POST['rule_rbz_usd_pct'] ?? null);
     if (!$rule) { echo json_encode(['error'=>'Invalid rule: stop orders must be before or after the split, and the USD share 0 to 100%.']); exit; }
 
-    // Already balanced?
-    $_ab = $conn->query("SELECT id FROM balanced_bales WHERE transporter_growersid=$tgid AND splitid=$splitid LIMIT 1");
-    if ($_ab && $_ab !== true && $_ab->num_rows) { echo json_encode(['error'=>'Already balanced.']); exit; }
-
-    // Booking check
-    $_tgi = $conn->query("SELECT booked, COALESCE(sell_date,'$today') sell_dt FROM transporter_growers WHERE id=$tgid LIMIT 1");
-    $tgi  = ($_tgi && $_tgi !== true) ? $_tgi->fetch_assoc() : null;
-    $sell_dt     = $tgi['sell_dt'] ?? $today;
-    // A booking for another day (for example before a roll-over) does not count.
-    if (!flowork_delivery_booking($conn, $tgid)) {
-        echo json_encode(['error'=>"Grower is not booked for $sell_dt. Book them for that selling day (with a booking ID) in Grower Booking first."]); exit;
-    }
-
-    // Load bales to count unsold
-    $res = $conn->query("
-        SELECT bj.id, bm.mass, tk.start_of_dayid,
-               sb.id sold_id, sb.price, COALESCE(sb.sale_code,'') sale_code,
-               er.id exchange_rateid, er.amount exchange_rate_amount
-        FROM bale_junus bj
-        JOIN bale_mass bm ON bm.id=bj.bale_massid
-        JOIN tickets tk ON tk.bale_junusid=bj.id
-        LEFT JOIN sold_bales sb ON sb.ticketsid=tk.id
-        LEFT JOIN exchange_rate er ON er.id = (SELECT er1.id FROM exchange_rate er1 WHERE er1.start_of_dayid = tk.start_of_dayid ORDER BY er1.active DESC, er1.id DESC LIMIT 1)
-        WHERE bj.transporter_growersid=$tgid AND bj.splitid=$splitid");
-    $bales = ($res && $res !== true) ? $res->fetch_all(MYSQLI_ASSOC) : [];
-    if (empty($bales)) { echo json_encode(['error'=>'No bales found for this split.']); exit; }
-
-    $unsold = 0;
-    foreach ($bales as $b) {
-        if (!$b['sold_id']) $unsold++;
-    }
-    if ($unsold > 0) { echo json_encode(['error'=>"$unsold bale(s) not yet sold. Complete selling first."]); exit; }
-
-    // Get gross and counts for response
-    $gross=0; $sold_cnt=0;
-    foreach ($bales as $b) {
-        $is_rej = strtoupper(substr(trim($b['sale_code']),0,1))==='R' && strlen(trim($b['sale_code']))<=3;
-        if (!$is_rej && $b['sold_id']) {
-            $p = (float)$b['price']; if ($p > 10) $p /= 100;
-            $gross    += (float)$b['mass'] * $p;
-            $sold_cnt++;
-        }
-    }
-
-    // Insert balanced_bales
-    $conn->query("INSERT INTO balanced_bales
-        (userid,splitid,growerid,transporter_growersid,created_at,datetime)
-        VALUES ($userid,$splitid,$growerid,$tgid,'$today',NOW())");
-    $bbid = (int)$conn->insert_id;
-    if (!$bbid) { echo json_encode(['error'=>'Balance insert failed: '.$conn->error]); exit; }
-    flowork_set_delivery_rule($conn, $bbid, $rule[0], $rule[1]);
-
-    // Recalculate using unified pipeline
-    $calc = flowork_recalculate_balance_batch($conn, $bbid, $spid, $userid);
-    if (!$calc) {
-        echo json_encode(['error'=>'Recalculation pipeline failed.']); exit;
-    }
-
-    // Batch & close delivery note
-    $conn->query("CREATE TABLE IF NOT EXISTS sales_batching (
-        id INT AUTO_INCREMENT PRIMARY KEY, userid INT NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
-    $conn->query("INSERT INTO sales_batching (userid) VALUES ($userid)");
-    $batch_id = (int)$conn->insert_id ?: 1;
-    $conn->query("UPDATE balanced_bales SET stoporder_processed=0, sale_batchid=$batch_id WHERE id=$bbid");
-    $conn->query("UPDATE transporter_growers SET open_close=1 WHERE id=$tgid");
-
-    audit_log($conn,$spid,$userid,'balanced_bales','create',$bbid,null,
-        ['tgid'=>$tgid,'gross'=>$gross,'net'=>$calc['net_usd'],'bales'=>count($bales),'rule_so_mode'=>$rule[0],'rule_rbz_usd'=>$rule[1]]);
+    $r = flowork_balance_delivery($conn, $tgid, $splitid, $growerid, $spid, $userid, $rule);
+    if (empty($r['ok'])) { echo json_encode(['error'=>$r['error']]); exit; }
 
     echo json_encode([
         'ok'     => true,
-        'bbid'   => $bbid,
-        'batch'  => $batch_id,
-        'gross'  => round($gross,2),
-        'net'    => round($calc['net_usd'],2),
-        'net_zig'=> round($calc['net_zig'],2),
-        'bales'  => count($bales),
-        'msg'    => "Balanced — Gross: \$".number_format($gross,2)." · Net: \$".number_format($calc['net_usd'],2)." USD / $sold_cnt bales · Batch #$batch_id",
+        'bbid'   => $r['bbid'],
+        'batch'  => $r['batch'],
+        'gross'  => round($r['gross'],2),
+        'net'    => round($r['net_usd'],2),
+        'net_zig'=> round($r['net_zig'],2),
+        'bales'  => $r['bales'],
+        'msg'    => "Balanced — Gross: \$".number_format($r['gross'],2)." · Net: \$".number_format($r['net_usd'],2)." USD / {$r['sold']} bales · Batch #{$r['batch']}",
     ]);
     exit;
 }
 
 // ── REVERSE ───────────────────────────────────────────────────────────────
-/**
- * Reverse (delete) balanced deliveries matching $where_sql on this floor only.
- * A delivery whose payment is already paid or released is skipped: reverse
- * the payment first, otherwise the payment would point at nothing.
- * Returns the number reversed; $skipped receives the ids left alone.
- */
-function do_reverse($conn, $where_sql, $spid = 0, $userid = 0, &$skipped = []) {
-    $spid = (int)$spid;
-    $bl = $conn->query("SELECT bb.id, bb.transporter_growersid, bb.growerid, DATE(bb.created_at) bal_date
-        FROM balanced_bales bb JOIN growers g ON g.id = bb.growerid
-        WHERE ($where_sql) AND (g.selling_pointid=$spid OR bb.selling_pointid=$spid)");
-    $rev = 0;
-    while ($bl && $b = $bl->fetch_assoc()) {
-        $bid  = (int)$b['id'];
-        $tgid = (int)$b['transporter_growersid'];
-        $paid = $conn->query("SELECT 1 FROM payment_status WHERE transporter_growersid=$tgid
-            AND sell_date='" . $conn->real_escape_string($b['bal_date']) . "' AND status IN ('paid','released') LIMIT 1");
-        if ($paid && $paid !== true && $paid->num_rows > 0) { $skipped[] = $bid; continue; }
-        $conn->begin_transaction();
-        $conn->query("DELETE FROM internal_stop_order_deducted_amounts WHERE balanced_balesid=$bid");
-        $conn->query("DELETE FROM internal_stoporder_deductions WHERE balanced_balesid=$bid");
-        $conn->query("DELETE FROM daily_totals_net_amount WHERE balanced_balesid=$bid");
-        $conn->query("DELETE FROM balanced_bales_charges WHERE balanced_balesid=$bid");
-        $conn->query("DELETE FROM daily_totals_split_amounts WHERE balanced_balesid=$bid");
-        $conn->query("DELETE FROM daily_totals WHERE balanced_balesid=$bid");
-        // Reset TIMB external stop orders that were processed against this batch
-        $so_ids_q = $conn->query("SELECT stoporderid FROM stoporder_deductions WHERE balanced_balesid=$bid");
-        if ($so_ids_q && $so_ids_q !== true) {
-            while ($so_row = $so_ids_q->fetch_assoc()) {
-                $conn->query("UPDATE stoporders SET processed=0 WHERE id=".(int)$so_row['stoporderid']);
-            }
-        }
-        $conn->query("DELETE FROM stoporder_deductions WHERE balanced_balesid=$bid");
-        if ($conn->query("DELETE FROM balanced_bales WHERE id=$bid")) {
-            $rev++;
-            // Re-open the delivery note so grower can be re-balanced
-            if ($tgid) $conn->query("UPDATE transporter_growers SET open_close=0 WHERE id=$tgid");
-            $conn->commit();
-            audit_log($conn, $spid, (int)$userid, 'balanced_bales', 'reverse', $bid, ['tgid' => $tgid, 'growerid' => (int)$b['growerid']], null);
-        } else {
-            $conn->rollback();
-        }
-    }
-    return $rev;
-}
+// do_reverse() lives in includes/balance_delivery.php.
 
 // ── AJAX: lookup batch before reversing ───────────────────────────────────
 if (isset($_GET['ajax']) && $_GET['ajax'] === 'reverse_lookup') {
@@ -570,8 +461,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'run_s
         }
     }
 
-    $msg = "Stop orders processed for $processed batch(es).";
-    if (!$processed) $msg = "No pending batches found.";
+    // Stop orders loaded after a grower was balanced: apply them to that grower's balanced sale too
+    $late_usd = (float)flowork_deduct_stoporders($conn, $spid);
+    // RBZ retention changed in Settings: recalculate unpaid balanced sales with the new rate
+    [$rbz_done, $rbz_failed, $rbz_drafts] = flowork_rbz_apply($conn, $spid, $userid);
+
+    $parts = [];
+    if ($processed) $parts[] = "Stop orders and deductions applied to $processed balanced sale(s).";
+    if ($rbz_done)  $parts[] = "$rbz_done balanced sale(s) recalculated with the new RBZ retention rate; sales sheets and EOD reports now use it.";
+    $msg = implode(' ', $parts);
+    if ($rbz_failed) $msg .= " $rbz_failed could not be recalculated and still use the old rate.";
+    if ($rbz_done) $msg .= " Unpaid payments were updated to the new amounts.";
+    if ($rbz_drafts) $msg .= " Payment batch(es) #" . implode(', #', $rbz_drafts) . " went back to draft: review and approve them again.";
+    $processed += $rbz_done;
+    if ($late_usd > 0) $msg .= " Newer stop orders deducted from balanced growers: \$" . number_format($late_usd, 2) . ".";
+    if (!$processed && $late_usd <= 0) $msg = "Nothing to apply: every balanced sale already has its stop orders and deductions.";
     header("Location: balance.php?msg=" . urlencode($msg));
     exit;
 }
@@ -579,6 +483,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'run_s
 // ── PAGE DATA ──────────────────────────────────────────────────────────────
 $msg = $msg ?? '';
 $msg = $msg ?: htmlspecialchars($_GET['msg'] ?? '');
+
+// ── Filters: sale date (default: the floor's open selling day, else today;
+//    ?date=all for every date) and transporter ───────────────────────────
+$_od = $conn->query("SELECT description FROM start_of_day WHERE active=1 AND selling_pointid=$spid ORDER BY id DESC LIMIT 1");
+$open_day = ($_od && $_od !== true && $_od->num_rows) ? (string)$_od->fetch_assoc()['description'] : '';
+$is_date  = fn($d) => preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $d, $m) && checkdate((int)$m[2], (int)$m[3], (int)$m[1]);
+if (!$is_date($open_day)) $open_day = '';
+$f_date = trim((string)($_GET['date'] ?? ''));
+if ($f_date !== 'all' && !$is_date($f_date)) $f_date = $open_day ?: $today;
+$f_tr   = (int)($_GET['transporter'] ?? 0);
+$f_day  = $f_date === 'all' ? '1=1' : "COALESCE(tg.sell_date, DATE(tg.created_at))='$f_date'";
+// A delivery from an earlier sale date that still has bales to balance stays on the
+// list, so a hanging delivery is not hidden by the date filter.
+$f_carry = "(COALESCE(tg.sell_date, DATE(tg.created_at)) < '$f_date' AND EXISTS (
+    SELECT 1 FROM bale_junus bj2 WHERE bj2.transporter_growersid = tg.id
+      AND NOT EXISTS (SELECT 1 FROM balanced_bales bb2
+                      WHERE bb2.transporter_growersid = tg.id AND bb2.splitid = COALESCE(bj2.splitid, 1))))";
+$f_rows_day = $f_date === 'all' ? '1=1' : "($f_day OR $f_carry)";
+$f_where = " AND $f_rows_day" . ($f_tr ? " AND tg.transporterid=$f_tr" : '');
+// Transporters with deliveries on the chosen date
+$_tq = $conn->query("SELECT tr.id, tr.name, tr.truck_num, COUNT(DISTINCT tg.id) n
+    FROM transporter_growers tg JOIN growers g ON g.id=tg.growerid JOIN transporter tr ON tr.id=tg.transporterid
+    WHERE (g.selling_pointid=$spid OR $spid=0) AND $f_rows_day
+    GROUP BY tr.id ORDER BY tr.name, tr.id");
+$f_transporters = ($_tq && $_tq !== true) ? $_tq->fetch_all(MYSQLI_ASSOC) : [];
 
 // ── Simple robust query — no optional table JOINs that may fail ─────────
 $rows_q = $conn->query("
@@ -633,7 +562,7 @@ $rows_q = $conn->query("
     LEFT JOIN daily_totals dt           ON dt.balanced_balesid = bb.id
     LEFT JOIN daily_totals_net_amount dtn ON dtn.balanced_balesid = bb.id
     LEFT JOIN exchange_rate er          ON er.id = dt.exchange_rateid
-    WHERE (g.selling_pointid = $spid OR $spid = 0)
+    WHERE (g.selling_pointid = $spid OR $spid = 0) $f_where
     GROUP BY
         tg.id, g.id, g.grower_num, g.name, g.surname, g.province,
         bl.code, bl.name, tr.name, tr.truck_num, sp.floor_code,
@@ -673,6 +602,17 @@ $_pso = $conn->query("SELECT
 $_pso_row   = ($_pso && $_pso !== true) ? $_pso->fetch_assoc() : ['pending_so'=>0,'total_bal'=>0];
 $pending_so = (int)($_pso_row['pending_so'] ?? 0);
 $total_bal  = (int)($_pso_row['total_bal']  ?? 0);
+// Balanced growers with stop orders still to deduct (loaded after they were balanced)
+$_late = $conn->query("SELECT COUNT(DISTINCT bb.growerid) n
+    FROM balanced_bales bb JOIN growers g ON g.id=bb.growerid
+    WHERE (g.selling_pointid=$spid OR $spid=0)
+      AND (EXISTS (SELECT 1 FROM stoporders s WHERE s.growerid=bb.growerid AND s.active=1 AND s.processed=0)
+        OR EXISTS (SELECT 1 FROM internal_stop_order_amount a WHERE a.growerid=bb.growerid AND a.active=1 AND a.processed=0))");
+$late_so = ($_late && $_late !== true) ? (int)$_late->fetch_assoc()['n'] : 0;
+// Balanced sales still on an old RBZ retention rate
+$rbz_now   = flowork_rbz_current($conn);
+$rbz_stale = flowork_rbz_stale_count($conn, $spid, $rbz_now);
+$rbz_last  = $rbz_stale ? (flowork_rbz_changes($conn, 1)[0] ?? null) : null;
 
 $_er_q = $conn->query("SELECT amount FROM exchange_rate ORDER BY id DESC LIMIT 1");
 $_er_row = ($_er_q && $_er_q !== true) ? $_er_q->fetch_assoc() : null;   // none yet on a new install
@@ -689,228 +629,210 @@ $t_mass  = $total_mass_all;
 include "includes/layout.php";
 ?>
 <style>
-.ksi{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.85rem}
-.ksc{flex:1;min-width:105px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:.55rem .8rem}
-.ksl{font-size:.57rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
-.ksv{font-size:1.05rem;font-weight:700;line-height:1.2;margin-top:.1rem;color:var(--gold)}
-.ksv.g{color:var(--leaf)}.ksv.w{color:var(--text-strong)}
-.kss{font-size:.58rem;color:var(--muted);margin-top:.03rem}
-.fbar{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;margin-bottom:.55rem}
-/* Premium Segmented / Capsule Tab Strip */
-.premium-tabs-nav {
-    display: inline-flex;
-    padding: 4px;
-    background: var(--cream-d);
-    border-radius: 8px;
-    gap: 2px;
-    border: 1px solid var(--border);
-}
-body.theme-dark .premium-tabs-nav {
-    background: rgba(26,18,8,0.3);
-}
-.premium-tab-btn {
-    padding: 0.4rem 1rem;
-    background: transparent;
-    border: none;
-    border-radius: 6px;
-    font-family: inherit;
-    font-size: 0.82rem;
-    font-weight: 500;
-    color: var(--muted);
-    cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    user-select: none;
-}
-.premium-tab-btn:hover {
-    color: var(--ink);
-    background: rgba(26, 18, 8, 0.04);
-}
-body.theme-dark .premium-tab-btn:hover {
-    color: var(--cream);
-    background: rgba(255, 255, 255, 0.04);
-}
-.premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
-    box-shadow: 0 4px 12px rgba(26, 18, 8, 0.15);
-    font-weight: 600;
-}
-body.theme-light .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
-}
-body.theme-dark .premium-tab-btn.active {
-    background: var(--gold);
-    color: var(--ink);
-    box-shadow: 0 4px 12px rgba(200, 149, 42, 0.2);
-}
-.bwrap{overflow-x:auto;max-height:640px;overflow-y:auto}
-#bmaster thead th{position:sticky;top:0;background:var(--ink);color:var(--cream);font-size:.63rem;white-space:nowrap;padding:.42rem .6rem;z-index:2;font-weight:500}
+/* Balance & Settlement — built on the shared tokens in includes/layout.css
+   (--surface, --line, --text, --text-muted, --ok-*, --warn-*, --bad-*), so light
+   and dark mode need no overrides here. Tabs use the shared .premium-tab-* style. */
+
+/* ── Summary strip ─────────────────────────────────── */
+.ksi{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.75rem;margin-bottom:1rem}
+.ksc{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:.85rem 1rem;box-shadow:var(--shadow-sm);min-width:0}
+.ksl{font-size:.74rem;font-weight:500;color:var(--text-muted)}
+.ksv{font-size:1.15rem;font-weight:600;line-height:1.25;margin-top:.2rem;color:var(--text);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ksv.g{color:var(--ok-text)}.ksv.w{color:var(--text)}
+.kss{font-size:.72rem;color:var(--text-muted);margin-top:.15rem}
+
+/* ── Header actions / panels ───────────────────────── */
+.bal-actions{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+.bal-actions form{margin:0}
+.bal-panel-toggle{cursor:pointer;user-select:none}
+.bal-panel-toggle h3{display:flex;align-items:center;gap:.5rem}
+.bal-panel-toggle h3 svg{width:17px;height:17px;color:var(--text-muted)}
+.bal-panel-toggle .hint{font-size:.82rem;color:var(--text-muted);display:flex;align-items:center;gap:.35rem}
+.bal-panel-toggle .hint svg{width:14px;height:14px;transition:transform .2s}
+.bal-panel-toggle.open .hint svg{transform:rotate(180deg)}
+.bal-note{font-size:.8rem;color:var(--text-muted);margin-top:.5rem;display:flex;gap:.4rem;align-items:flex-start}
+.bal-note svg{width:15px;height:15px;flex-shrink:0;margin-top:2px}
+
+/* Reversal preview */
+.rev-box{border:1px solid var(--bad-text);border-color:color-mix(in srgb,var(--bad-text) 35%,transparent);border-radius:var(--radius);overflow:hidden;margin-bottom:.75rem}
+.rev-box-title{background:var(--bad-tint);padding:.6rem 1rem;font-size:.86rem;font-weight:600;color:var(--bad-text)}
+.rev-box table{width:100%;border-collapse:collapse;font-size:.85rem}
+.rev-box th{padding:.5rem .8rem;font-size:.78rem;font-weight:500;text-align:left;color:var(--text-muted);background:var(--surface-2);border-bottom:1px solid var(--line)}
+.rev-box th.r,.rev-box td.r{text-align:right}
+.rev-box td{padding:.5rem .8rem;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+.rev-box-foot{padding:.65rem 1rem;background:var(--surface-2);border-top:1px solid var(--line);display:flex;align-items:center;gap:.75rem;flex-wrap:wrap}
+.rev-box-foot span{flex:1;font-size:.85rem;color:var(--bad-text)}
+
+/* ZiG / USD split preview */
+.zpw{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:.85rem 1.1rem;margin-bottom:1rem;display:flex;gap:1rem 1.5rem;align-items:center;flex-wrap:wrap;box-shadow:var(--shadow-sm)}
+.zpw-title{font-size:.9rem;font-weight:600;color:var(--text);display:flex;align-items:center;gap:.45rem;white-space:nowrap}
+.zpw-title svg{width:16px;height:16px;color:var(--accent-text)}
+.zpw-inputs{display:flex;align-items:center;gap:.5rem .75rem;flex-wrap:wrap;flex:1}
+.zpw-inputs label{display:flex;align-items:center;gap:.4rem;font-size:.82rem;color:var(--text-muted)}
+.zpw-inputs .form-control{width:auto;min-height:34px;font-variant-numeric:tabular-nums}
+.zpw-out{display:flex;gap:1.25rem;flex-wrap:wrap}
+.zpw-out > div{min-width:90px}
+.zpw-out .l{font-size:.78rem;color:var(--text-muted)}
+.zpw-out .v{font-size:1.1rem;font-weight:600;font-variant-numeric:tabular-nums;color:var(--text)}
+.zpw-out .v.usd{color:var(--ok-text)}.zpw-out .v.zig{color:var(--accent-text)}
+.zpw-foot{font-size:.78rem;color:var(--text-muted);white-space:nowrap}
+
+/* ── Filter bar ────────────────────────────────────── */
+.fbar{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-bottom:.75rem}
+.fbar form{display:flex;gap:.5rem;align-items:center;margin:0;flex-wrap:wrap}
+.fbar .form-control{width:auto}
+.fbar #srch{flex:1;min-width:170px;max-width:280px}
+.fbar .premium-tabs-nav{margin-bottom:0}
+.fbar .premium-tab-btn .badge{margin-left:2px}
+#rinfo{font-size:.8rem;color:var(--text-muted)}
+
+/* ── Master table ──────────────────────────────────── */
+.bwrap{overflow:auto;max-height:calc(100vh - var(--top-h) - 2rem)}
+#bmaster{font-size:.78rem}
+#bmaster thead th{position:sticky;top:0;z-index:2;background:var(--surface-2);color:var(--text-muted);font-size:.7rem;font-weight:500;white-space:nowrap;padding:.5rem .7rem;border-bottom:1px solid var(--line)}
 #bmaster tbody tr{cursor:pointer;transition:background .1s}
-#bmaster tbody tr:hover td{background:rgba(200,149,42,.08)}
-#bmaster tbody tr.rb td{background:rgba(60,140,60,.04)}
-#bmaster tbody td{font-size:.7rem;padding:.4rem .6rem;white-space:nowrap}
-#bmaster tfoot td{font-size:.7rem;padding:.45rem .6rem;white-space:nowrap;background:var(--cream-d);font-weight:700;border-top:2px solid var(--border);position:sticky;bottom:0}
-.sp{display:inline-flex;align-items:center;gap:.2rem;padding:.16rem .5rem;border-radius:20px;font-size:.6rem;font-weight:600;white-space:nowrap}
-.sp-b{background:rgba(60,150,60,.14);color:#2a8a2a;border:1px solid rgba(60,150,60,.3)}
-.sp-r{background:rgba(200,149,42,.14);color:#9a6a0a;border:1px solid rgba(200,149,42,.3)}
-.sp-p{background:rgba(210,100,30,.12);color:#a05020;border:1px solid rgba(210,100,30,.3)}
-.sp-n{background:rgba(190,30,30,.1);color:#991010;border:1px solid rgba(190,30,30,.25)}
-/* status pills sit on translucent tints — lighten the text on dark surfaces */
-body.theme-dark .sp-b{color:#7ed67e}
-body.theme-dark .sp-r{color:#e8b84b}
-body.theme-dark .sp-p{color:#f0a06a}
-body.theme-dark .sp-n{color:#f08a7d}
-/* ── Balance Modal ── */
-#bmo {
-  display: none;
-  position: fixed;
-  inset: 0;
-  z-index: 9000;
-  background: rgba(10,7,3,.72);
-  backdrop-filter: blur(3px);
-  overflow-y: auto;
-  padding: 2.5rem 1rem;
-  animation: bmo-in .18s ease;
-}
+#bmaster tbody tr:hover td{background:var(--surface-2)}
+#bmaster tbody td{padding:.4rem .7rem;white-space:nowrap;line-height:1.35}
+#bmaster tfoot td{padding:.6rem .7rem;white-space:nowrap;background:var(--surface-2);font-weight:600;border-top:1px solid var(--line-strong);position:sticky;bottom:0}
+#bmaster .gnum{font-weight:500;color:var(--accent-text);font-variant-numeric:tabular-nums}
+#bmaster .muted{color:var(--text-muted)}
+#bmaster .mono{font-family:ui-monospace,monospace;font-size:.8rem;color:var(--text-muted)}
+#bmaster .net{color:var(--ok-text);font-weight:600}
+/* row marker: a small coloured dot instead of ✓ ~ ! */
+.rowmark{display:inline-block;width:8px;height:8px;border-radius:50%}
+.rowmark.done{background:var(--ok-text)}.rowmark.ready{background:var(--accent)}.rowmark.todo{background:var(--bad-text)}
+.splitno{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:22px;padding:0 7px;border-radius:999px;font-size:.76rem;font-weight:600;background:var(--warn-tint);color:var(--warn-text)}
+.splitno.done{background:var(--ok-tint);color:var(--ok-text)}
+
+/* status pills */
+.sp{display:inline-flex;align-items:center;gap:.25rem;padding:2px 9px;border-radius:999px;font-size:.76rem;font-weight:500;white-space:nowrap}
+.sp-b{background:var(--ok-tint);color:var(--ok-text)}
+.sp-r{background:var(--warn-tint);color:var(--warn-text)}
+.sp-p{background:var(--info-tint);color:var(--info-text)}
+.sp-n{background:var(--bad-tint);color:var(--bad-text)}
+
+/* ── Balance modal ─────────────────────────────────── */
+#bmo{display:none;position:fixed;inset:0;z-index:9000;background:rgba(20,17,13,.5);backdrop-filter:blur(3px);overflow-y:auto;padding:2.5rem 1rem;animation:bmo-in .18s ease}
 @keyframes bmo-in{from{opacity:0}to{opacity:1}}
-#bmb {
-  background: #fff;
-  border-radius: 14px;
-  max-width: 1060px;
-  margin: 0 auto;
-  box-shadow: 0 32px 80px rgba(0,0,0,.45), 0 0 0 1px rgba(200,149,42,.15);
-  overflow: hidden;
-  animation: bmb-in .22s cubic-bezier(.16,1,.3,1);
-}
-@keyframes bmb-in{from{opacity:0;transform:translateY(18px) scale(.98)}to{opacity:1;transform:none}}
-
-/* Modal header - dark ink band */
-#bmb .bm-head {
-  background: linear-gradient(135deg, #1a1208 0%, #2d2010 100%);
-  padding: 1.1rem 1.4rem;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  flex-wrap: wrap;
-  border-bottom: 2px solid rgba(200,149,42,.3);
-}
-#mgn {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 1.4rem;
-  color: #c8952a;
-  letter-spacing: .1em;
-  line-height: 1;
-}
-#mgs {
-  font-size: .72rem;
-  color: rgba(245,240,232,.5);
-  margin-top: .15rem;
-}
-
-/* Stat chips in header */
-.ms { display:flex; flex-direction:column; align-items:center; background:rgba(255,255,255,.06); border:1px solid rgba(200,149,42,.2); border-radius:8px; padding:.35rem .7rem; min-width:60px; }
-.msl { font-size:.52rem; color:rgba(245,240,232,.4); text-transform:uppercase; letter-spacing:.07em; }
-.msv { font-size:.95rem; font-weight:700; color:#c8952a; line-height:1.2; }
-.msv.g { color:#5dbf6a; }
-.msv.r { color:#f07070; }
-.msv.w { color:#f0ebe0; }
-
-/* Edit hint bar */
-#meh {
-  background: linear-gradient(90deg, rgba(200,149,42,.08), rgba(200,149,42,.04));
-  border-bottom: 1px solid rgba(200,149,42,.15);
-  padding: .45rem 1.4rem;
-  font-size: .7rem;
-  color: #9a6a1a;
-  display: flex;
-  align-items: center;
-  gap: .5rem;
-}
-
-/* Bale table */
-#mbd { background: #fff; }
-#mbd table { width:100%; border-collapse:collapse; }
-#mbd thead th {
-  background: #f8f5ef;
-  color: #5a4820;
-  font-size: .63rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: .05em;
-  padding: .5rem .75rem;
-  border-bottom: 2px solid #e8dfc8;
-  white-space: nowrap;
-  position: sticky;
-  top: 0;
-  z-index: 2;
-}
-#mbd tbody tr { border-bottom: 1px solid #f0ebe0; transition: background .1s; }
-#mbd tbody tr:last-child { border-bottom: none; }
-#mbd tbody tr:hover td { background: #fdf6e8 !important; }
-#mbd tbody td { font-size: .76rem; padding: .48rem .75rem; color: #2a1e08; white-space: nowrap; }
-#mbd tfoot tr { background: #f8f5ef; border-top: 2px solid #e8dfc8; }
-#mbd tfoot td { font-size: .76rem; padding: .5rem .75rem; font-weight: 700; color: #2a1e08; }
-
-/* Editable cell */
-.ec { cursor: pointer; position: relative; }
-.ec:hover { background: rgba(200,149,42,.1) !important; }
-.ep { display:inline-block; width:12px; height:12px; background:rgba(200,149,42,.2); border-radius:3px; margin-left:4px; font-size:.55rem; text-align:center; line-height:12px; color:#9a6a1a; vertical-align:middle; }
-
-/* Modal footer */
-#bm-foot {
-  padding: .9rem 1.4rem;
-  background: #f8f5ef;
-  border-top: 2px solid #e8dfc8;
-  display: flex;
-  align-items: center;
-  gap: .75rem;
-  flex-wrap: wrap;
-}
-.btn-balance{background:linear-gradient(135deg,#2d6b25,#3d8a32);color:#fff;border:none;padding:.65rem 1.6rem;border-radius:8px;font-size:.9rem;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(45,107,37,.3);transition:transform .15s,box-shadow .15s;letter-spacing:.02em}
-.btn-balance:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(45,107,37,.4)}
-.btn-balance:disabled{opacity:.6;cursor:not-allowed;transform:none}
-#bm-close-btn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:rgba(245,240,232,.65);width:32px;height:32px;border-radius:8px;font-size:1.2rem;cursor:pointer;flex-shrink:0;transition:.15s;line-height:1}
-#bm-close-btn:hover{background:rgba(255,255,255,.18);color:#fff}
+#bmb{background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:var(--radius-lg);max-width:1060px;margin:0 auto;box-shadow:var(--shadow-md);overflow:hidden;animation:bmb-in .2s ease-out}
+@keyframes bmb-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+#bmb .bm-head{padding:1.1rem 1.4rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+#mgn{font-size:1.25rem;font-weight:600;color:var(--text);line-height:1.25}
+#mgs{font-size:.85rem;color:var(--text-muted);margin-top:.15rem}
+.ms{display:flex;flex-direction:column;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius);padding:.4rem .75rem;min-width:70px}
+.msl{font-size:.75rem;color:var(--text-muted)}
+.msv{font-size:.95rem;font-weight:600;color:var(--text);line-height:1.3;font-variant-numeric:tabular-nums;white-space:nowrap}
+.msv.g{color:var(--ok-text)}.msv.r{color:var(--bad-text)}.msv.w{color:var(--text)}
+#bm-close-btn{width:36px;height:36px;border-radius:var(--radius);border:1px solid var(--line);background:var(--surface);color:var(--text-soft);cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+#bm-close-btn:hover{background:var(--surface-3)}
+#bm-close-btn svg{width:18px;height:18px}
+/* split switcher */
+.bm-split{font:600 .8rem 'DM Sans',sans-serif;padding:5px 12px;border-radius:999px;cursor:pointer;margin:0 4px 4px 0;border:1px solid var(--line-strong);background:var(--surface);color:var(--text-soft)}
+.bm-split.done{background:var(--ok-tint);color:var(--ok-text);border-color:transparent}
+.bm-split.pend{background:var(--bad-tint);color:var(--bad-text);border-color:transparent}
+.bm-split.act{background:var(--primary-bg);color:var(--primary-text);border-color:transparent;box-shadow:0 0 0 3px var(--focus)}
+/* edit hint */
+#meh{background:var(--warn-tint);color:var(--warn-text);padding:.55rem 1.4rem;font-size:.84rem;align-items:center;gap:.5rem;border-bottom:1px solid var(--line)}
+#meh svg{width:15px;height:15px;vertical-align:-2px;margin-right:4px}
+/* loading */
+#mld{text-align:center;padding:4rem 2rem}
+#mld .spin{width:36px;height:36px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto}
+#mld .lbl{color:var(--text-muted);margin-top:1rem;font-size:.9rem}
+/* bale table */
+#mbd table{width:100%;border-collapse:collapse;font-size:.78rem}
+#mbd thead th{background:var(--surface-2);color:var(--text-muted);font-size:.7rem;font-weight:500;padding:.55rem .75rem;border-bottom:1px solid var(--line);white-space:nowrap;position:sticky;top:0;z-index:2;text-align:left}
+#mbd tbody tr{border-bottom:1px solid var(--line)}
+#mbd tbody tr:last-child{border-bottom:none}
+#mbd tbody tr:hover td{background:var(--surface-2)}
+#mbd tbody tr.is-rej td{background:var(--bad-tint);color:var(--text-soft)}
+#mbd tbody tr.is-unsold td{background:var(--warn-tint)}
+#mbd tbody td{padding:.45rem .75rem;white-space:nowrap}
+#mbd tbody td code{font-size:.8rem;color:var(--text)}
+#mbd tbody td code.dim{color:var(--text-muted)}
+#mbd tbody .bname{font-size:.75rem;color:var(--text-muted)}
+#mbd tfoot td{background:var(--surface-2);border-top:1px solid var(--line-strong);padding:.55rem .75rem;font-weight:600;font-variant-numeric:tabular-nums}
+#mbd tfoot td.val{color:var(--ok-text)}
+/* inline-editable cells */
+.ec{cursor:pointer;position:relative}
+.ec:hover{background:var(--accent-tint)!important}
+.ep{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;background:var(--accent-tint);color:var(--accent-text);border-radius:4px;margin-left:5px;font-size:.65rem;vertical-align:middle}
+/* footer / action bar */
+#bm-foot{padding:.95rem 1.4rem;background:var(--surface-2);border-top:1px solid var(--line);display:flex;align-items:center;gap:.75rem;flex-wrap:wrap}
+.bm-status{font-size:.95rem;font-weight:600;color:var(--ok-text);display:flex;align-items:center;gap:.4rem}
+.bm-status.bad{color:var(--bad-text)}
+.bm-status svg{width:17px;height:17px}
+.bm-meta{font-size:.84rem;color:var(--text-muted);margin-top:.2rem}
+.bm-meta strong{color:var(--text)}
+.bm-meta .ok{color:var(--ok-text)}.bm-meta .warn{color:var(--warn-text)}
+.bm-rule{display:flex;flex-wrap:wrap;gap:.4rem .8rem;align-items:center;font-size:.84rem;color:var(--text-muted);margin-top:.45rem}
+.bm-rule label{display:flex;align-items:center;gap:.35rem}
+.bm-rule select,.bm-rule input{min-height:30px;padding:2px 8px;border:1px solid var(--line-strong);border-radius:6px;background:var(--surface);color:var(--text);font:400 .84rem 'DM Sans',sans-serif}
+.bm-rule input{width:5rem}
+#rule-note{color:var(--warn-text)}
+.bm-link{font-size:.84rem;color:var(--accent-text);font-weight:500}
+.btn-balance{display:inline-flex;align-items:center;gap:6px;min-height:42px;background:#2F6B28;color:#fff;border:none;padding:.6rem 1.4rem;border-radius:var(--radius);font:600 .95rem 'DM Sans',sans-serif;cursor:pointer;transition:background .15s}
+.btn-balance:hover{background:#255820}
+.btn-balance:disabled{opacity:.6;cursor:not-allowed}
+.btn-balance svg{width:17px;height:17px}
 @keyframes spin{to{transform:rotate(360deg)}}
+
+@media(max-width:600px){
+  .ksi{grid-template-columns:1fr 1fr;gap:.5rem}
+  .ksv{font-size:1.1rem}
+  .fbar #srch{max-width:none}
+  .zpw-foot{white-space:normal}
+  #bmo{padding:0}
+  #bmb{border-radius:0;min-height:100%}
+}
 </style>
 
 <div class="page-header">
 <div class="page-header-left">
 <h2>Balance &amp; Settlement</h2>
-<p><?= $total ?> grower slots &nbsp;&middot;&nbsp; <?= $bal_cnt ?> balanced &nbsp;&middot;&nbsp; <?= $pend ?> pending</p>
+<p><?= $f_date==='all' ? 'All sale dates' : 'Sale date '.date('d M Y', strtotime($f_date)).($f_date===$open_day?' (open)':'').', plus earlier deliveries not yet balanced' ?> · <?= $total ?> grower slots · <?= $bal_cnt ?> balanced · <?= $pend ?> pending</p>
 </div>
-<div style="display:flex;gap:.4rem;flex-wrap:wrap">
-<?php if(isset($total_bal) && $total_bal>0):?>
-<form method="POST" onsubmit="return confirm('Apply TIMB stop order deductions to all pending balanced batches?')">
+<div class="bal-actions">
+<?php $_so_todo = $pending_so + $late_so + $rbz_stale; ?>
+<form method="POST" onsubmit="return confirm('Apply stop orders and deductions to the balanced sales on this floor?')">
 <input type="hidden" name="action" value="run_so">
-<button class="btn <?=$pending_so>0?'btn-primary':'btn-ghost'?> btn-sm">
-    &#9654; Run Stop Orders<?=$pending_so>0?" ($pending_so pending)":' (all processed)'?>
+<button class="btn <?=$_so_todo>0?'btn-gold':'btn-ghost'?>" <?=$total_bal>0?'':'disabled title="Balance a grower first"'?>>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16l13-8z"/></svg> Apply stop orders<?=
+      $total_bal<=0 ? ' (no balanced sales yet)' : ($_so_todo>0 ? " ($_so_todo to apply)" : ' (all applied)')?>
 </button>
 </form>
-<?php endif;?>
-<a href="grower_booking.php" class="btn btn-ghost btn-sm">Booking</a>
-<a href="sales_sheets.php" class="btn btn-ghost btn-sm">Sales Sheets</a>
-<button onclick="doExport()" class="btn btn-ghost btn-sm">Export CSV</button>
+<a href="grower_booking.php" class="btn btn-ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg> Booking</a>
+<a href="sales_sheets.php" class="btn btn-ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6M9 13h6M9 17h6"/></svg> Sales sheets</a>
+<button type="button" onclick="doExport()" class="btn btn-ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg> Export CSV</button>
 </div>
 </div>
 
 <?php if($msg):?><div class="alert alert-success" id="top-msg"><?=$msg?></div><?php endif;?>
+<?php if($rbz_stale): $_pc = fn($s) => rtrim(rtrim(number_format($s*100,2),'0'),'.'); ?>
+<div class="alert alert-warning" style="display:flex;gap:.75rem;align-items:center;flex-wrap:wrap">
+  <div style="flex:1;min-width:260px">
+    <strong>RBZ retention rate changed</strong>
+    <?php if($rbz_last):?> on <?=htmlspecialchars(date('d M Y H:i', strtotime($rbz_last['changed_at'])))?><?=$rbz_last['username']!==''?' by '.htmlspecialchars($rbz_last['username']):''?><?php endif;?>:
+    now USD <?=$_pc($rbz_now)?>% / ZiG <?=$_pc(1-$rbz_now)?>%<?php if($rbz_last && $rbz_last['old_usd']!==null):?> (was USD <?=$_pc((float)$rbz_last['old_usd'])?>%)<?php endif;?>.
+    <?=$rbz_stale?> balanced sale(s) on this floor still use the old rate. Run <em>Apply stop orders</em> to recalculate them; sales sheets and EOD reports follow. Paid sales keep their figures.
+  </div>
+  <form method="POST" style="margin:0" onsubmit="return confirm('Recalculate <?=$rbz_stale?> balanced sale(s) with the new RBZ retention rate and apply stop orders?')">
+    <input type="hidden" name="action" value="run_so">
+    <button class="btn btn-gold">Apply stop orders now</button>
+  </form>
+</div>
+<?php endif;?>
 
 <!-- Reversal Panel -->
 <div class="card" style="margin-bottom:.85rem">
-  <div class="card-head" style="cursor:pointer" id="rev-head">
-    <h3 style="margin:0">&#8617; Reverse a Balanced Sale</h3>
-    <span style="font-size:.72rem;color:var(--muted)" id="rev-toggle-lbl">&#9660; Click to expand</span>
+  <div class="card-head bal-panel-toggle" id="rev-head" role="button" tabindex="0" aria-expanded="false" aria-controls="revbody">
+    <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg> Reverse a balanced sale</h3>
+    <span class="hint"><span id="rev-toggle-lbl">Show</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
   </div>
   <div id="revbody" style="display:none;padding:1.1rem 1.25rem">
 
     <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:.85rem">
       <div>
-        <label class="form-label" style="font-size:.68rem">Reverse by</label>
+        <label class="form-label" for="rev-by">Reverse by</label>
         <select id="rev-by" class="form-control" style="min-width:160px">
           <option value="batch">Batch Number</option>
           <option value="grower">Grower Number</option>
@@ -918,38 +840,31 @@ body.theme-dark .sp-n{color:#f08a7d}
         </select>
       </div>
       <div style="flex:1;min-width:180px">
-        <label class="form-label" style="font-size:.68rem" id="rev-lbl">Batch Number</label>
-        <input type="text" id="rev-val" class="form-control" placeholder="e.g. 16" style="font-family:monospace;font-size:.9rem">
+        <label class="form-label" for="rev-val" id="rev-lbl">Batch Number</label>
+        <input type="text" id="rev-val" class="form-control" placeholder="e.g. 16">
       </div>
-      <button class="btn btn-secondary" onclick="revLookup()" style="white-space:nowrap">&#128269; Lookup</button>
+      <button type="button" class="btn btn-ghost" onclick="revLookup()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg> Look up</button>
     </div>
 
-    <div id="rev-preview" style="display:none;border:1px solid #f0c8c8;border-radius:8px;overflow:hidden;margin-bottom:.75rem">
-      <div style="background:#fff3f3;padding:.55rem 1rem;font-size:.72rem;font-weight:600;color:#8a2020;border-bottom:1px solid #f0c8c8" id="rev-preview-title"></div>
+    <div id="rev-preview" class="rev-box" style="display:none">
+      <div class="rev-box-title" id="rev-preview-title"></div>
       <div style="overflow-x:auto">
-        <table style="width:100%;border-collapse:collapse">
+        <table>
           <thead>
-            <tr style="background:#f8f0f0">
-              <th style="padding:.38rem .75rem;font-size:.62rem;text-align:left;color:#7a2020;font-weight:600">Batch #</th>
-              <th style="padding:.38rem .75rem;font-size:.62rem;text-align:left;color:#7a2020;font-weight:600">Grower</th>
-              <th style="padding:.38rem .75rem;font-size:.62rem;text-align:left;color:#7a2020;font-weight:600">Name</th>
-              <th style="padding:.38rem .75rem;font-size:.62rem;text-align:right;color:#7a2020;font-weight:600">Bales</th>
-              <th style="padding:.38rem .75rem;font-size:.62rem;text-align:right;color:#7a2020;font-weight:600">Gross USD</th>
-              <th style="padding:.38rem .75rem;font-size:.62rem;text-align:left;color:#7a2020;font-weight:600">Date</th>
-            </tr>
+            <tr><th>Batch</th><th>Grower</th><th>Name</th><th class="r">Bales</th><th class="r">Gross USD</th><th>Date</th></tr>
           </thead>
           <tbody id="rev-preview-body"></tbody>
         </table>
       </div>
-      <div style="padding:.6rem 1rem;background:#fff8f8;border-top:1px solid #f0c8c8;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
-        <span style="flex:1;font-size:.75rem;color:#8a2020" id="rev-confirm-msg"></span>
-        <button class="btn btn-danger" onclick="doReverse()" id="rev-confirm-btn">&#8617; Confirm Reversal</button>
-        <button class="btn btn-ghost btn-sm" onclick="revClear()">Cancel</button>
+      <div class="rev-box-foot">
+        <span id="rev-confirm-msg"></span>
+        <button type="button" class="btn btn-danger" onclick="doReverse()" id="rev-confirm-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg> Confirm reversal</button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="revClear()">Cancel</button>
       </div>
     </div>
 
-    <div id="rev-result" style="font-size:.78rem;min-height:1.2rem"></div>
-    <div style="font-size:.65rem;color:var(--muted);margin-top:.4rem">&#9888; Reversal permanently removes balance records and reopens the delivery note for re-balancing.</div>
+    <div id="rev-result" style="font-size:.88rem;min-height:1.2rem"></div>
+    <div class="bal-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 2 21h20z"/><path d="M12 10v5M12 18h.01"/></svg> Reversing permanently removes the balance records and reopens the delivery note so it can be balanced again.</div>
   </div>
 </div>
 
@@ -964,31 +879,18 @@ body.theme-dark .sp-n{color:#f08a7d}
 </div>
 
 <!-- ZiG/USD Split Preview Widget -->
-<div id="zig-preview-widget" style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1.1rem;margin-bottom:.85rem;display:flex;gap:1.2rem;align-items:center;flex-wrap:wrap">
-  <div style="font-size:.7rem;font-weight:600;color:var(--gold);letter-spacing:.05em;white-space:nowrap">⚡ ZiG/USD SPLIT PREVIEW</div>
-  <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;flex:1">
-    <div style="font-size:.68rem;color:var(--muted)">Gross USD:</div>
-    <input id="zpw-gross" type="number" step="0.01" min="0" placeholder="Enter amount..." value="<?=number_format($t_gross,2,'.','')?>
-" style="width:120px;padding:.28rem .55rem;border:1px solid var(--border);border-radius:6px;background:var(--cream-d);color:var(--text-strong);font-size:.78rem;font-family:monospace" oninput="calcSplit()">
-    <div style="font-size:.68rem;color:var(--muted)">Rate:</div>
-    <input id="zpw-rate" type="number" step="0.01" min="0" placeholder="ZiG rate" value="<?=number_format($er_now,2,'.','')?>
-" style="width:80px;padding:.28rem .55rem;border:1px solid var(--border);border-radius:6px;background:var(--cream-d);color:var(--text-strong);font-size:.78rem;font-family:monospace" oninput="calcSplit()">
+<div id="zig-preview-widget" class="zpw">
+  <div class="zpw-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 3h5v5M8 3H3v5M21 3l-7 7M3 3l7 7M12 22v-8"/></svg> ZiG / USD split preview</div>
+  <div class="zpw-inputs">
+    <label>Gross USD <input id="zpw-gross" class="form-control" type="number" step="0.01" min="0" placeholder="Amount" value="<?=number_format($t_gross,2,'.','')?>" style="width:130px" oninput="calcSplit()"></label>
+    <label>Rate <input id="zpw-rate" class="form-control" type="number" step="0.01" min="0" placeholder="ZiG rate" value="<?=number_format($er_now,2,'.','')?>" style="width:96px" oninput="calcSplit()"></label>
   </div>
-  <div style="display:flex;gap:1rem;flex-wrap:wrap" id="zpw-result">
-    <div style="text-align:center;min-width:90px">
-      <div style="font-size:.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">70% USD</div>
-      <div id="zpw-usd" style="font-size:1.05rem;font-weight:700;color:var(--leaf);font-family:monospace">$<?=number_format($t_gross*0.70,2)?></div>
-    </div>
-    <div style="text-align:center;min-width:90px">
-      <div style="font-size:.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">30% ZiG</div>
-      <div id="zpw-zig" style="font-size:1.05rem;font-weight:700;color:var(--gold);font-family:monospace"><?=number_format($t_gross*0.30*$er_now,2)?> ZiG</div>
-    </div>
-    <div style="text-align:center;min-width:90px">
-      <div style="font-size:.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Net USD (est.)</div>
-      <div id="zpw-net" style="font-size:1.05rem;font-weight:700;color:var(--text-strong);font-family:monospace">$<?=number_format($t_net,2)?></div>
-    </div>
+  <div class="zpw-out" id="zpw-result">
+    <div><div class="l">70% USD</div><div class="v usd" id="zpw-usd">$<?=number_format($t_gross*0.70,2)?></div></div>
+    <div><div class="l">30% ZiG</div><div class="v zig" id="zpw-zig"><?=number_format($t_gross*0.30*$er_now,2)?> ZiG</div></div>
+    <div><div class="l">Net USD (est.)</div><div class="v" id="zpw-net">$<?=number_format($t_net,2)?></div></div>
   </div>
-  <div style="font-size:.6rem;color:var(--muted);white-space:nowrap">RBZ 70/30 split · Estimated only</div>
+  <div class="zpw-foot">RBZ 70/30 split · estimate only</div>
 </div>
 <script>
 function calcSplit(){
@@ -1004,22 +906,39 @@ calcSplit();
 
 <!-- Filter bar -->
 <div class="fbar">
-  <input type="text" id="srch" class="form-control" placeholder="Search grower, transporter..." style="flex:1;min-width:150px;max-width:260px;font-size:.8rem" autocomplete="off">
+  <form method="GET">
+    <input type="date" name="date" value="<?=$f_date==='all'?'':$f_date?>" class="form-control" onchange="this.form.submit()" title="Sale date" aria-label="Sale date">
+    <select name="transporter" class="form-control" style="max-width:240px" onchange="this.form.submit()" aria-label="Transporter">
+      <option value="0">All transporters</option>
+      <?php foreach($f_transporters as $t):?>
+      <option value="<?=(int)$t['id']?>" <?=$f_tr===(int)$t['id']?'selected':''?>><?=htmlspecialchars($t['name'].($t['truck_num']?' · '.$t['truck_num']:''))?> (<?=(int)$t['n']?>)</option>
+      <?php endforeach;?>
+    </select>
+    <?php if($f_date!=='all'):?>
+    <a href="balance.php?date=all" class="btn btn-ghost btn-sm">All dates</a>
+    <?php else:?>
+    <span class="badge badge-gray">All dates</span>
+    <?php endif;?>
+    <?php if($f_date!==($open_day ?: $today) || $f_tr):?>
+    <a href="balance.php" class="btn btn-ghost btn-sm"><?=$open_day?'Open day':'Today'?></a>
+    <?php endif;?>
+  </form>
+  <input type="search" id="srch" class="form-control" placeholder="Search grower or transporter" aria-label="Search grower or transporter" autocomplete="off">
   <div class="premium-tabs-nav">
     <button class="premium-tab-btn active" id="tab-all" onclick="setTab('all')">
-      All <span class="badge badge-gray" id="c-all" style="font-size:.62rem; margin-left:4px"><?=$total?></span>
+      All <span class="badge badge-gray" id="c-all"><?=$total?></span>
     </button>
     <button class="premium-tab-btn" id="tab-pending" onclick="setTab('pending')">
-      Pending <span class="badge badge-gray" id="c-pending" style="font-size:.62rem; margin-left:4px"><?=$pend?></span>
+      Pending <span class="badge badge-gray" id="c-pending"><?=$pend?></span>
     </button>
     <button class="premium-tab-btn" id="tab-ready" onclick="setTab('ready')">
-      Ready <span class="badge badge-gold" id="c-ready" style="font-size:.62rem; margin-left:4px">0</span>
+      Ready <span class="badge badge-gold" id="c-ready">0</span>
     </button>
     <button class="premium-tab-btn" id="tab-balanced" onclick="setTab('balanced')">
-      Balanced <span class="badge badge-gray" id="c-balanced" style="font-size:.62rem; margin-left:4px"><?=$bal_cnt?></span>
+      Balanced <span class="badge badge-gray" id="c-balanced"><?=$bal_cnt?></span>
     </button>
   </div>
-  <span id="rinfo" style="font-size:.67rem;color:var(--muted)"></span>
+  <span id="rinfo"></span>
 </div>
 
 <!-- Master table -->
@@ -1067,57 +986,57 @@ foreach($all_rows as $r):
     $srch=strtolower(htmlspecialchars($r['grower_num'].' '.$r['first_name'].' '.$r['surname'].' '.$r['transporter_name'].' '.$r['loc_name'].' '.$r['province'],ENT_QUOTES));
 ?>
 <tr class="<?=$isbal?'rb':''?>" data-tgid="<?=$r['tgid']?>" data-split="<?=$r['splitid']?>" data-tab="<?=$tab?>" data-s="<?=$srch?>" data-so="<?=$isbal?($r['so_processed']??0):0?>" onclick="openModal(<?=(int)$r['tgid']?>,<?=(int)$r['splitid']?>)">
-<td style="text-align:center;font-size:.75rem;color:<?=$isbal?'#3a9a3a':($tab==='ready'?'#c8952a':'#c03030')?>"><?=$isbal?'&#10003;':($tab==='ready'?'~':'!')?></td>
-<td><?=$r['batch_num']?'<span class="badge badge-blue" style="font-size:.6rem">'.(int)$r['batch_num'].'</span>':'<span style="color:var(--muted)">--</span>'?></td>
-<td><span class="fw-500" style="color:var(--gold)"><?=htmlspecialchars($r['grower_num'])?></span></td>
+<td style="text-align:center"><span class="rowmark <?=$isbal?'done':($tab==='ready'?'ready':'todo')?>" title="<?=$isbal?'Balanced':($tab==='ready'?'Ready to balance':'Not ready')?>"></span></td>
+<td><?=$r['batch_num']?'<span class="badge badge-blue">'.(int)$r['batch_num'].'</span>':'<span class="muted">—</span>'?></td>
+<td><span class="gnum"><?=htmlspecialchars($r['grower_num'])?></span></td>
 <td><?=htmlspecialchars($r['first_name'])?></td>
 <td><?=htmlspecialchars($r['surname'])?></td>
-<td style="font-size:.67rem"><?=htmlspecialchars($r['loc_name']?:$r['loc_code'])?></td>
-<td style="font-size:.67rem"><?=htmlspecialchars($r['province'])?></td>
-<td><span class="badge badge-gray" style="font-size:.58rem"><?=htmlspecialchars($r['floor_code'])?></span></td>
+<td class="muted"><?=htmlspecialchars($r['loc_name']?:$r['loc_code'])?></td>
+<td class="muted"><?=htmlspecialchars($r['province'])?></td>
+<td><span class="badge badge-gray"><?=htmlspecialchars($r['floor_code'])?></span></td>
 <td><?=$r['sell_dt']?></td>
-<td><span style="display:inline-block;min-width:24px;text-align:center;background:<?=$isbal?'#2d7a4f':'#c8952a'?>;color:#fff;border-radius:10px;font-size:.68rem;font-weight:700;padding:2px 8px"><?=(int)$r['splitid']?></span></td>
+<td><span class="splitno<?=$isbal?' done':''?>"><?=(int)$r['splitid']?></span></td>
 <td class="cell-status"><?=$pill?></td>
-<td style="font-size:.67rem;color:var(--muted)"><?=$gdn?></td>
+<td class="muted"><?=$gdn?></td>
 <td class="td-mono text-right fw-500"><?=$isbal?(int)$r['dt_sold']:(int)$r['sold_count']?></td>
 <td class="td-mono text-right"><?=number_format((float)$r['total_mass'],0)?></td>
 <td class="td-mono text-right"><?=$isbal?(int)$r['dt_rej']:(int)$r['rej_count']?></td>
 <td class="td-mono text-right fw-500"><?=$isbal?'$'.number_format((float)$r['gross_usd'],2):'--'?></td>
 <td class="td-mono text-right"><?=$isbal?number_format((float)$r['usd_deductions'],2):'0.0'?></td>
 <td class="td-mono text-right"><?=$isbal?$usd_svc:'0.0'?></td>
-<td class="td-mono text-right" style="color:var(--leaf);font-weight:600"><?=$isbal?number_format((float)$r['net_usd'],2):'0.0'?></td>
-<td style="font-size:.67rem"><?=$usp?></td>
-<td style="font-size:.63rem;color:var(--muted)"><?=htmlspecialchars($r['usd_pay_ref'])?></td>
+<td class="td-mono text-right net"><?=$isbal?number_format((float)$r['net_usd'],2):'0.0'?></td>
+<td><?=$usp?></td>
+<td class="mono"><?=htmlspecialchars($r['usd_pay_ref'])?></td>
 <td class="td-mono text-right"><?=$isbal?number_format((float)$r['gross_zig'],2):'0.0'?></td>
 <td class="td-mono text-right"><?=$isbal?number_format((float)$r['zim_deductions'],2):'0.0'?></td>
 <td class="td-mono text-right"><?=$isbal?$zig_svc:'0.0'?></td>
-<td class="td-mono text-right" style="color:var(--leaf);font-weight:600"><?=$isbal?number_format((float)$r['net_zig'],2):'0.0'?></td>
-<td style="font-size:.67rem"><?=$zwp?></td>
-<td style="font-size:.63rem;color:var(--muted)"><?=htmlspecialchars($r['zig_pay_ref'])?></td>
-<td style="font-size:.65rem"><?=htmlspecialchars($r['fca_bank'])?></td>
-<td style="font-size:.63rem;font-family:monospace"><?=htmlspecialchars($r['fca_account'])?></td>
-<td style="font-size:.65rem"><?=htmlspecialchars($r['zw_bank'])?></td>
-<td style="font-size:.63rem;font-family:monospace"><?=htmlspecialchars($r['zw_account'])?></td>
+<td class="td-mono text-right net"><?=$isbal?number_format((float)$r['net_zig'],2):'0.0'?></td>
+<td><?=$zwp?></td>
+<td class="mono"><?=htmlspecialchars($r['zig_pay_ref'])?></td>
+<td><?=htmlspecialchars($r['fca_bank'])?></td>
+<td class="mono"><?=htmlspecialchars($r['fca_account'])?></td>
+<td><?=htmlspecialchars($r['zw_bank'])?></td>
+<td class="mono"><?=htmlspecialchars($r['zw_account'])?></td>
 <td class="td-mono text-right"><?=$isbal?number_format((float)$r['net_usd']-(float)$r['gross_usd'],2):'0.0'?></td>
 <td class="td-mono text-right"><?=$r['printed']?1:0?></td>
-<td style="font-size:.67rem"><?=$rel?></td>
+<td class="muted"><?=$rel?></td>
 <td class="td-mono text-right">0</td>
 <td onclick="event.stopPropagation()" style="text-align:center">
-<?php if($isbal):?><a href="print_sheet.php?bbid=<?=$r['bbid']?>" target="_blank" class="btn btn-ghost btn-sm" style="font-size:.58rem;padding:2px 5px">Print</a><?php endif;?>
+<?php if($isbal):?><a href="print_sheet.php?bbid=<?=$r['bbid']?>" target="_blank" class="btn btn-ghost btn-sm">Print</a><?php endif;?>
 </td>
 </tr>
 <?php endforeach;?>
-<?php if(empty($all_rows)):?><tr><td colspan="36" class="text-center text-muted" style="padding:2.5rem">No grower slots found.</td></tr><?php endif;?>
+<?php if(empty($all_rows)):?><tr><td colspan="36" class="text-center text-muted" style="padding:2.5rem">No deliveries for this sale date and transporter.</td></tr><?php endif;?>
 </tbody>
 <tfoot><tr>
-<td colspan="12"><strong id="tfl">TOTALS</strong></td>
+<td colspan="12"><strong id="tfl">Totals</strong></td>
 <td class="td-mono text-right" id="tf1"><?=array_sum(array_column(array_filter($all_rows,fn($r)=>$r['bbid']),'dt_sold'))?></td>
 <td class="td-mono text-right" id="tf2"><?=number_format($t_mass,0)?></td>
 <td class="td-mono text-right" id="tf3">0</td>
 <td class="td-mono text-right" id="tf4">$<?=number_format($t_gross,2)?></td>
 <td class="td-mono text-right" id="tf5">0.0</td>
 <td class="td-mono text-right" id="tf6">0.0</td>
-<td class="td-mono text-right" id="tf7" style="color:var(--leaf)">$<?=number_format($t_net,2)?></td>
+<td class="td-mono text-right" id="tf7" style="color:var(--ok-text)">$<?=number_format($t_net,2)?></td>
 <td colspan="2"></td>
 <td class="td-mono text-right" id="tf8"><?=number_format(array_sum(array_column($all_rows,'gross_zig')),2)?></td>
 <td colspan="13"></td>
@@ -1136,19 +1055,18 @@ foreach($all_rows as $r):
     </div>
     <div id="mst" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center"></div>
     <div id="msp" style="display:flex;gap:.4rem;margin-left:.25rem"></div>
-    <button onclick="closeModal()" id="bm-close-btn">&times;</button>
+    <button type="button" onclick="closeModal()" id="bm-close-btn" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
   </div>
 
   <!-- ── Edit hint ── -->
   <div id="meh" style="display:none">
-    <span style="font-size:.8rem">&#9998;</span>
-    Click <strong>TIMB Grade</strong>, <strong>Buyer / Grade</strong>, <strong>Sale Code</strong> or <strong>Price</strong> to edit inline &mdash; changes save automatically
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>Click a <strong>TIMB grade</strong>, <strong>buyer grade</strong>, <strong>sale code</strong> or <strong>price</strong> to change it. Changes save straight away.
   </div>
 
   <!-- ── Loading ── -->
-  <div id="mld" style="text-align:center;padding:4rem 2rem;background:#fff">
-    <div style="width:40px;height:40px;border:3px solid #e8dfc8;border-top-color:#c8952a;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto"></div>
-    <div style="color:#9a8060;margin-top:1rem;font-size:.85rem">Loading bales&hellip;</div>
+  <div id="mld">
+    <div class="spin"></div>
+    <div class="lbl">Loading bales…</div>
   </div>
 
   <!-- ── Bale table ── -->
@@ -1156,7 +1074,7 @@ foreach($all_rows as $r):
     <table>
       <thead>
         <tr>
-          <th style="text-align:center;width:36px">#</th>
+          <th style="text-align:center;width:40px">#</th>
           <th>Barcode</th>
           <th>Scale BC</th>
           <th>TIMB Grade</th>
@@ -1172,9 +1090,9 @@ foreach($all_rows as $r):
       <tfoot>
         <tr>
           <td colspan="6" id="mfl"></td>
-          <td id="mfm" style="text-align:right;font-family:monospace"></td>
+          <td id="mfm" style="text-align:right"></td>
           <td></td>
-          <td id="mfv" style="text-align:right;font-family:monospace;color:#2a6a2a;font-size:.82rem"></td>
+          <td id="mfv" class="val" style="text-align:right"></td>
           <td></td>
         </tr>
       </tfoot>
@@ -1340,13 +1258,8 @@ function renderModal(d){
         document.getElementById('msp').innerHTML=d.splits.map(function(sp){
             var act=sp.splitid==d.current_split;
             var bal=parseInt(sp.balanced||0);
-            var st='font-size:.72rem;font-weight:700;padding:5px 12px;border-radius:8px;'
-                  +'cursor:pointer;margin:0 4px 4px 0;border:2px solid ';
-            if(bal)      st+='#2d7a4f;background:#2d7a4f;color:#fff';
-            else if(act) st+='#c8952a;background:#c8952a;color:#1a1208';
-            else         st+='#c0392b;background:#fdf2f2;color:#c0392b';
-            if(act)      st+=';box-shadow:0 0 0 3px rgba(200,149,42,.35)';
-            return '<button onclick="openModal('+AT+','+sp.splitid+')" style="'+st+'">'
+            var cls='bm-split '+(act?'act':(bal?'done':'pend'));
+            return '<button type="button" onclick="openModal('+AT+','+sp.splitid+')" class="'+cls+'"'+(act?' aria-current="true"':'')+'>'
                 +(bal?'&#10003; ':'')+'Split '+sp.splitid+' ('+sp.cnt+')'
                 +(bal?'':' &middot; pending')+'</button>';
         }).join('');
@@ -1366,17 +1279,17 @@ function renderModal(d){
         var canEdit=!!(sbid&&!bbId);
 
         var tH=b.timb_grade
-            ?'<span class="badge badge-gold" style="font-size:.57rem">'+xe(b.timb_grade)+'</span>'
+            ?'<span class="badge badge-gold">'+xe(b.timb_grade)+'</span>'
             :'<span class="td-muted">-</span>';
         var bH=b.buyer_grade
-            ?'<span class="badge badge-gray" style="font-size:.57rem">'+xe(b.buyer_grade)+'</span>'
+            ?'<span class="badge badge-gray">'+xe(b.buyer_grade)+'</span>'
             :'<span class="td-muted">-</span>';
-        var bN=b.buyer_name?'<div style="font-size:.55rem;color:var(--muted)">'+xe(b.buyer_name)+'</div>':'';
-        var scH=sc?'<code style="font-size:.65rem">'+xe(sc)+'</code>':'<span class="td-muted" style="font-size:.65rem">-</span>';
+        var bN=b.buyer_name?'<div class="bname">'+xe(b.buyer_name)+'</div>':'';
+        var scH=sc?'<code>'+xe(sc)+'</code>':'<span class="td-muted">-</span>';
         var stat=isRej
-            ?'<span class="badge badge-red" style="font-size:.52rem">Rejected</span>'
-            :b.sold_id?'<span class="badge badge-green" style="font-size:.52rem">Sold</span>'
-            :'<span class="badge badge-gray" style="font-size:.52rem">Unsold</span>';
+            ?'<span class="badge badge-red">Rejected</span>'
+            :b.sold_id?'<span class="badge badge-green">Sold</span>'
+            :'<span class="badge badge-gray">Unsold</span>';
 
         var ep=canEdit?'<span class="ep">*</span>':'';
 
@@ -1386,18 +1299,18 @@ function renderModal(d){
         var pA=canEdit?'id="pr'+sbid+'" class="ec td-mono text-right" data-sbid="'+sbid+'" data-price="'+p.toFixed(4)+'" onclick="editP(this)"':'class="td-mono text-right"';
         var sA=canEdit?'id="sc'+sbid+'" class="ec" data-sbid="'+sbid+'" data-sc="'+xe(sc)+'" onclick="editS(this)"':'';
 
-        var rs=isRej?'opacity:.6;background:#fff0f0':!b.sold_id?'background:#fff8ee':'';
-        return '<tr id="br'+sbid+'" style="'+rs+'">'
-            +'<td style="font-size:.65rem;color:var(--muted);padding:.36rem .6rem">'+seq+'</td>'
-            +'<td style="padding:.36rem .6rem"><code style="font-size:.65rem">'+xe(b.barcode||'-')+'</code></td>'
-            +'<td style="padding:.36rem .6rem"><code style="font-size:.58rem;color:var(--muted)">'+xe(b.timb_bc||'-')+'</code></td>'
-            +'<td style="padding:.36rem .6rem" '+tA+'>'+tH+ep+'</td>'
-            +'<td style="padding:.36rem .6rem" '+bA+'>'+bH+bN+ep+'</td>'
-            +'<td style="padding:.36rem .6rem" '+sA+'>'+scH+ep+'</td>'
-            +'<td class="td-mono text-right" style="padding:.36rem .6rem">'+mass.toFixed(1)+'</td>'
-            +'<td '+pA+' style="padding:.36rem .6rem">'+(sbid?'$'+p.toFixed(4):'-')+ep+'</td>'
-            +'<td class="td-mono text-right" style="padding:.36rem .6rem" id="v'+sbid+'">'+(val>0?'<span class="fw-500">$'+val.toFixed(2)+'</span>':'-')+'</td>'
-            +'<td style="padding:.36rem .6rem" id="ss'+sbid+'">'+stat+'</td>'
+        var rc=isRej?'is-rej':(!b.sold_id?'is-unsold':'');
+        return '<tr id="br'+sbid+'" class="'+rc+'">'
+            +'<td style="text-align:center;color:var(--text-muted)">'+seq+'</td>'
+            +'<td><code>'+xe(b.barcode||'-')+'</code></td>'
+            +'<td><code class="dim">'+xe(b.timb_bc||'-')+'</code></td>'
+            +'<td '+tA+'>'+tH+ep+'</td>'
+            +'<td '+bA+'>'+bH+bN+ep+'</td>'
+            +'<td '+sA+'>'+scH+ep+'</td>'
+            +'<td class="td-mono text-right">'+mass.toFixed(1)+'</td>'
+            +'<td '+pA+'>'+(sbid?'$'+p.toFixed(4):'-')+ep+'</td>'
+            +'<td class="td-mono text-right" id="v'+sbid+'">'+(val>0?'<span class="fw-500">$'+val.toFixed(2)+'</span>':'-')+'</td>'
+            +'<td id="ss'+sbid+'">'+stat+'</td>'
             +'</tr>';
     });
 
@@ -1410,54 +1323,54 @@ function renderModal(d){
     var ac=document.getElementById('mac');
     if(bbId){
         var soBtn = d.so_processed ? ''
-            : '<button onclick="runSO('+bbId+')" style="background:#8a5a0a;color:#fff;border:none;padding:.6rem 1.1rem;border-radius:8px;font-size:.82rem;font-weight:600;cursor:pointer" id="so-btn">&#9654; Run Stop Orders</button>';
-        ac.innerHTML='<div style="flex:1"><div style="font-weight:700;color:#2a6a2a">&#10003; Already Balanced</div>'
-            +'<div style="font-size:.72rem;color:#7a6040;margin-top:.2rem">Gross <strong>$'+parseFloat(s.gross).toFixed(2)+'</strong>'
-            +(d.so_processed?' &middot; <span style="color:#2a6a2a">Stop orders processed</span>':' &middot; <span style="color:#8a5a0a">Stop orders pending</span>')
+            : '<button type="button" onclick="runSO('+bbId+')" class="btn btn-gold" id="so-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16l13-8z"/></svg> Run stop orders</button>';
+        ac.innerHTML='<div style="flex:1;min-width:240px"><div class="bm-status"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg> Already balanced</div>'
+            +'<div class="bm-meta">Gross <strong>$'+parseFloat(s.gross).toFixed(2)+'</strong>'
+            +(d.so_processed?' · <span class="ok">Stop orders processed</span>':' · <span class="warn">Stop orders pending</span>')
             +'</div>'
-            +(d.rule?'<div style="font-size:.7rem;color:#7a6040;margin-top:.2rem">Rule: TIMB stop orders '+d.rule.mode+' the RBZ split, USD '+d.rule.pct+'%'
-                +(d.settled?' &middot; paid, rule locked':'')+'</div>':'')
-            +(d.can_change_rule?'<div style="display:flex;flex-wrap:wrap;gap:.35rem .6rem;align-items:center;font-size:.7rem;color:#7a6040;margin-top:.35rem">'
-                +'<select id="cr-mode" style="font-size:.7rem;padding:1px 4px"><option value="before">before split</option><option value="after">after split</option></select>'
-                +'<input id="cr-pct" type="number" min="0" max="100" step="0.01" style="width:4.4rem;font-size:.7rem;padding:1px 4px"> %'
-                +'<button onclick="changeRule('+bbId+')" style="font-size:.7rem;padding:2px 8px;border:1px solid #c8952a;background:#fff8ec;color:#8a5a0a;border-radius:6px;cursor:pointer">Change rule &amp; recalculate</button>'
+            +(d.rule?'<div class="bm-meta">Rule: TIMB stop orders '+d.rule.mode+' the RBZ split, USD '+d.rule.pct+'%'
+                +(d.settled?' · paid, rule locked':'')+'</div>':'')
+            +(d.can_change_rule?'<div class="bm-rule">'
+                +'<select id="cr-mode" aria-label="When stop orders apply"><option value="before">before split</option><option value="after">after split</option></select>'
+                +'<label><input id="cr-pct" type="number" min="0" max="100" step="0.01" aria-label="USD share"> %</label>'
+                +'<button type="button" onclick="changeRule('+bbId+')" class="btn btn-ghost btn-sm">Change rule and recalculate</button>'
                 +'</div>':'')
             +'</div>'
             +soBtn
-            +'<a href="print_sheet.php?bbid='+bbId+'" target="_blank" style="background:#1a4a8a;color:#fff;text-decoration:none;padding:.6rem 1.2rem;border-radius:8px;font-size:.82rem;font-weight:600">&#128438; Print Sheet</a>'
-            +'<button onclick="closeModal()" style="background:none;border:1px solid #d0c8b0;color:#7a6040;padding:.6rem 1rem;border-radius:8px;font-size:.82rem;cursor:pointer">Close</button>';
+            +'<a href="print_sheet.php?bbid='+bbId+'" target="_blank" class="btn btn-primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6a1 1 0 0 1-1 1h-2"/><path d="M6 14h12v7H6z"/></svg> Print sheet</a>'
+            +'<button type="button" onclick="closeModal()" class="btn btn-ghost">Close</button>';
         if(d.can_change_rule){
             var r0=d.rule||RULE_DEFAULT;
             document.getElementById('cr-mode').value=r0.mode; document.getElementById('cr-pct').value=r0.pct;
         }
     } else if(warn==='NOT_BOOKED'){
-        ac.innerHTML='<div style="flex:1"><div style="font-size:.82rem;font-weight:600;color:var(--danger)">Not Booked</div>'
-            +'<div style="font-size:.7rem"><a href="grower_booking.php" style="color:var(--gold)">Go to Grower Booking</a></div></div>'
-            +'<button onclick="closeModal()" class="btn btn-ghost btn-sm">Close</button>';
+        ac.innerHTML='<div style="flex:1"><div class="bm-status bad">Not booked</div>'
+            +'<a class="bm-link" href="grower_booking.php">Go to Grower Booking</a></div>'
+            +'<button type="button" onclick="closeModal()" class="btn btn-ghost">Close</button>';
     } else if(warn.startsWith('MISMATCH')){
         var pts=warn.split(':');
-        ac.innerHTML='<div style="flex:1"><div style="font-size:.82rem;font-weight:600;color:var(--danger)">Mismatch: booked '+pts[1]+', received '+pts[2]+'</div></div>'
-            +'<button onclick="closeModal()" class="btn btn-ghost btn-sm">Close</button>';
+        ac.innerHTML='<div style="flex:1"><div class="bm-status bad">Mismatch: booked '+pts[1]+', received '+pts[2]+'</div></div>'
+            +'<button type="button" onclick="closeModal()" class="btn btn-ghost">Close</button>';
     } else if(s.unsold>0){
-        ac.innerHTML='<div style="flex:1"><div style="font-size:.82rem;font-weight:500;color:var(--danger)">'+s.unsold+' bale(s) not yet sold</div>'
-            +'<div style="font-size:.7rem"><a href="selling.php" style="color:var(--gold)">Go to Selling &#8594;</a></div></div>'
-            +'<button onclick="closeModal()" class="btn btn-ghost btn-sm">Close</button>';
+        ac.innerHTML='<div style="flex:1"><div class="bm-status bad">'+s.unsold+' bale(s) not yet sold</div>'
+            +'<a class="bm-link" href="selling.php">Go to Selling</a></div>'
+            +'<button type="button" onclick="closeModal()" class="btn btn-ghost">Close</button>';
     } else {
         // All bales dealt with (sold + rejected) — ready to balance
-        ac.innerHTML='<div style="flex:1">'
-            +'<div style="font-size:.85rem;font-weight:700;color:#2a6a2a">&#10003; All '+s.total_bales+' bales sold &mdash; ready to balance</div>'
-            +'<div style="font-size:.72rem;color:#7a6040;margin-top:.2rem">Gross <strong style=\"color:#1a1208\">$'+parseFloat(s.gross).toFixed(2)+'</strong>'
-            +' &nbsp;&middot;&nbsp; '+parseFloat(s.total_mass).toFixed(1)+' kg'
-            +' &nbsp;&middot;&nbsp; Booked: '+d.bales_booked+'</div>'
-            +'<div style="display:flex;flex-wrap:wrap;gap:.35rem .8rem;align-items:center;font-size:.72rem;color:#7a6040;margin-top:.4rem">'
-            +'<label>TIMB stop orders <select id="rule-mode" style="font-size:.72rem;padding:1px 4px">'
+        ac.innerHTML='<div style="flex:1;min-width:240px">'
+            +'<div class="bm-status"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg> All '+s.total_bales+' bales sold, ready to balance</div>'
+            +'<div class="bm-meta">Gross <strong>$'+parseFloat(s.gross).toFixed(2)+'</strong>'
+            +' · '+parseFloat(s.total_mass).toFixed(1)+' kg'
+            +' · Booked: '+d.bales_booked+'</div>'
+            +'<div class="bm-rule">'
+            +'<label>TIMB stop orders <select id="rule-mode">'
             +'<option value="before">before the RBZ split</option><option value="after">after the RBZ split</option></select></label>'
-            +'<label>USD share <input id="rule-pct" type="number" min="0" max="100" step="0.01" style="width:4.6rem;font-size:.72rem;padding:1px 4px"> %</label>'
-            +'<span id="rule-note" style="color:#a07020"></span>'
+            +'<label>USD share <input id="rule-pct" type="number" min="0" max="100" step="0.01"> %</label>'
+            +'<span id="rule-note"></span>'
             +'</div>'
             +'</div>'
-            +'<button id="balbtn" class="btn-balance" onclick="doBalance('+AG+')">&#10003; Confirm &amp; Balance</button>'
-            +'<button onclick="closeModal()" style="background:none;border:1px solid #d0c8b0;color:#7a6040;padding:.6rem 1rem;border-radius:8px;font-size:.82rem;cursor:pointer">Cancel</button>';
+            +'<button type="button" id="balbtn" class="btn-balance" onclick="doBalance('+AG+')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg> Confirm and balance</button>'
+            +'<button type="button" onclick="closeModal()" class="btn btn-ghost">Cancel</button>';
         // Rule for this delivery: starts at the floor's Settings, can be changed here.
         var rm=document.getElementById('rule-mode'), rp=document.getElementById('rule-pct'), rn=document.getElementById('rule-note');
         rm.value=RULE_DEFAULT.mode; rp.value=RULE_DEFAULT.pct;
@@ -1523,8 +1436,7 @@ function doBalance(gid){
             for(i=0;i<SPLITS.length;i++) if(!parseInt(SPLITS[i].balanced||0)){nxt=SPLITS[i];break;}
             if(nxt){
                 document.getElementById('mac').innerHTML+=
-                    '<div style="font-size:.78rem;font-weight:700;color:#8a5a0a;display:flex;align-items:center;gap:.4rem">'
-                    +'&#8618; Loading Split '+nxt.splitid+'&hellip;</div>';
+                    '<div class="bm-meta" style="font-weight:600">Loading split '+nxt.splitid+'…</div>';
                 setTimeout(function(){ openModal(AT,nxt.splitid); },1400);
             }
         } else {
@@ -1546,16 +1458,16 @@ function updateRow(tgid,split,d){
     row.classList.add('rb');
     row.dataset.tab='balanced';
     var c=row.querySelectorAll('td');
-    if(c[0]){c[0].style.color='#3a9a3a';c[0].innerHTML='&#10003;';}
-    if(c[1])c[1].innerHTML='<span class="badge badge-blue" style="font-size:.6rem">'+d.batch+'</span>';
+    if(c[0]){c[0].innerHTML='<span class="rowmark done" title="Balanced"></span>';}
+    if(c[1])c[1].innerHTML='<span class="badge badge-blue">'+d.batch+'</span>';
     // Mark row as Balanced in table
     var statusCell = row ? row.querySelector('.cell-status') : null;
     if(statusCell) statusCell.innerHTML='<span class="sp sp-b">Balanced</span>';
     if(row) row.setAttribute('data-so','0');
     if(c[15])c[15].innerHTML='<span class="fw-500">$'+parseFloat(d.gross).toFixed(2)+'</span>';
-    if(c[18])c[18].innerHTML='<span class="fw-500" style="color:var(--leaf)">'+parseFloat(d.net).toFixed(2)+'</span>';
+    if(c[18])c[18].innerHTML='<span class="net">'+parseFloat(d.net).toFixed(2)+'</span>';
     var pc=row.querySelector('td:last-child');
-    if(pc)pc.innerHTML='<a href="print_sheet.php?bbid='+d.bbid+'" target="_blank" class="btn btn-ghost btn-sm" style="font-size:.58rem;padding:2px 5px">Print</a>';
+    if(pc)pc.innerHTML='<a href="print_sheet.php?bbid='+d.bbid+'" target="_blank" class="btn btn-ghost btn-sm">Print</a>';
     applyF();
 }
 
@@ -1658,14 +1570,14 @@ function saveE(sbid,fd,origCell){
             if(pc){pc.innerHTML='$'+p.toFixed(4)+'<span class="ep">*</span>';pc.dataset.price=p.toFixed(4);}
             var scc=document.getElementById('sc'+sbid);
             if(scc){
-                var scH=sc?'<code style="font-size:.65rem">'+xe(sc)+'</code>':'<span class="td-muted" style="font-size:.65rem">-</span>';
+                var scH=sc?'<code>'+xe(sc)+'</code>':'<span class="td-muted">-</span>';
                 scc.innerHTML=scH+'<span class="ep">*</span>';
                 scc.dataset.sc=sc;
             }
             var stc=document.getElementById('ss'+sbid);
-            if(stc){stc.innerHTML=isRej?'<span class="badge badge-red" style="font-size:.52rem">Rejected</span>':'<span class="badge badge-green" style="font-size:.52rem">Sold</span>';}
+            if(stc){stc.innerHTML=isRej?'<span class="badge badge-red">Rejected</span>':'<span class="badge badge-green">Sold</span>';}
             var br=document.getElementById('br'+sbid);
-            if(br){br.style.opacity=isRej?'.6':'1';br.style.background=isRej?'#fff0f0':'';}
+            if(br){br.classList.toggle('is-rej',isRej);}
             var mass=br?parseFloat((br.querySelectorAll('td')[6]||{}).textContent||0):0;
             var vc=document.getElementById('v'+sbid);
             if(vc&&mass>0)vc.innerHTML=isRej?'-':'<span class="fw-500">$'+(mass*p).toFixed(2)+'</span>';
@@ -1678,16 +1590,18 @@ function saveE(sbid,fd,origCell){
 }
 
 /* ── Reversal panel ── */
+document.getElementById('rev-head').addEventListener('keydown', function(e){
+    if(e.key==='Enter'||e.key===' '){ e.preventDefault(); this.click(); }
+});
 document.getElementById('rev-head').addEventListener('click', function(){
     var b = document.getElementById('revbody');
     var lbl = document.getElementById('rev-toggle-lbl');
-    if(b.style.display === 'none'){
-        b.style.display = 'block';
-        lbl.textContent = '\u25b2 Click to collapse';
-    } else {
-        b.style.display = 'none';
-        lbl.textContent = '\u25bc Click to expand';
-    }
+    var head = document.getElementById('rev-head');
+    var open = b.style.display === 'none';
+    b.style.display = open ? 'block' : 'none';
+    lbl.textContent = open ? 'Hide' : 'Show';
+    head.classList.toggle('open', open);
+    head.setAttribute('aria-expanded', open ? 'true' : 'false');
 });
 
 document.getElementById('rev-by').addEventListener('change', function(){
@@ -1734,13 +1648,13 @@ function revLookup(){
         var tbody = document.getElementById('rev-preview-body');
         tbody.innerHTML = d.rows.map(function(r){
             var dt = r.created_at ? r.created_at.substring(0,10) : '--';
-            return '<tr style="border-bottom:1px solid #f5e8e8">'
-                + '<td style="padding:.38rem .75rem;font-size:.73rem;font-weight:700;color:#1a4a8a">#' + xe(r.sale_batchid||'--') + '</td>'
-                + '<td style="padding:.38rem .75rem;font-size:.73rem;font-family:monospace;color:#c8952a">' + xe(r.grower_num) + '</td>'
-                + '<td style="padding:.38rem .75rem;font-size:.73rem">' + xe(r.name + ' ' + r.surname) + '</td>'
-                + '<td style="padding:.38rem .75rem;font-size:.73rem;text-align:right">' + xe(r.bales) + '</td>'
-                + '<td style="padding:.38rem .75rem;font-size:.73rem;text-align:right;font-weight:600">$' + parseFloat(r.gross).toFixed(2) + '</td>'
-                + '<td style="padding:.38rem .75rem;font-size:.73rem;color:#7a6040">' + dt + '</td>'
+            return '<tr>'
+                + '<td><span class="badge badge-blue">' + xe(r.sale_batchid||'--') + '</span></td>'
+                + '<td style="color:var(--accent-text);font-weight:500">' + xe(r.grower_num) + '</td>'
+                + '<td>' + xe(r.name + ' ' + r.surname) + '</td>'
+                + '<td class="r">' + xe(r.bales) + '</td>'
+                + '<td class="r" style="font-weight:600">$' + parseFloat(r.gross).toFixed(2) + '</td>'
+                + '<td style="color:var(--text-muted)">' + dt + '</td>'
                 + '</tr>';
         }).join('');
         document.getElementById('rev-preview-title').textContent = d.count + ' record(s) found — review before reversing:';

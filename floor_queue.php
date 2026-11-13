@@ -178,52 +178,49 @@ include "includes/layout.php";
   gap:.6rem;margin-bottom:1.35rem;
 }
 .qkpi{
-  background:#fff;border:1px solid var(--border);border-radius:var(--radius);
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
   padding:.9rem 1rem;text-align:center;position:relative;overflow:hidden;
   transition:box-shadow .13s;
 }
 .qkpi:hover{box-shadow:0 3px 12px rgba(0,0,0,.05)}
 .qkpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--qkpi-color,var(--gold))}
 .qkpi-val{
-  font-family:'Bebas Neue',sans-serif;font-size:2.4rem;
-  letter-spacing:.04em;color:var(--ink);line-height:1;
-  color:var(--qkpi-color,var(--ink));
-}
-.qkpi-lbl{font-size:.6rem;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-top:.35rem}
+  font-family:'DM Sans',sans-serif;font-size:2.04rem;
+  color:var(--text);line-height:1;font-weight:600}
+.qkpi-lbl{font-size:.78rem;font-weight:500;color:var(--muted);margin-top:.35rem}
 
 /* Status badges */
 .sq-badge{
   display:inline-flex;align-items:center;gap:4px;
-  padding:2px 8px;border-radius:2px;font-size:.62rem;
-  font-weight:500;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;
+  padding:2px 8px;border-radius:2px;font-size:.78rem;
+  font-weight:500;white-space:nowrap;
 }
-.sq-waiting {background:#fdf6e8;color:#92650e;border:1px solid #e8c96a}
-.sq-selling {background:#edf4ec;color:#2a5223;border:1px solid #9bcb94;animation:sq-pulse 2s infinite}
-.sq-sold    {background:#f0f0f0;color:#888;border:1px solid #ddd}
-.sq-skipped {background:#f9f4ed;color:#a08050;border:1px solid #e0cca0}
-.sq-no_show {background:#fdf2f2;color:#c0392b;border:1px solid #f5b8b2}
+.sq-waiting {background:var(--surface-2);color:var(--warn-text);border:1px solid #e8c96a}
+.sq-selling {background:var(--surface-2);color:var(--ok-text);border:1px solid #9bcb94;animation:sq-pulse 2s infinite}
+.sq-sold    {background:var(--surface-2);color:#888;border:1px solid var(--line)}
+.sq-skipped {background:var(--warn-tint);color:var(--warn-text);border:1px solid #e0cca0}
+.sq-no_show {background:var(--surface-2);color:var(--bad-text);border:1px solid #f5b8b2}
 @keyframes sq-pulse{0%,100%{opacity:1}50%{opacity:.6}}
 
 /* Action buttons in table */
 .sq-action{
   display:inline-flex;align-items:center;gap:3px;
-  padding:2px 7px;border-radius:2px;font-size:.6rem;font-weight:500;
+  padding:2px 7px;border-radius:2px;font-size:.78rem;font-weight:500;
   cursor:pointer;border:1px solid transparent;
   font-family:'DM Sans',sans-serif;transition:all .13s;
-  letter-spacing:.05em;text-transform:uppercase;
   background:none;
 }
 .sq-action:hover{transform:translateY(-1px)}
-.sq-act-sell   {border-color:#9bcb94;color:#2a5223;}
-.sq-act-sell:hover{background:#edf4ec;}
+.sq-act-sell   {border-color:#9bcb94;color:var(--ok-text);}
+.sq-act-sell:hover{background:var(--surface-2);}
 .sq-act-sold   {border-color:#aaa;color:#666;}
-.sq-act-sold:hover{background:#f0f0f0;}
+.sq-act-sold:hover{background:var(--surface-2);}
 .sq-act-skip   {border-color:#e0cca0;color:#a08050;}
-.sq-act-skip:hover{background:#fdf6e8;}
-.sq-act-noshow {border-color:#f5b8b2;color:#c0392b;}
-.sq-act-noshow:hover{background:#fdf2f2;}
-.sq-act-wait   {border-color:#e8c96a;color:#92650e;}
-.sq-act-wait:hover{background:#fdf6e8;}
+.sq-act-skip:hover{background:var(--surface-2);}
+.sq-act-noshow {border-color:#f5b8b2;color:var(--bad-text);}
+.sq-act-noshow:hover{background:var(--surface-2);}
+.sq-act-wait   {border-color:#e8c96a;color:var(--warn-text);}
+.sq-act-wait:hover{background:var(--surface-2);}
 
 /* Queue layout */
 .queue-layout{display:grid;grid-template-columns:1fr 320px;gap:1.25rem;align-items:start}
@@ -232,7 +229,7 @@ include "includes/layout.php";
 .search-suggest-wrap{position:relative}
 .search-suggest{
   position:absolute;top:100%;left:0;right:0;z-index:50;
-  background:#fff;border:1.5px solid var(--gold);border-top:none;
+  background:var(--surface);border:1.5px solid var(--gold);border-top:none;
   border-radius:0 0 var(--radius) var(--radius);
   max-height:220px;overflow-y:auto;
   box-shadow:0 8px 24px rgba(0,0,0,.1);
@@ -248,10 +245,9 @@ include "includes/layout.php";
 
 /* Row position badge */
 .pos-badge{
-  font-family:'Bebas Neue',sans-serif;font-size:1.2rem;
-  letter-spacing:.04em;color:var(--gold);
-  min-width:36px;text-align:center;
-}
+  font-family:'DM Sans',sans-serif;font-size:1.02rem;
+  color:var(--gold);
+  min-width:36px;text-align:center;font-weight:600}
 
 /* Auto-refresh indicator */
 .refresh-dot{
@@ -262,7 +258,6 @@ include "includes/layout.php";
 
 /* Dark theme tweaks */
 body.theme-dark .qkpi{background:var(--ink-soft);border-color:rgba(200,149,42,0.15)}
-body.theme-dark .qkpi-val{color:var(--qkpi-color,var(--gold-l))}
 body.theme-dark .sq-waiting{background:#1e1800;color:#e8c96a;border-color:#6e4e10}
 body.theme-dark .sq-selling{background:#122012;color:#9bcb94;border-color:#2d5226}
 body.theme-dark .sq-sold{background:#1c1c1c;color:#aaa;border-color:#444}
@@ -393,7 +388,7 @@ body.theme-dark .suggest-item{border-color:rgba(200,149,42,.1)}
         <div id="selected-grower-info"
              style="display:none;background:var(--gold-bg);border:1px solid #e8c96a;
                     border-radius:var(--radius);padding:.7rem .9rem;margin-bottom:.9rem">
-          <div style="font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.25rem">Selected Grower</div>
+          <div style="font-size:.78rem;color:var(--muted);margin-bottom:.25rem">Selected Grower</div>
           <div style="font-weight:600;font-size:.88rem" id="selected-grower-name"></div>
           <div style="font-size:.72rem;color:var(--muted)" id="selected-grower-num"></div>
         </div>

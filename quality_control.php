@@ -75,12 +75,12 @@ include "includes/layout.php";
 
 <style>
 .qc-status-grid { display:grid;grid-template-columns:repeat(5,1fr);gap:.5rem;margin-bottom:1.5rem; }
-.qc-status-box { text-align:center;padding:.85rem .5rem;border-radius:var(--radius);border:1px solid var(--border);background:#fff; }
+.qc-status-box { text-align:center;padding:.85rem .5rem;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface); }
 body.theme-dark .qc-status-box { background:var(--ink-soft); }
-.qc-status-num { font-family:'Bebas Neue',sans-serif;font-size:1.8rem;line-height:1; }
-.qc-status-lbl { font-size:.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;font-weight:500;margin-top:.2rem; }
-.qc-dispute-status { display:inline-flex;padding:2px 8px;border-radius:999px;font-size:.6rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase; }
-.qc-s-open { background:rgba(200,149,42,.12);color:#92650e; }
+.qc-status-num { font-family:'DM Sans',sans-serif;font-size:1.53rem;line-height:1;font-weight:600}
+.qc-status-lbl { font-size:.78rem;color:var(--muted);font-weight:500;margin-top:.2rem; }
+.qc-dispute-status { display:inline-flex;padding:2px 8px;border-radius:999px;font-size:.78rem;font-weight:600;}
+.qc-s-open { background:var(--warn-tint);color:var(--warn-text); }
 .qc-s-review { background:rgba(26,107,154,.12);color:#1a6b9a; }
 .qc-s-approved { background:rgba(61,107,53,.12);color:#3d6b35; }
 .qc-s-rejected { background:rgba(192,57,43,.1);color:#c0392b; }
@@ -124,14 +124,14 @@ body.theme-dark .premium-tab-btn:hover {
     background: rgba(255, 255, 255, 0.04);
 }
 .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
     box-shadow: 0 4px 12px rgba(26, 18, 8, 0.15);
     font-weight: 600;
 }
 body.theme-light .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
 }
 body.theme-dark .premium-tab-btn.active {
     background: var(--gold);
@@ -173,7 +173,7 @@ body.theme-dark .premium-tab-btn.active {
       💰 Pricing Analysis
   </button>
   <button class="premium-tab-btn" data-tab="disputes" onclick="switchQcTab('disputes')">
-      📋 Disputes Registry <span class="badge badge-gold" style="font-size:.62rem; margin-left:4px"><?=(int)($dispute_stats['open_cnt']??0)?> open</span>
+      📋 Disputes Registry <span class="badge badge-gold" style="font-size:.72rem; margin-left:4px"><?=(int)($dispute_stats['open_cnt']??0)?> open</span>
   </button>
 </div>
 
@@ -181,8 +181,8 @@ body.theme-dark .premium-tab-btn.active {
 <div id="panel-analytics" class="qc-tab-panel active">
   <!-- Dispute Status Strip -->
   <div class="qc-status-grid">
-    <div class="qc-status-box"><div class="qc-status-num" style="color:var(--ink)"><?=(int)($dispute_stats['total']??0)?></div><div class="qc-status-lbl">Total Disputes</div></div>
-    <div class="qc-status-box"><div class="qc-status-num" style="color:#e8b84b"><?=(int)($dispute_stats['open_cnt']??0)?></div><div class="qc-status-lbl">Open</div></div>
+    <div class="qc-status-box"><div class="qc-status-num" style="color:var(--text)"><?=(int)($dispute_stats['total']??0)?></div><div class="qc-status-lbl">Total Disputes</div></div>
+    <div class="qc-status-box"><div class="qc-status-num" style="color:var(--warn-text)"><?=(int)($dispute_stats['open_cnt']??0)?></div><div class="qc-status-lbl">Open</div></div>
     <div class="qc-status-box"><div class="qc-status-num" style="color:var(--leaf)"><?=(int)($dispute_stats['approved_cnt']??0)?></div><div class="qc-status-lbl">Approved</div></div>
     <div class="qc-status-box"><div class="qc-status-num" style="color:var(--danger)"><?=(int)($dispute_stats['rejected_cnt']??0)?></div><div class="qc-status-lbl">Rejected</div></div>
     <div class="qc-status-box"><div class="qc-status-num" style="color:var(--muted)"><?=(int)($dispute_stats['resolved_cnt']??0)?></div><div class="qc-status-lbl">Resolved</div></div>
@@ -198,7 +198,7 @@ body.theme-dark .premium-tab-btn.active {
 <div id="panel-pricing" class="qc-tab-panel">
   <div class="card">
     <div class="card-head"><h3>💰 Grade Pricing Analysis</h3></div>
-    <div class="table-wrap" style="max-height:600px;overflow-y:auto">
+    <div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto">
       <table>
         <thead><tr><th>Grade</th><th class="text-right">Bales</th><th class="text-right">Mass (kg)</th><th class="text-right">Avg $/kg</th><th class="text-right">Min $</th><th class="text-right">Max $</th><th>Range</th></tr></thead>
         <tbody>
@@ -217,7 +217,7 @@ body.theme-dark .premium-tab-btn.active {
               <div style="flex:1;height:6px;background:var(--cream-d);border-radius:3px;position:relative;min-width:60px">
                 <div style="position:absolute;left:0;top:0;height:100%;width:<?=min(100,max(5,$range*20))?>%;background:<?=$range>2?'var(--danger)':($range>1?'var(--gold)':'var(--leaf)')?>;border-radius:3px"></div>
               </div>
-              <span style="font-size:.62rem;color:var(--muted)">$<?=number_format($range,2)?></span>
+              <span style="font-size:.72rem;color:var(--muted)">$<?=number_format($range,2)?></span>
             </div>
           </td>
         </tr>
@@ -261,7 +261,7 @@ body.theme-dark .premium-tab-btn.active {
     <!-- Recent Disputes -->
     <div class="card">
       <div class="card-head"><h3>📋 Recent Disputes</h3></div>
-      <div class="table-wrap" style="max-height:450px;overflow-y:auto">
+      <div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto">
         <table>
           <thead><tr><th>Barcode</th><th>Grower</th><th>Original</th><th>Disputed</th><th>Status</th><th>Date</th></tr></thead>
           <tbody>
@@ -270,7 +270,7 @@ body.theme-dark .premium-tab-btn.active {
           ?>
           <tr>
             <td class="td-mono" style="font-size:.72rem"><?=htmlspecialchars($d['barcode']??'—')?></td>
-            <td><span style="font-weight:500;font-size:.78rem"><?=htmlspecialchars($d['grower_name'])?></span><br><span style="font-size:.6rem;color:var(--muted)"><?=htmlspecialchars($d['grower_num'])?></span></td>
+            <td><span style="font-weight:500;font-size:.78rem"><?=htmlspecialchars($d['grower_name'])?></span><br><span style="font-size:.72rem;color:var(--muted)"><?=htmlspecialchars($d['grower_num'])?></span></td>
             <td class="td-mono"><?=htmlspecialchars($d['original_grade'])?> ($<?=number_format((float)$d['original_price'],2)?>)</td>
             <td class="td-mono"><?=htmlspecialchars($d['disputed_grade'])?> ($<?=number_format((float)$d['disputed_price'],2)?>)</td>
             <td><span class="qc-dispute-status <?=$sclass?>"><?=htmlspecialchars($d['status'])?></span></td>

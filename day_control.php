@@ -292,7 +292,7 @@ include "includes/layout.php";
       ? number_format((float)$h['zig_rate'],4).' ZiG'
       : '<span style="color:var(--danger);font-size:.7rem">Not set</span>'?>
   </td>
-  <td><span class="badge <?=$is_active?'badge-green':'badge-gray'?>" style="font-size:.6rem">
+  <td><span class="badge <?=$is_active?'badge-green':'badge-gray'?>" style="font-size:.72rem">
     <?=$is_active?'Open':'Closed'?>
   </span></td>
   <td>

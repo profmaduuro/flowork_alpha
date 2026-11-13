@@ -34,7 +34,7 @@ $faqs = [
 
 <style>
 .hc-module-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:.85rem;margin-bottom:1.5rem; }
-.hc-module { background:#fff;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:all .2s;cursor:pointer; }
+.hc-module { background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:all .2s;cursor:pointer; }
 body.theme-dark .hc-module { background:var(--ink-soft); }
 .hc-module:hover { border-color:var(--gold);box-shadow:0 4px 16px rgba(0,0,0,.06); }
 .hc-module-head { display:flex;align-items:center;gap:.65rem;padding:.85rem 1rem;border-bottom:1px solid var(--border); }
@@ -43,7 +43,7 @@ body.theme-dark .hc-module { background:var(--ink-soft); }
 .hc-module-desc { font-size:.7rem;color:var(--muted); }
 .hc-module-steps { display:none;padding:.75rem 1rem; }
 .hc-module.open .hc-module-steps { display:block; }
-.hc-module-steps ol { padding-left:1.2rem;font-size:.75rem;line-height:1.8;color:var(--ink); }
+.hc-module-steps ol { padding-left:1.2rem;font-size:.75rem;line-height:1.8;color:var(--text); }
 .hc-module-steps ol li { margin-bottom:.15rem; }
 .hc-module-arrow { margin-left:auto;font-size:.7rem;color:var(--muted);transition:transform .2s; }
 .hc-module.open .hc-module-arrow { transform:rotate(90deg); }
@@ -55,14 +55,14 @@ body.theme-dark .hc-module { background:var(--ink-soft); }
 .hc-faq-arrow { font-size:.7rem;color:var(--muted);transition:transform .2s; }
 .hc-faq.open .hc-faq-arrow { transform:rotate(90deg); }
 .hc-search { max-width:500px;margin:0 auto 1.5rem;position:relative; }
-.hc-search input { width:100%;padding:.75rem 1rem .75rem 2.5rem;border:2px solid var(--border);border-radius:8px;font-size:.88rem;background:#fff;color:var(--ink);font-family:inherit; }
+.hc-search input { width:100%;padding:.75rem 1rem .75rem 2.5rem;border:2px solid var(--border);border-radius:8px;font-size:.88rem;background:var(--surface);color:var(--text);font-family:inherit; }
 body.theme-dark .hc-search input { background:var(--ink-soft);color:var(--cream); }
 .hc-search input:focus { border-color:var(--gold);outline:none; }
 .hc-search-icon { position:absolute;left:.85rem;top:50%;transform:translateY(-50%);font-size:1rem;opacity:.4; }
 </style>
 
 <div class="page-header" style="text-align:center;display:block">
-  <h2 style="font-family:'Bebas Neue',sans-serif;font-size:2rem;letter-spacing:.08em">Help Center</h2>
+  <h2 style="font-family:'DM Sans',sans-serif;font-size:1.7rem;font-weight:600">Help Center</h2>
   <p style="color:var(--muted);font-size:.85rem">Guides, FAQs, and documentation for Flowork</p>
 </div>
 

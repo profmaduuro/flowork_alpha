@@ -167,14 +167,14 @@ body.theme-dark .premium-tab-btn:hover {
     background: rgba(255, 255, 255, 0.04);
 }
 .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
     box-shadow: 0 4px 12px rgba(26, 18, 8, 0.15);
     font-weight: 600;
 }
 body.theme-light .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
 }
 body.theme-dark .premium-tab-btn.active {
     background: var(--gold);
@@ -220,7 +220,7 @@ body.theme-dark .premium-tab-btn.active {
     <!-- Buyer list -->
     <div class="card">
       <div class="card-head"><h3>Buyers</h3><span class="badge badge-gray"><?=count($buyers)?></span></div>
-      <div class="table-wrap" style="max-height:480px;overflow-y:auto"><table>
+      <div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto"><table>
       <thead><tr><th>Buyer</th><th class="text-right"><?=$yr?> Bales</th><th class="text-right"><?=$yr?> USD</th><th>Contract</th><th></th></tr></thead>
       <tbody>
       <?php if(empty($buyers)):?><tr><td colspan="5" class="text-center text-muted" style="padding:1.5rem">No buyers yet.</td></tr>
@@ -261,7 +261,7 @@ body.theme-dark .premium-tab-btn.active {
       <div class="card-body">
 
       <?php if($sel):?>
-      <div id="add-mark-form-section" style="display:none;background:#fdf9f0;border:1px solid #e8d8a0;padding:1rem;margin-bottom:1.15rem;border-radius:var(--radius)">
+      <div id="add-mark-form-section" style="display:none;background:var(--surface-2);border:1px solid #e8d8a0;padding:1rem;margin-bottom:1.15rem;border-radius:var(--radius)">
         <form method="POST">
           <input type="hidden" name="action" value="add_buyer_mark">
           <input type="hidden" name="name" value="<?=htmlspecialchars($sel['name'])?>">
@@ -373,7 +373,7 @@ body.theme-dark .premium-tab-btn.active {
       <tbody>
       <?php foreach($grades as $g):?>
       <tr>
-        <td><span class="badge badge-gold" style="font-size:.62rem"><?=htmlspecialchars($g['grade'])?></span></td>
+        <td><span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($g['grade'])?></span></td>
         <td class="td-mono text-right"><?=number_format((int)$g['bales'])?></td>
         <td class="td-mono text-right"><?=number_format((float)$g['mass'],0)?></td>
         <td class="td-mono text-right">$<?=number_format((float)$g['avg_price'],4)?></td>

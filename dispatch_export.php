@@ -246,7 +246,7 @@ include "includes/layout.php";
 </div>
 
 <?php if(empty($date_sessions)): ?>
-<div class="alert" style="background:var(--gold-bg);border-left:3px solid var(--gold);color:var(--ink);padding:.85rem 1.15rem;margin-bottom:1rem;font-size:.85rem">
+<div class="alert" style="background:var(--gold-bg);border-left:3px solid var(--gold);color:var(--text);padding:.85rem 1.15rem;margin-bottom:1rem;font-size:.85rem">
   <strong>No dispatch sessions found</strong> for selling point ID <?=$spid?>.
   <?php if(!$spid): ?>
   <br>⚠ No selling point selected — please log out, choose a floor when you log back in, and reload this page.
@@ -265,7 +265,7 @@ include "includes/layout.php";
   <span class="badge badge-gray"><?=count($date_sessions)?></span>
 </div>
 <?php if(!empty($date_sessions)):?>
-<div class="table-wrap" style="max-height:600px;overflow-y:auto"><table>
+<div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto"><table>
 <thead><tr>
   <th>Date</th><th>Destination</th><th class="text-right">Bales</th>
   <th class="text-right">Value</th><th>Status</th><th></th>
@@ -284,7 +284,7 @@ include "includes/layout.php";
   <td class="td-mono text-right"><?=$s['cnt']?></td>
   <td class="td-mono text-right fw-500">$<?=number_format((float)$s['total_val'],0)?></td>
   <td>
-    <span class="badge <?=$s['status']==='closed'?'badge-gray':'badge-green'?>" style="font-size:.6rem">
+    <span class="badge <?=$s['status']==='closed'?'badge-gray':'badge-green'?>" style="font-size:.72rem">
       <?=ucfirst($s['status'])?>
     </span>
   </td>
@@ -317,7 +317,7 @@ include "includes/layout.php";
     </div>
   </div>
   <div style="display:flex;gap:.5rem;align-items:center">
-    <span class="badge <?=$session_detail['status']==='closed'?'badge-gray':'badge-green'?>" style="font-size:.62rem">
+    <span class="badge <?=$session_detail['status']==='closed'?'badge-gray':'badge-green'?>" style="font-size:.72rem">
       <?=ucfirst($session_detail['status'])?>
     </span>
   </div>
@@ -348,7 +348,7 @@ $t_val  = array_sum(array_map(fn($r)=>(float)$r['price']*(float)$r['mass'], $ite
 </div>
 
 <!-- Bale table -->
-<div class="table-wrap" style="max-height:450px;overflow-y:auto"><table>
+<div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto"><table>
 <thead><tr>
   <th>#</th><th>Barcode</th><th>Grower</th><th>Grade</th>
   <th class="text-right">Mass</th><th class="text-right">Price</th><th class="text-right">Value</th>
@@ -361,10 +361,10 @@ $t_val  = array_sum(array_map(fn($r)=>(float)$r['price']*(float)$r['mass'], $ite
   <td class="td-muted" style="font-size:.7rem"><?=$rank?></td>
   <td style="font-family:monospace;font-size:.75rem"><?=htmlspecialchars($r['barcode'])?></td>
   <td>
-    <span class="badge badge-gold" style="font-size:.6rem"><?=htmlspecialchars($r['grower_num'])?></span>
+    <span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($r['grower_num'])?></span>
     <span style="font-size:.75rem;margin-left:3px"><?=htmlspecialchars(trim($r['name'].' '.($r['surname']??'')))?></span>
   </td>
-  <td><span class="badge badge-gray" style="font-size:.6rem"><?=htmlspecialchars($r['timb_grade'])?></span></td>
+  <td><span class="badge badge-gray" style="font-size:.72rem"><?=htmlspecialchars($r['timb_grade'])?></span></td>
   <td class="td-mono text-right"><?=number_format((float)$r['mass'],1)?> kg</td>
   <td class="td-mono text-right">$<?=number_format((float)$r['price'],4)?></td>
   <td class="td-mono text-right fw-500">$<?=number_format($val,2)?></td>

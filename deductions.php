@@ -559,9 +559,9 @@ include "includes/layout.php";
 /* Template items builder */
 .tpl-item-row { display:grid; grid-template-columns:1fr 130px 100px 80px 32px; gap:.5rem; align-items:center; margin-bottom:.45rem; }
 .tpl-preview-item { display:flex; align-items:center; gap:.4rem; padding:.2rem .4rem; background:var(--cream-d); border-radius:3px; font-size:.7rem; }
-.tpl-type-badge { font-size:.6rem; padding:1px 5px; border-radius:2px; font-weight:600; text-transform:uppercase; }
+.tpl-type-badge { font-size:.78rem; padding:1px 5px; border-radius:2px; font-weight:600; }
 .tpl-fixed  { background:rgba(26,107,154,.1); color:var(--info); }
-.tpl-pct    { background:rgba(200,149,42,.1); color:#92650e; }
+.tpl-pct    { background:var(--warn-tint); color:var(--warn-text); }
 .tpl-zig    { background:rgba(61,107,53,.1);  color:var(--leaf); }
 .tab-bar { display:flex; gap:0; border-bottom:1px solid var(--border); margin-bottom:1.25rem; }
 .tab-btn { padding:.55rem 1.1rem; font-size:.75rem; font-weight:500; cursor:pointer; border:none; background:none; color:var(--muted); border-bottom:2px solid transparent; transition:all .13s; letter-spacing:.04em; }
@@ -586,7 +586,7 @@ include "includes/layout.php";
 .ded-chip-comm {
   background:rgba(200,149,42,.08); border-color:rgba(200,149,42,.18);
 }
-.ded-chip-comm .ded-chip-value { color:#92650e; }
+.ded-chip-comm .ded-chip-value { color:var(--warn-text); }
 </style>
 
 <div class="page-header">
@@ -716,7 +716,7 @@ foreach($rows as $idx => $r):
   <td class="td-muted" style="font-size:.7rem"><?=$seq?></td>
   <td>
     <?php if($is_new_grower): ?>
-    <span class="badge badge-gold" style="font-size:.62rem"><?=htmlspecialchars($r['grower_num'])?></span>
+    <span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($r['grower_num'])?></span>
     <span style="margin-left:4px;font-size:.8rem;font-weight:500"><?=htmlspecialchars($r['grower_name'])?></span>
     <?php else: ?>
     <span class="td-muted" style="font-size:.7rem;padding-left:4px">↳</span>
@@ -724,7 +724,7 @@ foreach($rows as $idx => $r):
     <?php endif; ?>
   </td>
   <td>
-    <span class="badge badge-gray" style="font-size:.62rem;font-family:monospace"><?=htmlspecialchars($r['split_label'])?></span>
+    <span class="badge badge-gray" style="font-size:.72rem;font-family:monospace"><?=htmlspecialchars($r['split_label'])?></span>
   </td>
   <td class="td-muted" style="font-size:.75rem;font-family:monospace"><?=htmlspecialchars($r['sheet_ref'])?></td>
   <td class="td-mono text-right"><?=number_format($r['mass'],0)?></td>
@@ -764,7 +764,7 @@ foreach($rows as $idx => $r):
 <?php endforeach; ?>
 </tbody>
 <tfoot>
-<tr style="background:var(--ink);color:var(--cream)">
+<tr style="background:var(--surface-2);color:var(--text-muted)">
   <td colspan="4" style="padding:.55rem .9rem;font-weight:500;font-size:.78rem">
     TOTAL — <?=count($rows)?> growers
   </td>
@@ -811,7 +811,7 @@ foreach($rows as $idx => $r):
     <input type="text" name="tpl_desc" class="form-control" placeholder="Short description of this template" maxlength="255">
   </div>
 
-  <div style="font-size:.65rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem">
+  <div style="font-size:.78rem;font-weight:500;color:var(--muted);margin-bottom:.6rem">
     Line Items
   </div>
   <div id="tpl-items-wrap">
@@ -919,7 +919,7 @@ foreach($rows as $idx => $r):
     </div>
     <?php endforeach; ?>
   </div>
-  <div style="font-size:.62rem;color:var(--muted);margin-top:.4rem">
+  <div style="font-size:.72rem;color:var(--muted);margin-top:.4rem">
     Created <?=date('d M Y', strtotime($tpl['created_at']))?>
   </div>
 </div>

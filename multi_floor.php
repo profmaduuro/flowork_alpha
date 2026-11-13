@@ -155,7 +155,7 @@ include "includes/layout.php";
 
 /* Modal container */
 .modal-container {
-  background: var(--cream);
+  background:var(--surface);
   border: 1px solid var(--border);
   border-radius: 6px;
   width: 100%;
@@ -175,8 +175,8 @@ include "includes/layout.php";
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--ink);
-  color: var(--gold-l);
+  background:var(--surface-2);
+  color:var(--text);
 }
 .modal-header h3 {
   font-size: 0.72rem;
@@ -187,14 +187,14 @@ include "includes/layout.php";
 .modal-close {
   background: transparent;
   border: none;
-  color: rgba(245, 240, 232, 0.5);
+  color:var(--text-muted);
   font-size: 1.35rem;
   cursor: pointer;
   transition: color 0.15s;
   line-height: 1;
 }
 .modal-close:hover {
-  color: var(--cream);
+  color:var(--text);
 }
 .modal-body {
   padding: 1.15rem;
@@ -204,10 +204,8 @@ include "includes/layout.php";
 }
 .modal-body .form-group label {
   display: block;
-  font-size: 0.65rem;
+  font-size:.78rem;
   font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--muted);
   margin-bottom: 0.25rem;
 }
@@ -241,14 +239,14 @@ include "includes/layout.php";
 <?php else:foreach($floors as $f):$is_current=(int)$f['id']===$current_spid;?>
 <tr style="<?=$is_current?'background:rgba(200,149,42,.06);border-left:3px solid var(--gold)':''?>">
   <td>
-    <?php if($is_current):?><span class="badge badge-gold" style="font-size:.58rem">Active</span><?php endif;?>
+    <?php if($is_current):?><span class="badge badge-gold" style="font-size:.72rem">Active</span><?php endif;?>
     <strong style="font-size:.82rem"><?=htmlspecialchars($f['name'])?></strong>
   </td>
   <td style="font-size:.75rem"><?=htmlspecialchars($f['company_name']??'')?></td>
   <td style="font-size:.72rem;color:var(--muted)"><?=htmlspecialchars($f['location']??'')?></td>
   <td class="td-mono text-right"><?=number_format((int)$f['grower_count'])?></td>
   <?php $is_active = (int)($f['active'] ?? 1); ?>
-  <td><span class="badge <?=$is_active?'badge-green':'badge-gray'?>" style="font-size:.6rem"><?=$is_active?'Active':'Inactive'?></span></td>
+  <td><span class="badge <?=$is_active?'badge-green':'badge-gray'?>" style="font-size:.72rem"><?=$is_active?'Active':'Inactive'?></span></td>
   <td style="white-space:nowrap">
     <?php if(!$is_current && $is_active):?>
     <form method="POST" style="display:inline">
@@ -340,9 +338,9 @@ include "includes/layout.php";
 <div class="card">
 <div class="card-head"><h3>How Multi-Floor Works</h3></div>
 <div class="card-body" style="font-size:.8rem;color:var(--muted);display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;text-align:center">
-  <div><div style="font-size:1.5rem;margin-bottom:.35rem">🏭</div><div style="font-weight:600;color:var(--ink);margin-bottom:.25rem">One Database</div>All floors share the same MySQL database. Data is isolated by selling_pointid on every table.</div>
-  <div><div style="font-size:1.5rem;margin-bottom:.35rem">👤</div><div style="font-weight:600;color:var(--ink);margin-bottom:.25rem">User Assignment</div>Users can be assigned to one or multiple floors. They select their active floor at login.</div>
-  <div><div style="font-size:1.5rem;margin-bottom:.35rem">🔄</div><div style="font-weight:600;color:var(--ink);margin-bottom:.25rem">Switch Floors</div>Authorised users can switch between floors using the Switch button above or from the top bar.</div>
+  <div><div style="font-size:1.5rem;margin-bottom:.35rem">🏭</div><div style="font-weight:600;color:var(--text);margin-bottom:.25rem">One Database</div>All floors share the same MySQL database. Data is isolated by selling_pointid on every table.</div>
+  <div><div style="font-size:1.5rem;margin-bottom:.35rem">👤</div><div style="font-weight:600;color:var(--text);margin-bottom:.25rem">User Assignment</div>Users can be assigned to one or multiple floors. They select their active floor at login.</div>
+  <div><div style="font-size:1.5rem;margin-bottom:.35rem">🔄</div><div style="font-weight:600;color:var(--text);margin-bottom:.25rem">Switch Floors</div>Authorised users can switch between floors using the Switch button above or from the top bar.</div>
 </div>
 </div>
 </div><!-- /panel-help -->

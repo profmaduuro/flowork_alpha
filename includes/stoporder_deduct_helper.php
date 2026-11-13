@@ -88,6 +88,61 @@ if (!function_exists('flowork_delivery_rules')) {
     }
 }
 
+if (!function_exists('flowork_refresh_unpaid_amounts')) {
+    /**
+     * After a delivery is recalculated, bring the amounts that payments stored
+     * earlier in line with its new net, as long as no money has moved:
+     *  - payment_status rows still pending or on hold;
+     *  - items in payment batches not yet released (draft, reviewed, approved).
+     * A reviewed or approved batch whose amounts change goes back to draft, so it
+     * is checked again before release. Paid, partial and released payments are
+     * never touched. Returns the ids of batches sent back to draft.
+     */
+    function flowork_refresh_unpaid_amounts(mysqli $conn, int $bbid, int $userid): array {
+        $q = $conn->query("SELECT transporter_growersid tg, DATE(created_at) d FROM balanced_bales WHERE id=$bbid LIMIT 1");
+        $bb = ($q && $q !== true) ? $q->fetch_assoc() : null;
+        if (!$bb) return [];
+        $tg = (int)$bb['tg']; $d = $conn->real_escape_string($bb['d']);
+        $to_draft = [];
+        foreach (['usd' => 'usd_net_value', 'zig' => 'zim_net_value'] as $cur => $col) {
+            $nq = $conn->query("SELECT COALESCE(SUM(dtn.$col),0) net FROM balanced_bales bb " . flowork_net_join() . "
+                WHERE bb.transporter_growersid=$tg AND DATE(bb.created_at)='$d'");
+            $net_tg = round(($nq && $nq !== true) ? (float)$nq->fetch_assoc()['net'] : 0, 4);
+            $own    = round(flowork_net_for_bbid($conn, $bbid, $cur), 4);
+
+            $conn->query("UPDATE payment_status SET net_amount=$net_tg
+                WHERE transporter_growersid=$tg AND sell_date='$d' AND currency='$cur' AND status IN ('pending','on_hold')");
+
+            // Unreleased batch items for this delivery (one row per delivery, or per grower and day)
+            $iq = $conn->query("SELECT pbi.id, pbi.payment_batchid bid, pbi.balanced_balesid bbid, pbi.net_amount, pb.status
+                FROM payment_batch_item pbi JOIN payment_batch pb ON pb.id=pbi.payment_batchid
+                WHERE pbi.transporter_growersid=$tg AND pbi.currency='$cur' AND pb.sell_date='$d'
+                  AND pb.status IN ('draft','reviewed','approved')
+                  AND (pbi.balanced_balesid=$bbid OR pbi.balanced_balesid IS NULL OR pbi.balanced_balesid=0)
+                  AND NOT EXISTS (SELECT 1 FROM payment_status ps WHERE ps.transporter_growersid=$tg AND ps.sell_date='$d'
+                                  AND ps.currency='$cur' AND ps.status IN ('paid','released','partial'))");
+            while ($iq && $iq !== true && $it = $iq->fetch_assoc()) {
+                $new = (int)$it['bbid'] === $bbid ? $own : $net_tg;
+                if (abs((float)$it['net_amount'] - $new) < 0.00005) continue;
+                $conn->query("UPDATE payment_batch_item SET net_amount=$new WHERE id=" . (int)$it['id']);
+                $bid = (int)$it['bid'];
+                if ($it['status'] !== 'draft' && !in_array($bid, $to_draft, true)) {
+                    $conn->query("UPDATE payment_batch SET status='draft', reviewed_by=NULL, reviewed_at=NULL,
+                        approved_by=NULL, approved_at=NULL WHERE id=$bid AND status IN ('reviewed','approved')");
+                    $to_draft[] = $bid;
+                    $m = $conn->real_escape_string("Payment batch #$bid went back to draft: its amounts changed when balanced sales were recalculated. Review and approve it again.");
+                    $conn->query("INSERT INTO event_notifications (event_type,message) VALUES ('rate_updated','$m')");
+                }
+                if (function_exists('audit_log')) {
+                    audit_log($conn, 0, $userid, 'payment_batch_item', 'recalc', (int)$it['id'],
+                        ['net_amount' => (float)$it['net_amount']], ['net_amount' => $new]);
+                }
+            }
+        }
+        return $to_draft;
+    }
+}
+
 if (!function_exists('flowork_recalculate_balance_batch')) {
     /**
      * Recalculate one delivery (charges, stop-order deductions, split, net).
@@ -104,6 +159,8 @@ if (!function_exists('flowork_recalculate_balance_batch')) {
         $conn->begin_transaction();
         try {
             $result = flowork_recalculate_balance_batch_body($conn, $bbid, $spid, $userid);
+            // Payments not yet made follow the new figures (pending payments and unreleased batches)
+            if ($result) $result['batches_to_draft'] = flowork_refresh_unpaid_amounts($conn, (int)$bbid, (int)$userid);
             $conn->commit();
             return $result;
         } catch (Throwable $e) {

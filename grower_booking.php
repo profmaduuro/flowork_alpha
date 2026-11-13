@@ -377,9 +377,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $tgid = (int)$conn->insert_id;
             $rmsg = "Grower booked successfully.";
         }
-        upsert_booked_bales($conn,$userid,$gid,$bales,$sell_dt,$today);
+        $bb_id = upsert_booked_bales($conn,$userid,$gid,$bales,$sell_dt,$today);
         audit_log($conn,$spid,$userid,"transporter_growers","book",$tgid,null,["growerid"=>$gid,"bales"=>$bales]);
-        echo json_encode(["ok"=>true,"msg"=>$rmsg]);
+        echo json_encode(["ok"=>true,"msg"=>$rmsg,"bb_id"=>$bb_id]);
         exit;
     }
 
@@ -620,6 +620,7 @@ $tg_q = $conn->query("
     SELECT bb.id bb_id, bb.bales_booked, bb.bales_delivered, bb.sell_date sell_dt, bb.booked_id,
            g.id growerid, g.grower_num,
            CONCAT(g.name,' ',COALESCE(g.surname,'')) grower_name,
+           g.name first_name, COALESCE(g.surname,'') surname,
            bal.id bal_id
     FROM booked_bales bb
     JOIN growers g ON g.id=bb.growerid
@@ -692,7 +693,7 @@ include "includes/layout.php";
 .cal-day-num {
   font-weight: 600;
   font-size: .85rem;
-  color: var(--ink);
+  color:var(--text);
 }
 .cal-day-bales {
   font-size: .65rem;
@@ -701,9 +702,9 @@ include "includes/layout.php";
   padding: 1px 4px;
   border-radius: 2px;
 }
-.cal-cap-green { background: #edf4ec !important; border-color: #c3e6cb !important; color: #2d5226 !important; }
-.cal-cap-amber { background: #fdf6e8 !important; border-color: #e8c96a !important; color: #92650e !important; }
-.cal-cap-red { background: #fdf2f2 !important; border-color: #f5b8b2 !important; color: #c0392b !important; }
+.cal-cap-green { background:var(--surface-2) !important; border-color: #c3e6cb !important; color:var(--ok-text) !important; }
+.cal-cap-amber { background:var(--surface-2) !important; border-color: #e8c96a !important; color:var(--warn-text) !important; }
+.cal-cap-red { background:var(--surface-2) !important; border-color: #f5b8b2 !important; color:var(--bad-text) !important; }
 
 body.theme-dark .cal-cap-green { background: #122012 !important; border-color: #2e7d32 !important; color: #c0f0c0 !important; }
 body.theme-dark .cal-cap-amber { background: #1e1800 !important; border-color: #b8860b !important; color: #f0dfa0 !important; }
@@ -747,14 +748,14 @@ body.theme-dark .premium-tab-btn:hover {
     background: rgba(255, 255, 255, 0.04);
 }
 .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
     box-shadow: 0 4px 12px rgba(26, 18, 8, 0.15);
     font-weight: 600;
 }
 body.theme-light .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
 }
 body.theme-dark .premium-tab-btn.active {
     background: var(--gold);
@@ -849,7 +850,7 @@ body.theme-dark .premium-tab-btn.active {
 </div>
 
 <!-- KPIs -->
-<div class="kpi-grid" style="grid-template-columns:repeat(5,1fr);margin-bottom:1.1rem;gap:.5rem">
+<div class="kpi-grid" id="booking-kpis" style="grid-template-columns:repeat(5,1fr);margin-bottom:1.1rem;gap:.5rem">
   <div class="kpi-card">
     <div class="kpi-label">Total Booked</div>
     <div class="kpi-value"><?=$total_count?></div>
@@ -928,7 +929,7 @@ body.theme-dark .premium-tab-btn.active {
   
   <!-- Right Side: Details Panel -->
   <div class="card" id="calendar-day-details" style="min-height:300px">
-    <div class="card-head" style="background:var(--ink); color:var(--cream)">
+    <div class="card-head" style="background:var(--surface-2); color:var(--text)">
       <h3 id="details-date-label" style="color:var(--gold)">Select a Date</h3>
     </div>
     <div class="card-body" id="details-body-container" style="padding:1rem; font-size:.8rem">
@@ -949,7 +950,7 @@ body.theme-dark .premium-tab-btn.active {
     <input type="date" id="date-filter" value="<?=htmlspecialchars($f_date)?>"
            class="form-control" style="max-width:145px;font-size:.78rem;padding:.3rem .5rem"
            onchange="applyDateFilter(this.value)" title="Filter by sell date">
-    <div style="display:flex;gap:.3rem;flex-wrap:wrap">
+    <div id="registry-filters" style="display:flex;gap:.3rem;flex-wrap:wrap">
       <a href="?status=all<?=$f_date?"&sell_date=$f_date":""?>"
          class="btn <?=$f_status==="all"?"btn-primary":"btn-ghost"?> btn-sm" style="font-size:.68rem">All (<?=$total_count?>)</a>
       <a href="?status=booked<?=$f_date?"&sell_date=$f_date":""?>"
@@ -961,17 +962,17 @@ body.theme-dark .premium-tab-btn.active {
       <?php endif;?>
     </div>
   </div>
-  <div class="table-wrap" style="max-height:600px;overflow-y:auto">
+  <div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto">
   <table id="booking-tbl">
   <thead><tr>
-    <th>Grower</th><th>Booking ID</th>
-    <th class="text-right">Bales Booked</th>
-    <th class="text-right">Bales Delivered</th>
-    <th>Sell Date</th><th>Status</th><th>Action</th>
+    <th>Grower #</th><th>First name</th><th>Surname</th><th>Booking ID</th>
+    <th class="text-right">Bales booked</th>
+    <th class="text-right">Bales delivered</th>
+    <th>Sell date</th><th>Status</th><th>Action</th>
   </tr></thead>
   <tbody>
   <?php if(empty($tg_list)):?>
-  <tr><td colspan="7" class="text-center text-muted" style="padding:2.5rem">
+  <tr><td colspan="9" class="text-center text-muted" style="padding:2.5rem">
     No booked growers found for this floor.
   </td></tr>
   <?php else: foreach($tg_list as $tg):
@@ -985,32 +986,28 @@ body.theme-dark .premium-tab-btn.active {
       <?php else: ?>
       onclick="handleNonAdminClick()"
       <?php endif; ?>>
-    <td>
-      <span class="badge badge-gold" style="font-size:.6rem"><?=htmlspecialchars($tg["grower_num"])?></span>
-      <div style="font-size:.72rem;margin-top:.15rem;font-weight:600;color:var(--ink)"><?=htmlspecialchars($tg["grower_name"])?></div>
-    </td>
-    <td style="font-size:.72rem;font-family:monospace;color:var(--muted)">
-      <?=htmlspecialchars($tg["booked_id"] ?: '—')?>
-    </td>
+    <td class="nowrap"><span class="badge badge-gold"><?=htmlspecialchars($tg["grower_num"])?></span></td>
+    <td class="fw-500 nowrap"><?=htmlspecialchars($tg["first_name"])?></td>
+    <td class="fw-500 nowrap"><?=htmlspecialchars($tg["surname"])?></td>
+    <td class="td-muted nowrap" style="font-family:ui-monospace,monospace;font-size:.8rem"><?=htmlspecialchars($tg["booked_id"] ?: '—')?></td>
     <td class="td-mono text-right" style="font-weight:600"><?=(int)$tg["bales_booked"]?></td>
     <td class="td-mono text-right" style="color:<?=(int)$tg["bales_delivered"]>0?"var(--leaf)":"var(--muted)"?>">
       <?=(int)$tg["bales_delivered"]?>
     </td>
-    <td style="font-size:.72rem"><?=htmlspecialchars($tg["sell_dt"]??"")?></td>
+    <td class="nowrap"><?=htmlspecialchars($tg["sell_dt"]??"")?></td>
     <td>
       <?php if($balanced):?>
-        <span class="badge badge-green" style="font-size:.58rem">✓ Balanced</span>
+        <span class="badge badge-green">Balanced</span>
       <?php else:?>
-        <span class="badge badge-leaf" style="font-size:.58rem">✓ Booked</span>
+        <span class="badge badge-blue">Booked</span>
       <?php endif;?>
     </td>
     <td style="white-space:nowrap">
       <?php if(!$balanced):?>
         <button onclick="event.stopPropagation(); unbookGrower(<?=$tg["bb_id"]?>, <?=$tg["growerid"]?>, '<?=htmlspecialchars($tg["sell_dt"])?>')" 
-                class="btn btn-ghost btn-sm"
-                style="font-size:.62rem;color:var(--danger);padding:2px 7px">Unbook</button>
+                class="btn btn-ghost btn-sm" style="color:var(--bad-text)">Unbook</button>
       <?php else:?>
-        <span style="font-size:.68rem;color:var(--muted)">Done</span>
+        <span class="td-muted">Done</span>
       <?php endif;?>
     </td>
   </tr>
@@ -1025,14 +1022,14 @@ body.theme-dark .premium-tab-btn.active {
 <div id="book-modal" style="display:none;position:fixed;inset:0;z-index:9000;
      background:rgba(0,0,0,.55);overflow-y:auto;padding:2rem 1rem"
      onclick="if(event.target===this)closeBookModal()">
-<div style="background:var(--cream);border-radius:12px;max-width:520px;margin:0 auto;
+<div style="background:var(--surface);border-radius:12px;max-width:520px;margin:0 auto;
             box-shadow:0 16px 60px rgba(0,0,0,.35);overflow:hidden">
-  <div style="background:var(--ink);color:var(--cream);padding:.85rem 1.25rem;
+  <div style="background:var(--surface-2);color:var(--text);padding:.85rem 1.25rem;
               display:flex;align-items:center;gap:.75rem">
-    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--gold);
-                letter-spacing:.08em;flex:1">Manual Booking Entry</div>
+    <div style="font-family:'DM Sans',sans-serif;font-size:0.94rem;color:var(--gold);
+                flex:1;font-weight:600">Manual Booking Entry</div>
     <button onclick="closeBookModal()" style="background:none;border:none;
-            color:rgba(245,240,232,.45);font-size:1.4rem;cursor:pointer;line-height:1">&times;</button>
+            color:var(--text-muted);font-size:1.4rem;cursor:pointer;line-height:1" aria-label="Close">&times;</button>
   </div>
   <div style="padding:1.25rem">
     <div id="book-modal-msg"></div>
@@ -1066,7 +1063,7 @@ body.theme-dark .premium-tab-btn.active {
     </div>
   </div>
   <div style="padding:.75rem 1.25rem;border-top:2px solid var(--border);
-              background:#f5f2ec;display:flex;gap:.65rem;justify-content:flex-end">
+              background:var(--surface-2);display:flex;gap:.65rem;justify-content:flex-end">
     <button onclick="closeBookModal()" class="btn btn-ghost btn-sm">Cancel</button>
     <button onclick="submitBooking()" class="btn btn-primary" id="bm-submit">✓ Book Grower</button>
   </div>
@@ -1077,14 +1074,14 @@ body.theme-dark .premium-tab-btn.active {
 <div id="edit-modal" style="display:none;position:fixed;inset:0;z-index:9000;
      background:rgba(0,0,0,.55);overflow-y:auto;padding:2rem 1rem"
      onclick="if(event.target===this)closeEditModal()">
-<div style="background:var(--cream);border-radius:12px;max-width:520px;margin:0 auto;
+<div style="background:var(--surface);border-radius:12px;max-width:520px;margin:0 auto;
             box-shadow:0 16px 60px rgba(0,0,0,.35);overflow:hidden">
-  <div style="background:var(--ink);color:var(--cream);padding:.85rem 1.25rem;
+  <div style="background:var(--surface-2);color:var(--text);padding:.85rem 1.25rem;
               display:flex;align-items:center;gap:.75rem">
-    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--gold);
-                letter-spacing:.08em;flex:1">Edit Booking Details</div>
+    <div style="font-family:'DM Sans',sans-serif;font-size:0.94rem;color:var(--gold);
+                flex:1;font-weight:600">Edit Booking Details</div>
     <button onclick="closeEditModal()" style="background:none;border:none;
-            color:rgba(245,240,232,.45);font-size:1.4rem;cursor:pointer;line-height:1">&times;</button>
+            color:var(--text-muted);font-size:1.4rem;cursor:pointer;line-height:1" aria-label="Close">&times;</button>
   </div>
   <div style="padding:1.25rem">
     <div id="edit-modal-msg"></div>
@@ -1118,12 +1115,14 @@ body.theme-dark .premium-tab-btn.active {
     </div>
   </div>
   <div style="padding:.75rem 1.25rem;border-top:2px solid var(--border);
-              background:#f5f2ec;display:flex;gap:.65rem;justify-content:flex-end">
+              background:var(--surface-2);display:flex;gap:.65rem;justify-content:flex-end">
     <button onclick="closeEditModal()" class="btn btn-ghost btn-sm">Cancel</button>
     <button onclick="submitEditBooking()" class="btn btn-primary" id="em-submit">✓ Save Changes</button>
   </div>
 </div>
 </div>
+
+<script type="application/json" id="daily-bookings-data"><?= json_encode((object)$daily_bookings, JSON_HEX_TAG) ?></script>
 
 <script>
 function applyDateFilter(val){
@@ -1203,23 +1202,22 @@ function submitBooking(){
     .then(function(r){ return r.json(); })
     .then(function(d){
         btn.disabled=false; btn.textContent="✓ Book Grower";
-        if(d.error){
-            msg.innerHTML='<div style="background:#fce4ec;color:#c62828;padding:.6rem .9rem;border-radius:7px;font-size:.82rem;margin-bottom:.75rem;border-left:3px solid #e53935">'+d.error+'</div>';
+        if(!d.ok){
+            msg.innerHTML='<div style="background:var(--surface-2);color:var(--bad-text);padding:.6rem .9rem;border-radius:7px;font-size:.82rem;margin-bottom:.75rem;border-left:3px solid #e53935">'+xe(d.error||d.msg||"Booking failed.")+'</div>';
             return;
         }
         // Success
-        msg.innerHTML='<div style="background:#e8f5e9;color:#1b5e20;padding:.6rem .9rem;border-radius:7px;font-size:.82rem;margin-bottom:.75rem;border-left:3px solid #2e7d32">✓ '+d.msg+'</div>';
+        msg.innerHTML='<div style="background:var(--surface-2);color:var(--ok-text);padding:.6rem .9rem;border-radius:7px;font-size:.82rem;margin-bottom:.75rem;border-left:3px solid #2e7d32">✓ '+xe(d.msg)+'</div>';
         if(window.fw && fw.toast) fw.toast(d.msg, "success");
         // Reset form
         document.getElementById("bm-grower").value="";
         document.getElementById("bm-transporter").value="";
         document.getElementById("bm-bales").value="0";
-        // Reload table after short delay so user sees the notification
-        setTimeout(function(){ location.reload(); }, 1500);
+        refreshRegistry(d.bb_id);
     })
     .catch(function(e){
         btn.disabled=false; btn.textContent="✓ Book Grower";
-        msg.innerHTML='<div style="background:#fce4ec;color:#c62828;padding:.6rem .9rem;border-radius:7px;font-size:.82rem;margin-bottom:.75rem;border-left:3px solid #e53935">Error: '+e.message+'</div>';
+        msg.innerHTML='<div style="background:var(--surface-2);color:var(--bad-text);padding:.6rem .9rem;border-radius:7px;font-size:.82rem;margin-bottom:.75rem;border-left:3px solid #e53935">Error: '+e.message+'</div>';
     });
 }
 
@@ -1253,18 +1251,19 @@ function submitEditBooking() {
     .then(d => {
         btn.disabled = false;
         btn.textContent = "✓ Save Changes";
-        if (d.error) {
-            msg.innerHTML = '<div style="background:#fce4ec;color:#c62828;padding:.6rem .9rem;border-radius:7px;font-size:.82rem;margin-bottom:.75rem;border-left:3px solid #e53935">' + d.error + '</div>';
+        if (!d.ok) {
+            msg.innerHTML = '<div style="background:var(--surface-2);color:var(--bad-text);padding:.6rem .9rem;border-radius:7px;font-size:.82rem;margin-bottom:.75rem;border-left:3px solid #e53935">' + xe(d.error || d.msg || "Update failed.") + '</div>';
             return;
         }
-        msg.innerHTML = '<div style="background:#e8f5e9;color:#1b5e20;padding:.6rem .9rem;border-radius:7px;font-size:.82rem;margin-bottom:.75rem;border-left:3px solid #2e7d32">✓ ' + d.msg + '</div>';
+        msg.innerHTML = '<div style="background:var(--surface-2);color:var(--ok-text);padding:.6rem .9rem;border-radius:7px;font-size:.82rem;margin-bottom:.75rem;border-left:3px solid #2e7d32">✓ ' + xe(d.msg) + '</div>';
         if (window.fw && fw.toast) fw.toast(d.msg, "success");
-        setTimeout(() => location.reload(), 1000);
+        refreshRegistry(bb_id);
+        setTimeout(closeEditModal, 800);
     })
     .catch(e => {
         btn.disabled = false;
         btn.textContent = "✓ Save Changes";
-        msg.innerHTML = '<div style="background:#fce4ec;color:#c62828;padding:.6rem .9rem;border-radius:7px;font-size:.82rem;margin-bottom:.75rem;border-left:3px solid #e53935">Error: ' + e.message + '</div>';
+        msg.innerHTML = '<div style="background:var(--surface-2);color:var(--bad-text);padding:.6rem .9rem;border-radius:7px;font-size:.82rem;margin-bottom:.75rem;border-left:3px solid #e53935">Error: ' + e.message + '</div>';
     });
 }
 
@@ -1276,14 +1275,15 @@ async function unbookGrower(bbId, growerId, sellDate) {
         var r = await fw.get("grower_booking.php", { ajax: 1, action: "unbook", bb_id: bbId });
         if (window.fw && fw.barDone) fw.barDone();
         
-        if (r.error) {
-            if (window.fw && fw.toast) fw.toast(r.error, "error");
-            else alert(r.error);
+        if (!r || !r.ok) {
+            var em = (r && (r.error || r.msg)) || "Unbook failed.";
+            if (window.fw && fw.toast) fw.toast(em, "error");
+            else alert(em);
             return;
         }
         
         if (window.fw && fw.toast) fw.toast("Grower unbooked successfully", "success");
-        setTimeout(() => location.reload(), 600);
+        refreshRegistry();
     } catch (e) {
         if (window.fw && fw.barDone) fw.barDone();
         if (window.fw && fw.toast) fw.toast(e.message, "error");
@@ -1325,8 +1325,42 @@ async function uploadTimbBooking(){
 
 function xe(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
+// ── IN-PLACE REFRESH ──
+// Re-reads this page (same URL, so the status and date filters stay) and swaps
+// in the KPIs, filter counts, registry rows and calendar totals. The window and
+// the registry's own scroll position are left alone.
+async function refreshRegistry(highlightBbId) {
+    try {
+        var r = await fetch(window.location.href, {headers:{'X-Requested-With':'XMLHttpRequest'}});
+        var doc = new DOMParser().parseFromString(await r.text(), 'text/html');
+        var newBody = doc.querySelector('#booking-tbl tbody');
+        if (!r.ok || !newBody) throw new Error('could not read the updated list');
+        document.querySelector('#booking-tbl tbody').innerHTML = newBody.innerHTML;
+        ['booking-kpis', 'registry-filters'].forEach(function(id) {
+            var src = doc.getElementById(id), dst = document.getElementById(id);
+            if (src && dst) dst.innerHTML = src.innerHTML;
+        });
+        var data = doc.getElementById('daily-bookings-data');
+        if (data) {
+            Object.keys(DAILY_BOOKINGS).forEach(function(k){ delete DAILY_BOOKINGS[k]; });
+            Object.assign(DAILY_BOOKINGS, JSON.parse(data.textContent));
+        }
+        if (document.getElementById('panel-calendar').classList.contains('active')) {
+            selectDate(selectedDateStr || TODAY_STR);
+        }
+        var row = highlightBbId ? document.getElementById('tg-' + highlightBbId) : null;
+        if (row) {
+            row.style.transition = 'background-color 1.5s ease';
+            row.style.backgroundColor = 'rgba(61,107,53,.18)';
+            setTimeout(function(){ row.style.backgroundColor = ''; }, 1500);
+        }
+    } catch (e) {
+        if (window.fw && fw.toast) fw.toast('Saved, but the list did not refresh (' + e.message + '). Reload the page to see it.', 'warning');
+    }
+}
+
 // ── SMART CALENDAR IMPLEMENTATION ──
-const DAILY_BOOKINGS = <?= json_encode($daily_bookings) ?>;
+const DAILY_BOOKINGS = JSON.parse(document.getElementById('daily-bookings-data').textContent);
 const TODAY_STR = '<?= $today ?>';
 
 let calYear = new Date().getFullYear();
@@ -1466,7 +1500,7 @@ async function selectDate(dateStr) {
             html += 'No registered growers booked for this date.';
             html += '</div>';
         } else {
-            html += '<div class="table-wrap" style="max-height:400px; overflow-y:auto">';
+            html += '<div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem); overflow-y:auto">';
             html += '<table>';
             html += '<thead><tr><th>Grower</th><th class="text-right">Bales</th><th>Ref</th></tr></thead>';
             html += '<tbody>';
@@ -1474,8 +1508,8 @@ async function selectDate(dateStr) {
             detailsList.forEach(function(item) {
                 html += '<tr>';
                 html += '<td>';
-                html += '<span class="badge badge-gold" style="font-size:.58rem">' + xe(item.grower_num) + '</span>';
-                html += '<div style="font-weight:600; font-size:.72rem; color:var(--ink); margin-top:2px">' + xe(item.grower_name) + '</div>';
+                html += '<span class="badge badge-gold" style="font-size:.72rem">' + xe(item.grower_num) + '</span>';
+                html += '<div style="font-weight:600; font-size:.72rem; color:var(--text); margin-top:2px">' + xe(item.grower_name) + '</div>';
                 html += '</td>';
                 html += '<td class="td-mono text-right" style="font-weight:600">' + item.bales_booked + '</td>';
                 html += '<td style="font-size:.68rem; font-family:monospace; color:var(--muted)">' + xe(item.booked_id || '—') + '</td>';

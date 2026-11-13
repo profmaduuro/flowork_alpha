@@ -115,14 +115,14 @@ body.theme-dark .premium-tab-btn:hover {
     background: rgba(255, 255, 255, 0.04);
 }
 .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
     box-shadow: 0 4px 12px rgba(26, 18, 8, 0.15);
     font-weight: 600;
 }
 body.theme-light .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
 }
 body.theme-dark .premium-tab-btn.active {
     background: var(--gold);
@@ -194,7 +194,7 @@ body.theme-dark .premium-tab-btn.active {
         <div class="card-head">
             <h3>Recent Moves</h3>
         </div>
-        <div class="table-wrap" style="max-height:560px;overflow-y:auto">
+        <div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto">
             <table>
                 <thead>
                     <tr>
@@ -211,7 +211,7 @@ body.theme-dark .premium-tab-btn.active {
                 <tr><td colspan="6" class="text-center text-muted" style="padding:2rem">No moves yet.</td></tr>
                 <?php else:foreach($recent as $r):?>
                 <tr>
-                    <td><span class="badge badge-gold" style="font-size:.6rem"><?=htmlspecialchars($r['grower_num'])?></span></td>
+                    <td><span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($r['grower_num'])?></span></td>
                     <td style="font-family:monospace;font-size:.7rem"><?=htmlspecialchars($r['timb_bc'])?></td>
                     <td style="font-family:monospace;font-size:.7rem"><?=htmlspecialchars($r['barcode'])?></td>
                     <td class="td-mono text-right"><?=number_format((float)$r['mass'],2)?></td>

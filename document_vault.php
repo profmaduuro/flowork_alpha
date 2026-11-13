@@ -49,12 +49,12 @@ include "includes/layout.php";
 
 <style>
 .dv-completeness { display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.65rem;margin-bottom:1.5rem; }
-.dv-meter { text-align:center;padding:.85rem;background:#fff;border:1px solid var(--border);border-radius:var(--radius); }
+.dv-meter { text-align:center;padding:.85rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius); }
 body.theme-dark .dv-meter { background:var(--ink-soft); }
 .dv-ring-wrap { width:70px;height:70px;margin:0 auto .5rem; }
-.dv-meter-lbl { font-size:.58rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;font-weight:500; }
-.dv-meter-val { font-family:'Bebas Neue',sans-serif;font-size:1.3rem;color:var(--gold); }
-.dv-check { display:inline-flex;width:18px;height:18px;border-radius:50%;align-items:center;justify-content:center;font-size:.6rem; }
+.dv-meter-lbl { font-size:.78rem;color:var(--muted);font-weight:500; }
+.dv-meter-val { font-family:'DM Sans',sans-serif;font-size:1.1rem;color:var(--gold);font-weight:600}
+.dv-check { display:inline-flex;width:18px;height:18px;border-radius:50%;align-items:center;justify-content:center;font-size:.72rem; }
 .dv-check-yes { background:rgba(61,107,53,.12);color:var(--leaf); }
 .dv-check-no { background:rgba(192,57,43,.08);color:var(--danger); }
 .dv-sig-pad { border:2px dashed var(--border);border-radius:var(--radius);padding:2rem;text-align:center;cursor:pointer;transition:all .2s; }
@@ -111,13 +111,13 @@ body.theme-dark .dv-meter { background:var(--ink-soft); }
 <div id="panel-docs" class="tab-panel active" data-tabs="docvault">
   <div class="card">
     <div class="card-head"><h3>📁 Grower Documents</h3><span class="badge badge-gold"><?=count($growers_docs)?></span></div>
-    <div class="table-wrap" style="max-height:500px;overflow-y:auto">
+    <div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto">
       <table>
         <thead><tr><th>Grower</th><th>ID</th><th>Phone</th><th>Contract</th><th>Farm</th></tr></thead>
         <tbody>
         <?php foreach($growers_docs as $gd): ?>
         <tr>
-          <td><div style="font-weight:500;font-size:.78rem"><?=htmlspecialchars($gd['grower_name'])?></div><div style="font-size:.6rem;color:var(--muted)"><?=htmlspecialchars($gd['grower_num'])?></div></td>
+          <td><div style="font-weight:500;font-size:.78rem"><?=htmlspecialchars($gd['grower_name'])?></div><div style="font-size:.72rem;color:var(--muted)"><?=htmlspecialchars($gd['grower_num'])?></div></td>
           <td><span class="dv-check <?=(int)$gd['has_id']?'dv-check-yes':'dv-check-no'?>"><?=(int)$gd['has_id']?'✓':'✗'?></span></td>
           <td><span class="dv-check <?=(int)$gd['has_phone']?'dv-check-yes':'dv-check-no'?>"><?=(int)$gd['has_phone']?'✓':'✗'?></span></td>
           <td><span class="dv-check <?=(int)$gd['has_contract']?'dv-check-yes':'dv-check-no'?>"><?=(int)$gd['has_contract']?'✓':'✗'?></span></td>

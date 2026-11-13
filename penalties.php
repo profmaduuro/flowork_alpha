@@ -102,13 +102,13 @@ include "includes/layout.php";
   <!-- Late Deliveries -->
   <div class="card">
     <div class="card-head"><h3>⚠️ Late Deliveries</h3><span class="badge badge-red"><?=$late_count?></span></div>
-    <div class="table-wrap" style="max-height:420px;overflow-y:auto">
+    <div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto">
       <table>
         <thead><tr><th>Grower</th><th>Transporter</th><th>Booked</th><th>Delivered</th><th class="text-right">Days Late</th></tr></thead>
         <tbody>
         <?php foreach($late_deliveries as $ld): ?>
         <tr>
-          <td><div style="font-weight:500;font-size:.78rem"><?=htmlspecialchars($ld['grower_name'])?></div><div style="font-size:.6rem;color:var(--muted)"><?=htmlspecialchars($ld['grower_num'])?></div></td>
+          <td><div style="font-weight:500;font-size:.78rem"><?=htmlspecialchars($ld['grower_name'])?></div><div style="font-size:.72rem;color:var(--muted)"><?=htmlspecialchars($ld['grower_num'])?></div></td>
           <td style="font-size:.72rem;color:var(--muted)"><?=htmlspecialchars($ld['transporter_name'])?></td>
           <td class="td-mono" style="font-size:.72rem"><?=htmlspecialchars($ld['booked_date']??'')?></td>
           <td class="td-mono" style="font-size:.72rem"><?=htmlspecialchars($ld['actual_date']??'')?></td>
@@ -128,7 +128,7 @@ include "includes/layout.php";
   <!-- Quality Incentive Candidates -->
   <div class="card">
     <div class="card-head"><h3>🌟 Quality Incentive Candidates</h3><span class="badge badge-green"><?=$perf_count?></span></div>
-    <div class="card-body" style="max-height:420px;overflow-y:auto;display:flex;flex-direction:column;gap:.5rem">
+    <div class="card-body" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto;display:flex;flex-direction:column;gap:.5rem">
       <?php foreach($top_performers as $i=>$tp):
         $medal = $i < 3 ? ['🥇','🥈','🥉'][$i] : '⭐';
         $rej_pct = (int)$tp['total_bales'] > 0 ? ((int)$tp['rejected'] / (int)$tp['total_bales']) * 100 : 0;
@@ -137,11 +137,11 @@ include "includes/layout.php";
         <div class="pn-medal" style="background:<?=$i<3?'rgba(200,149,42,.12)':'var(--cream-d)'?>"><?=$medal?></div>
         <div style="flex:1;min-width:0">
           <div style="font-weight:500;font-size:.82rem"><?=htmlspecialchars($tp['grower_name'])?></div>
-          <div style="font-size:.62rem;color:var(--muted)"><?=htmlspecialchars($tp['grower_num'])?> · <?=(int)$tp['total_bales']?> bales · <?=round($rej_pct,1)?>% rejected</div>
+          <div style="font-size:.72rem;color:var(--muted)"><?=htmlspecialchars($tp['grower_num'])?> · <?=(int)$tp['total_bales']?> bales · <?=round($rej_pct,1)?>% rejected</div>
         </div>
         <div style="text-align:right">
-          <div style="font-family:'Bebas Neue',sans-serif;font-size:1.15rem;color:var(--leaf)">$<?=number_format((float)$tp['avg_price'],2)?></div>
-          <div style="font-size:.58rem;color:var(--muted)">avg $/kg</div>
+          <div style="font-family:'DM Sans',sans-serif;font-size:0.98rem;color:var(--leaf);font-weight:600">$<?=number_format((float)$tp['avg_price'],2)?></div>
+          <div style="font-size:.72rem;color:var(--muted)">avg $/kg</div>
         </div>
       </div>
       <?php endforeach; ?>

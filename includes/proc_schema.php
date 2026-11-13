@@ -7,9 +7,19 @@
 //   intake (scan + weigh)  →  batch (blend/threshing run)
 //   →  outputs (lamina / stems / scrap / fines)  →  cartons (export-ready)
 
+require_once __DIR__ . '/schema_version.php';
+
+const PROC_SCHEMA_VERSION = 1;   // bump when proc_ensure_tables() changes
+
 function proc_ensure_tables(mysqli $c): void {
+    if (flowork_schema_is_current($c, 'processing', PROC_SCHEMA_VERSION)) return;
+    // Mark the version only when every statement succeeded, so a failed
+    // CREATE/ALTER is retried on the next page load.
+    $ok  = true;
+    $run = function (string $sql) use ($c, &$ok) { if (!$c->query($sql)) $ok = false; };
+
     // Bales received at the processing plant
-    $c->query("CREATE TABLE IF NOT EXISTS proc_intake (
+    $run("CREATE TABLE IF NOT EXISTS proc_intake (
         id INT AUTO_INCREMENT PRIMARY KEY,
         barcode VARCHAR(100) NOT NULL,
         grower_num VARCHAR(100) DEFAULT '',
@@ -27,7 +37,7 @@ function proc_ensure_tables(mysqli $c): void {
     )");
 
     // Processing runs (blend / threshing batches)
-    $c->query("CREATE TABLE IF NOT EXISTS proc_batches (
+    $run("CREATE TABLE IF NOT EXISTS proc_batches (
         id INT AUTO_INCREMENT PRIMARY KEY,
         batch_num VARCHAR(40) NOT NULL UNIQUE,
         blend_code VARCHAR(40) DEFAULT '',
@@ -44,7 +54,7 @@ function proc_ensure_tables(mysqli $c): void {
     )");
 
     // Weighed outputs per batch
-    $c->query("CREATE TABLE IF NOT EXISTS proc_outputs (
+    $run("CREATE TABLE IF NOT EXISTS proc_outputs (
         id INT AUTO_INCREMENT PRIMARY KEY,
         batch_id INT NOT NULL,
         output_type ENUM('lamina','stem','scrap','fines') NOT NULL,
@@ -56,7 +66,7 @@ function proc_ensure_tables(mysqli $c): void {
     )");
 
     // Export cartons packed from batch outputs
-    $c->query("CREATE TABLE IF NOT EXISTS proc_cartons (
+    $run("CREATE TABLE IF NOT EXISTS proc_cartons (
         id INT AUTO_INCREMENT PRIMARY KEY,
         carton_num VARCHAR(40) NOT NULL UNIQUE,
         batch_id INT NOT NULL,
@@ -74,11 +84,11 @@ function proc_ensure_tables(mysqli $c): void {
     // Older installs: add shipment_id if the table predates this column
     $hasCol = $c->query("SHOW COLUMNS FROM proc_cartons LIKE 'shipment_id'");
     if ($hasCol && $hasCol !== true && $hasCol->num_rows === 0) {
-        $c->query("ALTER TABLE proc_cartons ADD COLUMN shipment_id INT DEFAULT NULL, ADD INDEX(shipment_id)");
+        $run("ALTER TABLE proc_cartons ADD COLUMN shipment_id INT DEFAULT NULL, ADD INDEX(shipment_id)");
     }
 
     // Export shipments — a container/consignment of packed cartons leaving the plant
-    $c->query("CREATE TABLE IF NOT EXISTS proc_shipments (
+    $run("CREATE TABLE IF NOT EXISTS proc_shipments (
         id INT AUTO_INCREMENT PRIMARY KEY,
         shipment_no VARCHAR(40) NOT NULL UNIQUE,
         container_no VARCHAR(40) DEFAULT '',
@@ -97,6 +107,8 @@ function proc_ensure_tables(mysqli $c): void {
         shipped_at DATETIME DEFAULT NULL,
         INDEX(status)
     )");
+
+    if ($ok) flowork_schema_mark($c, 'processing', PROC_SCHEMA_VERSION);
 }
 
 // Recompute a shipment's denormalized carton/mass totals from its cartons.

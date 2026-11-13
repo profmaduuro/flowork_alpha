@@ -319,8 +319,7 @@ include "includes/layout.php";
 /* ── Permission Matrix ── */
 .perm-matrix { overflow-x:auto; }
 .perm-table { border-collapse:collapse; font-size:.72rem; min-width:700px; }
-.perm-table th { font-size:.58rem; font-weight:600; letter-spacing:.08em; text-transform:uppercase;
-                 color:var(--muted); padding:.45rem .5rem; border-bottom:2px solid var(--border);
+.perm-table th { font-size:.78rem; font-weight:600; color:var(--muted); padding:.45rem .5rem; border-bottom:2px solid var(--border);
                  text-align:center; white-space:nowrap; }
 .perm-table th.perm-user-col { text-align:left; min-width:140px; }
 .perm-table td { padding:.38rem .4rem; border-bottom:1px solid var(--border); text-align:center; vertical-align:middle; }
@@ -337,7 +336,7 @@ include "includes/layout.php";
     font-size:.85rem; transition:all .13s; user-select:none;
 }
 .perm-cb:checked + .perm-toggle {
-    background:#edf7ed; border-color:#9bcb94; color:#2a5223;
+    background:var(--surface-2); border-color:#9bcb94; color:var(--ok-text);
 }
 .perm-cb:not(:checked) + .perm-toggle {
     background:var(--cream-d); border-color:var(--border); color:#bbb;
@@ -347,12 +346,10 @@ include "includes/layout.php";
 
 /* Quick-Set preset buttons */
 .preset-btn {
-    padding:.22rem .65rem; border-radius:4px; font-size:.65rem; font-weight:600;
-    cursor:pointer; border:1.5px solid; transition:all .13s; letter-spacing:.04em;
-    text-transform:uppercase;
-}
-.preset-clerk   { background:#f5f0e8; border-color:#bbb; color:#666; }
-.preset-manager { background:var(--gold-bg); border-color:var(--gold); color:#7a5010; }
+    padding:.22rem .65rem; border-radius:4px; font-size:.78rem; font-weight:600;
+    cursor:pointer; border:1.5px solid; transition:all .13s; }
+.preset-clerk   { background:var(--surface-2); border-color:#bbb; color:#666; }
+.preset-manager { background:var(--gold-bg); border-color:var(--gold); color:var(--warn-text); }
 .preset-analyst { background:var(--info-bg); border-color:#aacde6; color:var(--info); }
 .preset-admin   { background:var(--danger-bg); border-color:#f5b8b2; color:var(--danger); }
 .preset-btn:hover { filter:brightness(.92); transform:scale(1.04); }
@@ -411,7 +408,7 @@ include "includes/layout.php";
   </div>
   <?php endif; ?>
 </div>
-<div class="table-wrap" style="max-height:520px;overflow-y:auto"><table>
+<div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto"><table>
 <thead><tr>
   <th>User</th><th>Role</th><th>Selling Point / Floor</th><th>Status</th><th></th>
 </tr></thead>
@@ -427,23 +424,23 @@ include "includes/layout.php";
     <div style="font-weight:600;font-size:.82rem"><?=htmlspecialchars($u['username'])?> <?=$is_me?'<span class="badge badge-gray" style="font-size:.55rem">You</span>':''?></div>
     <div style="font-size:.68rem;color:var(--muted)"><?=htmlspecialchars($u['full_name']??'')?> <?=$u['email']?'· '.$u['email']:''?></div>
   </td>
-  <td><span class="badge <?=$role_info['color']?>" style="font-size:.62rem"><?=$role_info['label']?></span></td>
+  <td><span class="badge <?=$role_info['color']?>" style="font-size:.72rem"><?=$role_info['label']?></span></td>
   <td style="font-size:.72rem">
     <?php if(!empty($u['is_master']) || ($u['role']??'')==='master'): ?>
-    <span class="badge badge-gold" style="font-size:.62rem">👑 All Floors (Master)</span>
+    <span class="badge badge-gold" style="font-size:.72rem">👑 All Floors (Master)</span>
     <?php elseif(!empty($u['is_admin']) || ($u['role']??'')==='admin'): ?>
       <?php if($u_spid > 0): ?>
-      <span class="badge badge-red" style="font-size:.62rem" title="System Administrator on <?= htmlspecialchars($fl_name) ?>">🔒 <?= htmlspecialchars($fl_name) ?> (Admin)</span>
+      <span class="badge badge-red" style="font-size:.72rem" title="System Administrator on <?= htmlspecialchars($fl_name) ?>">🔒 <?= htmlspecialchars($fl_name) ?> (Admin)</span>
       <?php else: ?>
-      <span class="badge badge-gold" style="font-size:.62rem">👑 All Floors (Admin)</span>
+      <span class="badge badge-gold" style="font-size:.72rem">👑 All Floors (Admin)</span>
       <?php endif; ?>
     <?php elseif($u_spid > 0): ?>
-    <span class="badge badge-blue" style="font-size:.62rem" title="Dedicated to <?= htmlspecialchars($fl_name) ?>">🔒 <?= htmlspecialchars($fl_name) ?></span>
+    <span class="badge badge-blue" style="font-size:.72rem" title="Dedicated to <?= htmlspecialchars($fl_name) ?>">🔒 <?= htmlspecialchars($fl_name) ?></span>
     <?php else: ?>
-    <span class="badge badge-gray" style="font-size:.62rem">🌐 All Floors</span>
+    <span class="badge badge-gray" style="font-size:.72rem">🌐 All Floors</span>
     <?php endif; ?>
   </td>
-  <td><span class="badge <?=$u['active']?'badge-green':'badge-red'?>" style="font-size:.6rem"><?=$u['active']?'Active':'Inactive'?></span></td>
+  <td><span class="badge <?=$u['active']?'badge-green':'badge-red'?>" style="font-size:.72rem"><?=$u['active']?'Active':'Inactive'?></span></td>
   <td style="white-space:nowrap">
     <a href="?edit=<?=$u['id']?>" class="btn btn-ghost btn-sm" style="font-size:.65rem">Edit</a>
     <?php if(!$is_me):?>
@@ -534,7 +531,7 @@ include "includes/layout.php";
 </div>
 
 <div style="background:var(--cream-d);border-radius:6px;padding:.75rem;margin-bottom:.75rem">
-  <div style="font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:.5rem">Individual Rights</div>
+  <div style="font-size:.78rem;font-weight:600;color:var(--muted);margin-bottom:.5rem">Individual Rights</div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:.25rem">
   <?php
   $cur_rights = [];
@@ -583,7 +580,7 @@ include "includes/layout.php";
 <div class="card-head">
   <h3>Granular Permission Matrix</h3>
   <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
-    <span style="font-size:.62rem;color:var(--muted)">Quick-set all users to preset:</span>
+    <span style="font-size:.72rem;color:var(--muted)">Quick-set all users to preset:</span>
     <button class="preset-btn preset-clerk"   onclick="applyPresetAll('clerk')">Clerk</button>
     <button class="preset-btn preset-manager" onclick="applyPresetAll('manager')">Manager</button>
     <button class="preset-btn preset-analyst" onclick="applyPresetAll('analyst')">Analyst</button>
@@ -609,7 +606,7 @@ include "includes/layout.php";
 <tr id="pmrow-<?=$u['id']?>" style="<?=!$u['active']?'opacity:.5':''?>">
   <td class="perm-user-name">
     <div style="font-weight:600;font-size:.78rem"><?=htmlspecialchars($u['username'])?></div>
-    <div><span class="badge <?=$role_info['color']?>" style="font-size:.55rem"><?=$role_info['label']?></span></div>
+    <div><span class="badge <?=$role_info['color']?>" style="font-size:.72rem"><?=$role_info['label']?></span></div>
   </td>
   <?php foreach($PERM_COLS as $col=>$label):
     $val = isset($up[$col]) ? (int)$up[$col] : 1; // default allowed
@@ -637,8 +634,8 @@ include "includes/layout.php";
 </tbody>
 </table>
 </div>
-<div style="padding:.5rem 1rem;font-size:.63rem;color:var(--muted)">
-  <span style="background:#edf7ed;border:1px solid #9bcb94;border-radius:3px;padding:1px 6px;color:#2a5223;margin-right:.35rem">✓ Allowed</span>
+<div style="padding:.5rem 1rem;font-size:.72rem;color:var(--muted)">
+  <span style="background:var(--surface-2);border:1px solid #9bcb94;border-radius:3px;padding:1px 6px;color:var(--ok-text);margin-right:.35rem">✓ Allowed</span>
   <span style="background:var(--cream-d);border:1px solid var(--border);border-radius:3px;padding:1px 6px;color:#bbb;margin-right:.5rem">✗ Denied</span>
   Changes are saved automatically via AJAX.
 </div>
@@ -652,7 +649,7 @@ include "includes/layout.php";
 <div class="card-body" style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;font-size:.75rem">
 <?php foreach($ROLES as $rk=>$rv):?>
 <div style="background:var(--cream-d);border-radius:6px;padding:.6rem .8rem">
-  <span class="badge <?=$rv['color']?>" style="font-size:.6rem;margin-bottom:.35rem;display:inline-block"><?=$rv['label']?></span>
+  <span class="badge <?=$rv['color']?>" style="font-size:.72rem;margin-bottom:.35rem;display:inline-block"><?=$rv['label']?></span>
   <div style="color:var(--muted);font-size:.68rem"><?=htmlspecialchars($rv['rights'])?></div>
 </div>
 <?php endforeach;?>

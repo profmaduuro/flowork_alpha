@@ -95,8 +95,10 @@ function flowork_2fa_check(mysqli $conn, int $uid, string $code): bool {
     return $ok;
 }
 
-/** True when this user has 2FA switched on. */
+/** True when this user has 2FA switched on (and two-factor sign-in is on for the system). */
 function flowork_2fa_enabled(mysqli $conn, int $uid): bool {
+    require_once __DIR__ . '/twofa_policy.php';
+    if (!flowork_2fa_system_on($conn)) return false;
     $stmt = $conn->prepare("SELECT 1 FROM user_2fa WHERE userid=? AND enabled=1 LIMIT 1");
     if (!$stmt) return false; // table not created yet: nobody has 2FA
     $stmt->bind_param("i", $uid);

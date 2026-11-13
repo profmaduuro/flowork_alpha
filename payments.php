@@ -1135,7 +1135,7 @@ $status_colors = ['pending'=>'badge-gray','paid'=>'badge-green','partial'=>'badg
   <button type="button" class="premium-tab-btn" data-tab="batches">
       📦 Payment Batches
       <?php if(!empty($batches)): ?>
-      <span class="badge badge-gray" style="font-size:.62rem; margin-left:4px"><?=count($batches)?></span>
+      <span class="badge badge-gray" style="font-size:.72rem; margin-left:4px"><?=count($batches)?></span>
       <?php endif; ?>
   </button>
 </div>
@@ -1147,17 +1147,17 @@ $status_colors = ['pending'=>'badge-gray','paid'=>'badge-green','partial'=>'badg
     <div class="card-body" style="padding:.65rem 1.15rem">
       <form method="GET" style="display:flex;gap:.5rem;align-items:flex-end;flex-wrap:wrap">
         <div class="form-group" style="margin:0">
-          <label style="font-size:.62rem;display:block;margin-bottom:.2rem">From Date</label>
+          <label style="font-size:.72rem;display:block;margin-bottom:.2rem">From Date</label>
           <input type="date" name="date_from" class="form-control" value="<?=htmlspecialchars($date_from)?>"
                  style="padding:.35rem .6rem;font-size:.82rem">
         </div>
         <div class="form-group" style="margin:0">
-          <label style="font-size:.62rem;display:block;margin-bottom:.2rem">To Date</label>
+          <label style="font-size:.72rem;display:block;margin-bottom:.2rem">To Date</label>
           <input type="date" name="date_to" class="form-control" value="<?=htmlspecialchars($date_to)?>"
                  style="padding:.35rem .6rem;font-size:.82rem">
         </div>
         <div class="form-group" style="margin:0">
-          <label style="font-size:.62rem;display:block;margin-bottom:.2rem">Status</label>
+          <label style="font-size:.72rem;display:block;margin-bottom:.2rem">Status</label>
           <select name="status" class="form-control" style="padding:.35rem .6rem;font-size:.82rem">
             <option value="">All Statuses</option>
             <option value="pending"  <?=$filter_status==='pending' ?'selected':''?>>Pending</option>
@@ -1207,24 +1207,24 @@ $status_colors = ['pending'=>'badge-gray','paid'=>'badge-green','partial'=>'badg
       <tbody>
       <?php if(!empty($rows)): foreach($rows as $r):?>
         <tr data-tgid="<?=$r['tgid']?>">
-          <td><?php if($r['loc_code']):?><span style="font-family:'Bebas Neue',sans-serif;font-size:1.05rem;color:var(--gold)"><?=htmlspecialchars($r['loc_code'])?></span><?php else:?><span class="td-muted">—</span><?php endif;?></td>
-          <td><span class="badge badge-gold" style="font-size:.62rem"><?=htmlspecialchars($r['grower_num'])?></span></td>
+          <td><?php if($r['loc_code']):?><span style="font-family:'DM Sans',sans-serif;font-size:0.89rem;color:var(--gold);font-weight:600"><?=htmlspecialchars($r['loc_code'])?></span><?php else:?><span class="td-muted">—</span><?php endif;?></td>
+          <td><span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($r['grower_num'])?></span></td>
           <td style="font-size:.82rem;font-weight:500"><?=htmlspecialchars($r['name'].' '.$r['surname'])?></td>
           <td class="td-mono text-right">$<?=number_format((float)$r['gross_usd'],2)?></td>
           <td class="td-mono text-right" style="color:var(--danger)">$<?=number_format($r['deductions_usd'],2)?></td>
           <td class="td-mono text-right fw-500">$<?=number_format((float)$r['net_usd'],2)?></td>
           <?php if($zig_rate>0):?><td class="td-mono text-right">ZiG <?=number_format((float)$r['net_zig'],2)?></td><?php endif;?>
           <td data-cell="status">
-            <span class="badge <?=$status_colors[$r['status_usd']]?>" style="font-size:.62rem"><?=$status_labels[$r['status_usd']]?></span>
+            <span class="badge <?=$status_colors[$r['status_usd']]?>" style="font-size:.72rem"><?=$status_labels[$r['status_usd']]?></span>
             <?php if($r['paid_at_usd']):?>
-              <div style="font-size:.6rem;color:var(--muted)"><?=date('d/m H:i',strtotime($r['paid_at_usd']))?></div>
+              <div style="font-size:.72rem;color:var(--muted)"><?=date('d/m H:i',strtotime($r['paid_at_usd']))?></div>
             <?php endif;?>
           </td>
           <td data-cell="payref" style="white-space:nowrap">
             <?php if(!empty($r['payref_usd'])):?>
               <div class="td-mono" style="font-size:.72rem;color:var(--gold);font-weight:700"><?=htmlspecialchars($r['payref_usd'])?></div>
               <?php if(!empty($r['runref_usd'])):?>
-                <div class="td-mono" style="font-size:.6rem;color:var(--muted)">run <?=htmlspecialchars($r['runref_usd'])?></div>
+                <div class="td-mono" style="font-size:.72rem;color:var(--muted)">run <?=htmlspecialchars($r['runref_usd'])?></div>
               <?php endif;?>
             <?php else:?><span class="td-muted">—</span><?php endif;?>
           </td>
@@ -1244,7 +1244,7 @@ $status_colors = ['pending'=>'badge-gray','paid'=>'badge-green','partial'=>'badg
                 <span style="font-size:.68rem;color:var(--leaf);font-weight:500">✓ Paid</span>
                 <button type="button" class="btn btn-ghost btn-sm"
                         onclick="openReverseModal('payment',<?=(int)$r['tgid']?>,<?=js_arg($r['grower_num'].' — '.$r['name'].' '.$r['surname'])?>,<?=js_arg($r['bal_date'])?>,'usd')"
-                        style="font-size:.6rem;color:var(--danger);padding:1px 5px;line-height:1.4">↩ Reverse</button>
+                        style="font-size:.72rem;color:var(--danger);padding:1px 5px;line-height:1.4">↩ Reverse</button>
               </div>
             <?php endif;?>
           </td>
@@ -1321,7 +1321,7 @@ $status_colors = ['pending'=>'badge-gray','paid'=>'badge-green','partial'=>'badg
           <!-- Right: grower selection -->
           <div>
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem">
-              <div style="font-size:.62rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">
+              <div style="font-size:.78rem;font-weight:500;color:var(--muted)">
                 Select growers for this batch
               </div>
               <div class="flex gap-2">
@@ -1331,7 +1331,7 @@ $status_colors = ['pending'=>'badge-gray','paid'=>'badge-green','partial'=>'badg
             </div>
             <div style="max-height:340px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius)">
               <table style="width:100%;border-collapse:collapse;font-size:.78rem">
-                <thead><tr style="background:var(--ink);color:var(--cream);position:sticky;top:0;z-index:1">
+                <thead><tr style="background:var(--surface-2);color:var(--text-muted);position:sticky;top:0;z-index:1">
                   <th style="padding:5px 8px;width:32px"><input type="checkbox" id="chk-all" onchange="toggleAll(this)"></th>
                   <th style="padding:5px 8px">Grower</th>
                   <th style="padding:5px 8px;text-align:right">Net USD</th>
@@ -1359,7 +1359,7 @@ $status_colors = ['pending'=>'badge-gray','paid'=>'badge-green','partial'=>'badg
                       <?php endif;?>
                     </td>
                     <td style="padding:4px 8px">
-                      <span class="badge badge-gold" style="font-size:.6rem"><?=htmlspecialchars($r['grower_num'])?></span>
+                      <span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($r['grower_num'])?></span>
                       <span style="margin-left:4px;font-size:.78rem"><?=htmlspecialchars($r['name'].' '.$r['surname'])?></span>
                     </td>
                     <td class="td-mono text-right" style="padding:4px 8px">
@@ -1369,7 +1369,7 @@ $status_colors = ['pending'=>'badge-gray','paid'=>'badge-green','partial'=>'badg
                       <?=htmlspecialchars($r['bank_name']?:'—')?>
                     </td>
                     <td style="padding:4px 8px;text-align:center">
-                      <span class="badge <?=$status_colors[$r['status_usd']]?>" style="font-size:.58rem"><?=$status_labels[$r['status_usd']]?></span>
+                      <span class="badge <?=$status_colors[$r['status_usd']]?>" style="font-size:.72rem"><?=$status_labels[$r['status_usd']]?></span>
                     </td>
                   </tr>
                 <?php endforeach;?>
@@ -1415,13 +1415,13 @@ $status_colors = ['pending'=>'badge-gray','paid'=>'badge-green','partial'=>'badg
             <span id="batch-ind-<?=$b['id']?>" style="font-size:.65rem;color:var(--muted);
                   transition:transform .15s;display:inline-block">▶</span>
           </td>
-          <td><span class="badge badge-blue" style="font-size:.62rem">#<?=$b['id']?></span></td>
+          <td><span class="badge badge-blue" style="font-size:.72rem">#<?=$b['id']?></span></td>
           <td>
             <span style="font-size:.85rem"><?=$minfo['icon']?></span>
             <span style="font-size:.82rem;margin-left:4px;font-weight:500"><?=htmlspecialchars($b['payment_method'])?></span>
           </td>
           <td class="td-mono" style="font-size:.75rem"><?=htmlspecialchars($b['batch_ref']?:'—')?></td>
-          <td><span class="badge badge-gray" style="font-size:.62rem"><?=strtoupper($b['currency'])?></span></td>
+          <td><span class="badge badge-gray" style="font-size:.72rem"><?=strtoupper($b['currency'])?></span></td>
           <td class="td-mono text-right"><?=count($b_items)?></td>
           <td class="td-mono text-right fw-500"><?=strtoupper($b['currency'])?> <?=number_format($b_total,2)?></td>
           <td class="td-muted" style="font-size:.72rem"><?=htmlspecialchars($b['username'])?></td>
@@ -1435,7 +1435,7 @@ $status_colors = ['pending'=>'badge-gray','paid'=>'badge-green','partial'=>'badg
               <a href="?date=<?=htmlspecialchars((string)$date_f)?>&ebid=<?=$b['id']?>&export=xlsx"
                  class="btn btn-ghost btn-sm" style="font-size:.68rem">⬇ Excel</a>
               <?php if($is_rev): ?>
-                <span style="font-size:.62rem;color:var(--muted);padding:2px 4px"
+                <span style="font-size:.72rem;color:var(--muted);padding:2px 4px"
                       title="Reversed: <?=htmlspecialchars($b['reversal_reason'])?>">
                   ↩ Reversed <?=date('d/m/y',strtotime($b['reversed_at']))?>
                 </span>
@@ -1455,14 +1455,13 @@ $status_colors = ['pending'=>'badge-gray','paid'=>'badge-green','partial'=>'badg
               <!-- items sub-header -->
               <div style="display:flex;justify-content:space-between;align-items:center;
                           margin-bottom:.45rem">
-                <div style="font-size:.62rem;font-weight:600;letter-spacing:.1em;
-                            text-transform:uppercase;color:var(--muted)">
+                <div style="font-size:.78rem;font-weight:600;color:var(--muted)">
                   Batch #<?=$b['id']?> — <?=htmlspecialchars($b['payment_method'])?>
                   <?php if($b['batch_ref']):?>
                     &nbsp;·&nbsp; Ref: <span style="font-family:monospace"><?=htmlspecialchars($b['batch_ref'])?></span>
                   <?php endif;?>
                 </div>
-                <div style="font-size:.72rem;font-weight:600;color:var(--ink)">
+                <div style="font-size:.72rem;font-weight:600;color:var(--text)">
                   <?=count($b_items)?> item(s) &nbsp;·&nbsp;
                   <?=strtoupper($b['currency'])?> <strong><?=number_format($b_total,4)?></strong>
                 </div>
@@ -1474,7 +1473,7 @@ $status_colors = ['pending'=>'badge-gray','paid'=>'badge-green','partial'=>'badg
                 <div style="border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
                 <table style="width:100%;border-collapse:collapse;font-size:.76rem">
                 <thead>
-                  <tr style="background:var(--ink);color:var(--cream)">
+                  <tr style="background:var(--surface-2);color:var(--text-muted)">
                     <th style="padding:4px 8px">#</th>
                     <th style="padding:4px 8px">Grower #</th>
                     <th style="padding:4px 8px">Name</th>
@@ -1488,7 +1487,7 @@ $status_colors = ['pending'=>'badge-gray','paid'=>'badge-green','partial'=>'badg
                 <tr style="border-bottom:1px solid var(--border);<?=$seq%2===0?'background:#faf8f5':''?>">
                   <td style="padding:3px 8px;color:var(--muted);font-size:.7rem"><?=$seq?></td>
                   <td style="padding:3px 8px">
-                    <span class="badge badge-gold" style="font-size:.58rem"><?=htmlspecialchars($it['grower_num'])?></span>
+                    <span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($it['grower_num'])?></span>
                   </td>
                   <td style="padding:3px 8px;font-weight:500"><?=htmlspecialchars(trim($it['name'].' '.$it['surname']))?></td>
                   <td style="padding:3px 8px;font-size:.72rem;color:var(--muted)"><?=htmlspecialchars($it['bank_name']??'—')?></td>
@@ -1500,7 +1499,7 @@ $status_colors = ['pending'=>'badge-gray','paid'=>'badge-green','partial'=>'badg
                 <?php endforeach; ?>
                 </tbody>
                 <tfoot>
-                  <tr style="background:var(--ink)">
+                  <tr style="background:var(--surface-2)">
                     <td colspan="5" style="padding:4px 8px;color:var(--gold);font-size:.72rem;font-weight:600">
                       TOTAL — <?=$seq?> item(s)
                     </td>
@@ -1531,12 +1530,12 @@ $status_colors = ['pending'=>'badge-gray','paid'=>'badge-green','partial'=>'badg
 <!-- ── Individual payment modal ─────────────────────────────────────── -->
 <div id="pay-modal" style="display:none;position:fixed;inset:0;z-index:400;
      background:rgba(0,0,0,0.5);align-items:center;justify-content:center">
-<div style="background:var(--cream);border-radius:var(--radius);width:460px;max-width:95vw;
+<div style="background:var(--surface);border-radius:var(--radius);width:460px;max-width:95vw;
             box-shadow:0 12px 40px rgba(0,0,0,0.25);overflow:hidden">
-  <div style="background:var(--ink);color:var(--cream);padding:1rem 1.25rem;
+  <div style="background:var(--surface-2);color:var(--text);padding:1rem 1.25rem;
               display:flex;align-items:center;justify-content:space-between">
     <div>
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:.08em">Confirm Payment</div>
+      <div style="font-family:'DM Sans',sans-serif;font-size:0.94rem;font-weight:600">Confirm Payment</div>
       <div id="modal-grower-label" style="font-size:.72rem;color:rgba(245,240,232,.5);margin-top:2px"></div>
     </div>
     <button onclick="closePayModal()" style="background:none;border:none;color:rgba(245,240,232,.55);cursor:pointer;font-size:1.1rem;padding:4px">✕</button>
@@ -1544,7 +1543,7 @@ $status_colors = ['pending'=>'badge-gray','paid'=>'badge-green','partial'=>'badg
   <div style="padding:.65rem 1.25rem;background:var(--gold-bg);border-bottom:1px solid rgba(200,149,42,.2);
               display:flex;justify-content:space-between;align-items:center">
     <div style="font-size:.72rem;color:var(--muted)">Net amount to pay</div>
-    <div id="modal-amount-display" style="font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--ink)"></div>
+    <div id="modal-amount-display" style="font-family:'DM Sans',sans-serif;font-size:1.36rem;color:var(--text);font-weight:600"></div>
   </div>
   <form method="POST" id="pay-form" style="padding:1.15rem 1.25rem">
     <input type="hidden" name="action"     value="confirm_payment">
@@ -1573,7 +1572,7 @@ $status_colors = ['pending'=>'badge-gray','paid'=>'badge-green','partial'=>'badg
       <label>Notes <span style="font-size:.68rem;color:var(--muted)">(optional)</span></label>
       <input type="text" name="pay_notes" class="form-control" placeholder="e.g. Grower collected in person">
     </div>
-    <div style="background:#f5faf5;border:1px solid rgba(61,107,53,.2);border-radius:var(--radius);padding:.7rem;margin-bottom:.8rem;font-size:.78rem">
+    <div style="background:var(--surface-2);border:1px solid rgba(61,107,53,.2);border-radius:var(--radius);padding:.7rem;margin-bottom:.8rem;font-size:.78rem">
       <div class="fw-500" style="color:var(--leaf);margin-bottom:.4rem">✓ Confirm before submitting</div>
       <label style="display:flex;gap:.4rem;cursor:pointer;margin-bottom:.3rem">
         <input type="checkbox" id="chk1" required> Amount verified against sales sheet
@@ -1593,20 +1592,20 @@ $status_colors = ['pending'=>'badge-gray','paid'=>'badge-green','partial'=>'badg
 <!-- ── Reversal confirmation modal ────────────────────────────────────── -->
 <div id="reverse-modal" style="display:none;position:fixed;inset:0;z-index:500;
      background:rgba(0,0,0,0.55);align-items:center;justify-content:center">
-<div style="background:var(--cream);border-radius:var(--radius);width:460px;max-width:95vw;
+<div style="background:var(--surface);border-radius:var(--radius);width:460px;max-width:95vw;
             box-shadow:0 16px 48px rgba(0,0,0,0.3);overflow:hidden">
   <!-- Header -->
   <div style="background:#7a1e1e;color:#fff;padding:.9rem 1.25rem;
               display:flex;align-items:center;justify-content:space-between">
     <div>
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:1.15rem;letter-spacing:.08em">↩ Reverse Payment</div>
+      <div style="font-family:'DM Sans',sans-serif;font-size:0.98rem;font-weight:600">↩ Reverse Payment</div>
       <div id="rev-label" style="font-size:.72rem;color:rgba(255,255,255,.55);margin-top:2px"></div>
     </div>
     <button onclick="closeReverseModal()" style="background:none;border:none;color:rgba(255,255,255,.55);cursor:pointer;font-size:1.2rem;padding:4px 6px">✕</button>
   </div>
   <!-- Warning banner -->
-  <div style="background:#fff5f5;border-bottom:1px solid rgba(122,30,30,.15);padding:.75rem 1.25rem;
-              font-size:.8rem;color:#7a1e1e;display:flex;gap:.6rem;align-items:flex-start">
+  <div style="background:var(--bad-tint);border-bottom:1px solid rgba(122,30,30,.15);padding:.75rem 1.25rem;
+              font-size:.8rem;color:var(--bad-text);display:flex;gap:.6rem;align-items:flex-start">
     <span style="font-size:1rem;flex-shrink:0">⚠</span>
     <span>This resets the payment status back to <strong>Pending</strong>.
     The grower will appear as unpaid and can be re-confirmed once figures are corrected.

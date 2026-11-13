@@ -209,7 +209,7 @@ include "includes/layout.php";
   <h3>Fleet Register</h3>
   <span class="badge badge-gray"><?=count($vehicles)?> vehicles</span>
 </div>
-<div class="table-wrap" style="max-height:400px;overflow-y:auto"><table>
+<div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto"><table>
 <thead><tr><th>Reg</th><th>Type</th><th>Driver</th><th>Cap</th><th>Status</th><th></th></tr></thead>
 <tbody>
 <?php if(empty($vehicles)):?>
@@ -229,7 +229,7 @@ include "includes/layout.php";
     </select>
   </td>
   <td>
-    <span class="badge <?=$STATUS_COLORS[$v['status']]?>" style="font-size:.58rem"><?=$v['status']==='on_route'?'On Route':ucfirst($v['status'])?></span>
+    <span class="badge <?=$STATUS_COLORS[$v['status']]?>" style="font-size:.72rem"><?=$v['status']==='on_route'?'On Route':ucfirst($v['status'])?></span>
   </td>
 </tr>
 <?php endforeach; endif;?>

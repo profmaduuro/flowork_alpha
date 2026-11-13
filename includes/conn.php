@@ -97,8 +97,12 @@ if ($conn->connect_error) {
 
 // Prevent database name SQL injection
 $_db_name_clean = preg_replace('/[^a-zA-Z0-9_]/', '', $_db_name);
-$conn->query("CREATE DATABASE IF NOT EXISTS `$_db_name_clean` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-$conn->select_db($_db_name);
+// Create the database only on a fresh install (MySQL error 1049, unknown
+// database), not as an extra query on every request.
+if (!@$conn->select_db($_db_name) && $conn->errno === 1049) {
+    $conn->query("CREATE DATABASE IF NOT EXISTS `$_db_name_clean` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+    $conn->select_db($_db_name);
+}
 $conn->set_charset('utf8mb4');
 $conn->query("SET time_zone = '+02:00'");
 

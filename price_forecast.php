@@ -277,22 +277,21 @@ include "includes/layout.php";
 @keyframes pf-fadeUp { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
 
 .pf-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.9rem;margin-bottom:1.75rem}
-.pf-kpi{background:#fff;border:1px solid var(--border);border-radius:10px;padding:1.1rem 1.15rem;
+.pf-kpi{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1.1rem 1.15rem;
   position:relative;overflow:hidden;transition:box-shadow .18s,transform .18s;animation:pf-fadeUp .45s ease both}
 .pf-kpi:hover{box-shadow:0 6px 20px rgba(0,0,0,.07);transform:translateY(-2px)}
 .pf-kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;
   background:var(--pf-accent,linear-gradient(90deg,var(--gold),var(--gold-l)));opacity:.9}
-.pf-kpi-label{font-size:.6rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
-  color:var(--muted);margin-bottom:.55rem}
-.pf-kpi-value{font-family:'Bebas Neue',sans-serif;font-size:2.1rem;letter-spacing:.04em;line-height:1;color:var(--ink)}
+.pf-kpi-label{font-size:.78rem;font-weight:600;color:var(--muted);margin-bottom:.55rem}
+.pf-kpi-value{font-family:'DM Sans',sans-serif;font-size:1.78rem;line-height:1;color:var(--text);font-weight:600}
 .pf-kpi-sub{font-size:.7rem;color:var(--muted);margin-top:.4rem;display:flex;align-items:center;gap:.4rem}
 .pf-delta{display:inline-flex;align-items:center;gap:2px;font-size:.65rem;font-weight:600;
   padding:2px 6px;border-radius:4px}
-.pf-delta-up{background:var(--leaf-l);color:#2a5223}
+.pf-delta-up{background:var(--leaf-l);color:var(--ok-text)}
 .pf-delta-down{background:var(--danger-bg);color:var(--danger)}
-.pf-delta-flat{background:var(--cream);color:var(--muted)}
+.pf-delta-flat{background:var(--surface);color:var(--muted)}
 
-.pf-card{background:#fff;border:1px solid var(--border);border-radius:10px;
+.pf-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;
   overflow:hidden;margin-bottom:1.25rem;animation:pf-fadeUp .5s ease both}
 .pf-card-head{padding:.85rem 1.15rem;border-bottom:1px solid var(--border);
   display:flex;align-items:center;justify-content:space-between;gap:.75rem}
@@ -304,12 +303,11 @@ include "includes/layout.php";
 
 /* Table enhancements */
 .pf-table{width:100%;border-collapse:collapse;font-size:.8rem}
-.pf-table thead th{font-size:.62rem;font-weight:600;letter-spacing:.1em;
-  text-transform:uppercase;color:var(--muted);padding:.6rem .85rem;
-  text-align:left;border-bottom:1px solid var(--border);background:var(--cream);white-space:nowrap}
+.pf-table thead th{font-size:.78rem;font-weight:600;color:var(--muted);padding:.6rem .85rem;
+  text-align:left;border-bottom:1px solid var(--border);background:var(--surface);white-space:nowrap}
 .pf-table tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
 .pf-table tbody tr:last-child{border-bottom:none}
-.pf-table tbody tr:hover{background:#faf8f5}
+.pf-table tbody tr:hover{background:var(--surface-2)}
 .pf-table tbody td{padding:.58rem .85rem;vertical-align:middle}
 .td-num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
 .td-r{text-align:right}
@@ -322,9 +320,9 @@ include "includes/layout.php";
 /* Forecast range pill */
 .fore-range{display:inline-flex;align-items:center;gap:4px;font-size:.72rem;
   padding:2px 8px;border-radius:12px;font-weight:500}
-.fore-range-up{background:var(--leaf-l);color:#2a5223}
+.fore-range-up{background:var(--leaf-l);color:var(--ok-text)}
 .fore-range-down{background:var(--danger-bg);color:var(--danger)}
-.fore-range-flat{background:var(--cream);color:var(--muted);border:1px solid var(--border)}
+.fore-range-flat{background:var(--surface);color:var(--muted);border:1px solid var(--border)}
 
 /* Rejection mini chart */
 .rej-bar-row{display:flex;align-items:center;gap:.6rem;margin-bottom:.45rem;font-size:.75rem}
@@ -429,7 +427,7 @@ foreach ($pairs as $i => [$label, $val, $base, $col, $ico]):
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="width:14px;height:14px;opacity:.5"><path d="M2 13c0-3 2.5-5 6-5s6 2 6 5"/><circle cx="8" cy="5" r="3"/></svg>
         Buyer Price Comparison
       </h3>
-      <span class="badge badge-gray" style="font-size:.6rem">Floor avg: $<?= number_format($floor_avg, 4) ?>/kg</span>
+      <span class="badge badge-gray" style="font-size:.72rem">Floor avg: $<?= number_format($floor_avg, 4) ?>/kg</span>
     </div>
     <div class="table-wrap">
       <table class="pf-table">
@@ -473,7 +471,7 @@ foreach ($pairs as $i => [$label, $val, $base, $col, $ico]):
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="width:14px;height:14px;opacity:.5"><path d="M8 2v12M2 8h12"/><circle cx="14" cy="3" r="1.5"/></svg>
         Grade Forecast — 7-Day Projection
       </h3>
-      <span class="badge badge-gold" style="font-size:.6rem">Linear Regression</span>
+      <span class="badge badge-gold" style="font-size:.72rem">Linear Regression</span>
     </div>
     <div class="table-wrap">
       <table class="pf-table">
@@ -495,7 +493,7 @@ foreach ($pairs as $i => [$label, $val, $base, $col, $ico]):
             $rfore  = $gf['trend'] === 'up' ? 'fore-range-up' : ($gf['trend'] === 'down' ? 'fore-range-down' : 'fore-range-flat');
           ?>
           <tr>
-            <td><span class="badge badge-gold" style="font-size:.6rem"><?= htmlspecialchars($gf['grade']) ?></span></td>
+            <td><span class="badge badge-gold" style="font-size:.72rem"><?= htmlspecialchars($gf['grade']) ?></span></td>
             <td class="td-num td-r fw-500">$<?= number_format($gf['current'], 4) ?></td>
             <td class="td-num td-r td-muted">$<?= number_format($gf['ma14'], 4) ?></td>
             <td><span class="<?= $tclass ?>"><?= $tarrow ?></span></td>

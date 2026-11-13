@@ -68,11 +68,11 @@ include "includes/layout.php";
 
 <div class="card mb-3"><div class="card-body" style="padding:.65rem 1.15rem">
 <form method="GET" style="display:flex;gap:.5rem;align-items:flex-end;flex-wrap:wrap">
-  <div class="form-group" style="margin:0"><label style="font-size:.62rem">From</label>
+  <div class="form-group" style="margin:0"><label style="font-size:.72rem">From</label>
   <input type="date" name="from" class="form-control" value="<?=htmlspecialchars((string)$date_from)?>" style="padding:.35rem .6rem"></div>
-  <div class="form-group" style="margin:0"><label style="font-size:.62rem">To</label>
+  <div class="form-group" style="margin:0"><label style="font-size:.72rem">To</label>
   <input type="date" name="to" class="form-control" value="<?=htmlspecialchars((string)$date_to)?>" style="padding:.35rem .6rem"></div>
-  <div class="form-group" style="margin:0"><label style="font-size:.62rem">Action</label>
+  <div class="form-group" style="margin:0"><label style="font-size:.72rem">Action</label>
   <select name="action" class="form-control" style="padding:.35rem .6rem" onchange="this.form.submit()">
     <option value="">All actions</option>
     <?php foreach(['created','paid','batch_paid','review_batch','approve_batch','release_batch','lock_batch'] as $a):?>
@@ -87,7 +87,7 @@ include "includes/layout.php";
 </div></div>
 
 <div class="card"><div class="card-head"><h3>Audit Log</h3><span class="badge badge-gray"><?=count($logs)?></span></div>
-<div class="table-wrap" style="max-height:640px;overflow-y:auto"><table>
+<div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto"><table>
 <thead><tr>
   <th>Time</th><th>User</th><th>Action</th><th>Entity</th>
   <th>Currency</th><th class="text-right">Amount</th>
@@ -97,14 +97,14 @@ include "includes/layout.php";
 <tr style="<?=$l['risk_flag']?'background:rgba(192,57,43,.04)':''?>">
   <td class="td-mono" style="font-size:.72rem;white-space:nowrap"><?=date('d M H:i:s',strtotime($l['logged_at']))?></td>
   <td style="font-size:.78rem"><?=htmlspecialchars($l['username'])?></td>
-  <td><span class="badge <?=$ac?>" style="font-size:.6rem"><?=str_replace('_',' ',$l['action'])?></span></td>
+  <td><span class="badge <?=$ac?>" style="font-size:.72rem"><?=str_replace('_',' ',$l['action'])?></span></td>
   <td style="font-size:.75rem"><?=htmlspecialchars($l['entity_label']??($l['entity_type'].'#'.$l['entity_id']))?></td>
-  <td><span class="badge badge-gray" style="font-size:.6rem"><?=strtoupper($l['currency'])?></span></td>
+  <td><span class="badge badge-gray" style="font-size:.72rem"><?=strtoupper($l['currency'])?></span></td>
   <td class="td-mono text-right"><?=$l['amount']>0?'$'.number_format((float)$l['amount'],4):'—'?></td>
   <td style="font-size:.72rem"><?=htmlspecialchars($l['payment_method']??'')?></td>
   <td class="td-mono" style="font-size:.72rem"><?=htmlspecialchars($l['reference_number']??'')?></td>
   <td><?php if($l['risk_flag']):?>
-    <span class="badge badge-red" style="font-size:.58rem"><?=htmlspecialchars($l['risk_flag'])?></span>
+    <span class="badge badge-red" style="font-size:.72rem"><?=htmlspecialchars($l['risk_flag'])?></span>
     <?php endif;?></td>
   <td class="td-muted" style="font-size:.72rem"><?=htmlspecialchars($l['notes']??'')?></td>
 </tr>

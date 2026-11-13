@@ -233,17 +233,17 @@ include "includes/layout.php";
 <div class="card-body" style="padding:0.65rem 1.15rem">
 <form method="GET" style="display:flex;gap:0.5rem;align-items:flex-end;flex-wrap:wrap">
   <div class="form-group" style="margin:0;flex:1;min-width:160px">
-    <label style="font-size:0.62rem">Search</label>
+    <label style="font-size:.72rem">Search</label>
     <input type="text" name="q" class="form-control" value="<?=htmlspecialchars($search)?>"
            placeholder="Grower #, name, description…" style="padding:0.35rem 0.6rem">
   </div>
   <div class="form-group" style="margin:0">
-    <label style="font-size:0.62rem">Sale Date</label>
+    <label style="font-size:.72rem">Sale Date</label>
     <input type="date" name="date" class="form-control" value="<?=htmlspecialchars($date_f)?>"
            style="padding:0.35rem 0.6rem" onchange="this.form.submit()">
   </div>
   <div class="form-group" style="margin:0">
-    <label style="font-size:0.62rem">Type</label>
+    <label style="font-size:.72rem">Type</label>
     <select name="type" class="form-control" style="padding:0.35rem 0.6rem" onchange="this.form.submit()">
       <option value="all"      <?=$filter_type==='all'?'selected':''?>>All types</option>
       <option value="timb"     <?=$filter_type==='timb'?'selected':''?>>TIMB Global only</option>
@@ -271,7 +271,7 @@ include "includes/layout.php";
   <h3>Stop Orders</h3>
   <span class="badge badge-gray"><?=count($all_rows)?></span>
 </div>
-<div class="table-wrap" style="max-height:600px;overflow-y:auto"><table>
+<div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto"><table>
 <thead><tr>
   <th>Type</th>
   <th>Grower #</th>
@@ -296,25 +296,25 @@ include "includes/layout.php";
   <!-- TYPE BADGE -->
   <td>
     <?php if($is_timb): ?>
-    <span class="badge" style="background:#fdf2f0;border:1px solid rgba(192,57,43,.3);
-          color:var(--danger);font-size:.62rem;white-space:nowrap">
+    <span class="badge" style="background:var(--surface-2);border:1px solid rgba(192,57,43,.3);
+          color:var(--danger);font-size:.72rem;white-space:nowrap">
       🌐 TIMB
     </span>
     <?php elseif($is_ext): ?>
-    <span class="badge" style="background:#f5eef8;border:1px solid rgba(142,68,173,.3);
-          color:#8e44ad;font-size:.62rem;white-space:nowrap">
+    <span class="badge" style="background:var(--info-tint);border:1px solid rgba(142,68,173,.3);
+          color:var(--info-text);font-size:.72rem;white-space:nowrap">
       🔓 Decrypted
     </span>
     <?php else: ?>
     <span class="badge" style="background:var(--gold-bg);border:1px solid rgba(200,149,42,.3);
-          color:#92650e;font-size:.62rem;white-space:nowrap">
+          color:var(--warn-text);font-size:.72rem;white-space:nowrap">
       🏠 Internal
     </span>
     <?php endif; ?>
   </td>
 
   <!-- GROWER -->
-  <td><span class="badge badge-gold" style="font-size:.62rem"><?=htmlspecialchars($r['grower_num'])?></span></td>
+  <td><span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($r['grower_num'])?></span></td>
   <td style="font-size:.82rem;font-weight:500"><?=htmlspecialchars($r['grower_name'])?></td>
 
   <!-- DESCRIPTION -->
@@ -362,11 +362,11 @@ include "includes/layout.php";
   <!-- STATUS -->
   <td>
     <?php if($is_processed): ?>
-    <span class="badge" style="background:#e8daef;border:1px solid rgba(142,68,173,.3);color:#6c3483;font-size:.62rem">Processed</span>
+    <span class="badge" style="background:#e8daef;border:1px solid rgba(142,68,173,.3);color:#6c3483;font-size:.72rem">Processed</span>
     <?php elseif($is_active): ?>
-    <span class="badge badge-green" style="font-size:.62rem">Active</span>
+    <span class="badge badge-green" style="font-size:.72rem">Active</span>
     <?php else: ?>
-    <span class="badge badge-red" style="font-size:.62rem">Cancelled</span>
+    <span class="badge badge-red" style="font-size:.72rem">Cancelled</span>
     <?php endif; ?>
   </td>
 
@@ -419,7 +419,7 @@ include "includes/layout.php";
   $visible_total = array_sum(array_column(array_filter($all_rows, fn($r)=>$r['active']), 'amount'));
 ?>
 <tfoot>
-<tr style="background:var(--ink);color:var(--cream)">
+<tr style="background:var(--surface-2);color:var(--text-muted)">
   <td colspan="4" style="padding:.5rem .9rem;font-weight:500;font-size:.78rem">
     TOTAL — <?=count($all_rows)?> order(s)
     &nbsp;·&nbsp;

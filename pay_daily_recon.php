@@ -49,18 +49,18 @@ include "includes/layout.php";
 ?>
 <style>
 .dr-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.75rem;margin-bottom:1.1rem}
-.dr-kpi{background:var(--card,#fff);border:1px solid var(--border);border-radius:10px;padding:.85rem 1rem}
-.dr-kpi .l{font-size:.6rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
-.dr-kpi .v{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;line-height:1.1;font-variant-numeric:tabular-nums}
+.dr-kpi{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:.85rem 1rem}
+.dr-kpi .l{font-size:.78rem;font-weight:600;color:var(--muted)}
+.dr-kpi .v{font-family:'DM Sans',sans-serif;font-size:1.36rem;line-height:1.1;font-variant-numeric:tabular-nums;font-weight:600}
 .dr-num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .dr-checks{list-style:none;margin:0;padding:0;display:grid;gap:.35rem;font-size:.8rem}
 .dr-checks li{display:flex;gap:.5rem;align-items:baseline}
-.dr-tag{font-size:.62rem;font-weight:700;letter-spacing:.06em;padding:1px 7px;border-radius:999px;white-space:nowrap}
+.dr-tag{font-size:.72rem;font-weight:700;letter-spacing:.06em;padding:1px 7px;border-radius:999px;white-space:nowrap}
 .dr-ok{background:rgba(61,107,53,.12);color:var(--leaf,#2d6b25)}
 .dr-fail{background:rgba(192,57,43,.12);color:var(--danger,#c0392b)}
 .dr-wo{background:rgba(200,149,42,.14);color:var(--gold-d,#9a6b12)}
 .dr-filters{display:flex;flex-wrap:wrap;gap:.5rem;align-items:flex-end;margin-bottom:1rem}
-.dr-filters label{display:block;font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.dr-filters label{display:block;font-size:.78rem;color:var(--muted)}
 @media(max-width:900px){.dr-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 
@@ -132,7 +132,7 @@ include "includes/layout.php";
         <td class="dr-num"><?= $r['paid'] !== null ? $m($r['paid']) : '' ?></td>
         <td class="dr-num"><?php if ($r['difference'] !== null && abs($r['difference']) >= 0.01): ?>
           <span style="color:<?= $r['written_off'] !== null ? 'var(--gold-d,#9a6b12)' : 'var(--danger)' ?>;font-weight:600"><?= $m($r['difference']) ?></span>
-          <?php if ($r['written_off'] !== null): ?><div style="font-size:.62rem;color:var(--muted)">written off</div><?php endif; ?>
+          <?php if ($r['written_off'] !== null): ?><div style="font-size:.72rem;color:var(--muted)">written off</div><?php endif; ?>
         <?php endif; ?></td>
       </tr>
     <?php endforeach; ?>

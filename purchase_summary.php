@@ -351,11 +351,11 @@ include "includes/layout.php";
 <div class="card-body" style="padding:0.65rem 1.15rem">
 <form method="GET" style="display:flex;gap:0.5rem;align-items:flex-end;flex-wrap:wrap">
   <div class="form-group" style="margin:0">
-    <label style="font-size:.62rem">From</label>
+    <label style="font-size:.72rem">From</label>
     <input type="date" name="from" class="form-control" value="<?=htmlspecialchars((string)$date_from)?>" style="padding:.35rem .6rem">
   </div>
   <div class="form-group" style="margin:0">
-    <label style="font-size:.62rem">To</label>
+    <label style="font-size:.72rem">To</label>
     <input type="date" name="to" class="form-control" value="<?=htmlspecialchars((string)$date_to)?>" style="padding:.35rem .6rem">
   </div>
   <div style="display:flex;gap:.4rem;align-items:flex-end">
@@ -448,7 +448,7 @@ include "includes/layout.php";
 </tr>
 <?php endforeach; ?>
 </tbody>
-<tfoot><tr style="background:var(--ink);color:var(--cream)">
+<tfoot><tr style="background:var(--surface-2);color:var(--text-muted)">
   <td style="padding:.5rem .9rem;font-weight:500">TOTAL</td>
   <td class="td-mono text-right" style="padding:.5rem .9rem"><?=number_format($bales_sold)?></td>
   <td class="td-mono text-right" style="padding:.5rem .9rem"><?=number_format((float)$summary['total_mass'],0)?></td>
@@ -553,7 +553,7 @@ include "includes/layout.php";
     <a href="?from=<?=htmlspecialchars((string)$date_from)?>&to=<?=htmlspecialchars((string)$date_to)?>&export=csv_summary" class="btn btn-ghost btn-sm">⬇ CSV</a>
   </div>
 </div>
-<div class="table-wrap" style="max-height:480px;overflow-y:auto"><table>
+<div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto"><table>
 <thead><tr>
   <th>#</th>
   <th>Grower #</th>
@@ -571,7 +571,7 @@ include "includes/layout.php";
   $pct = $total_usd>0?round((float)$r['value_usd']/$total_usd*100,2):0; ?>
 <tr>
   <td class="td-muted" style="font-size:.7rem"><?=$seq?></td>
-  <td><span class="badge badge-gold" style="font-size:.62rem"><?=htmlspecialchars($r['grower_num'])?></span></td>
+  <td><span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($r['grower_num'])?></span></td>
   <td style="font-size:.82rem;font-weight:500"><?=htmlspecialchars($r['grower_name'])?></td>
   <td class="td-muted" style="font-size:.75rem"><?=htmlspecialchars($r['province'])?></td>
   <td class="td-mono text-right"><?=number_format((int)$r['bales'])?></td>
@@ -589,7 +589,7 @@ include "includes/layout.php";
 </tr>
 <?php endforeach; ?>
 </tbody>
-<tfoot><tr style="background:var(--ink);color:var(--cream)">
+<tfoot><tr style="background:var(--surface-2);color:var(--text-muted)">
   <td colspan="4" style="padding:.5rem .9rem;font-weight:500">TOTAL — <?=count($by_grower)?> growers shown</td>
   <td class="td-mono text-right" style="padding:.5rem .9rem"><?=number_format($bales_sold)?></td>
   <td class="td-mono text-right" style="padding:.5rem .9rem"><?=number_format((float)$summary['total_mass'],0)?></td>

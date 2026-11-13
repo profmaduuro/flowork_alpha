@@ -82,8 +82,8 @@ include "includes/layout.php";
 <style>
 .ff-proj-card { background:linear-gradient(135deg,rgba(200,149,42,.08),rgba(61,107,53,.05)); border:1px solid rgba(200,149,42,.2); border-radius:var(--radius); padding:1.25rem; }
 body.theme-dark .ff-proj-card { background:linear-gradient(135deg,rgba(200,149,42,.1),rgba(61,107,53,.06)); }
-.ff-proj-title { font-size:.6rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem; }
-.ff-proj-val { font-family:'Bebas Neue',sans-serif;font-size:2.2rem;color:var(--gold);line-height:1; }
+.ff-proj-title { font-size:.78rem;font-weight:600;color:var(--muted);margin-bottom:.5rem; }
+.ff-proj-val { font-family:'DM Sans',sans-serif;font-size:1.87rem;color:var(--gold);line-height:1;font-weight:600}
 .ff-proj-sub { font-size:.72rem;color:var(--muted);margin-top:.25rem; }
 .ff-liability { background:var(--danger-bg); border:1px solid #f5b8b2; border-radius:var(--radius); padding:1.25rem; }
 .ff-liability .ff-proj-val { color:var(--danger); }

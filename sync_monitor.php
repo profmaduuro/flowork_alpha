@@ -111,7 +111,7 @@ include "includes/layout.php";
     margin-bottom: 2rem;
 }
 .mon-card {
-    background: #fff;
+    background:var(--surface);
     border-radius: var(--radius);
     box-shadow: 0 4px 16px rgba(0,0,0,0.06);
     border: 1px solid var(--border);
@@ -120,8 +120,8 @@ include "includes/layout.php";
 }
 .mon-card-header {
     padding: 0.85rem 1.25rem;
-    background: var(--ink);
-    color: #f0ebe0;
+    background:var(--surface-2);
+    color:var(--text);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -146,9 +146,9 @@ include "includes/layout.php";
     padding: 2px 8px;
     border-radius: 10px;
 }
-.status-success { background: #e8f5e9; color: #2e7d32; }
-.status-pending { background: #fff8e1; color: #f57f17; }
-.status-failed { background: #fce4ec; color: #c62828; }
+.status-success { background:var(--surface-2); color:var(--ok-text); }
+.status-pending { background:var(--warn-tint); color:var(--warn-text); }
+.status-failed { background:var(--surface-2); color:var(--bad-text); }
 
 .kpi-strip {
     display: grid;
@@ -157,7 +157,7 @@ include "includes/layout.php";
     margin-bottom: 1.25rem;
 }
 .kpi-box {
-    background: var(--cream);
+    background:var(--surface);
     border: 1px solid var(--border);
     border-radius: 6px;
     padding: 1rem;
@@ -171,11 +171,9 @@ include "includes/layout.php";
     margin-bottom: 4px;
 }
 .kpi-box-label {
-    font-size: 0.65rem;
+    font-size:.78rem;
     color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-}
+    }
 
 /* Action forms */
 .action-box {
@@ -197,12 +195,12 @@ include "includes/layout.php";
     gap: 8px;
     transition: background 0.15s;
 }
-.btn-mon-primary { background: var(--gold); color: #fff; }
+.btn-mon-primary { background: var(--gold); color:#1F1A14; }
 .btn-mon-primary:hover { background: var(--gold-l); }
-.btn-mon-secondary { background: var(--ink); color: #fff; }
+.btn-mon-secondary { background:var(--primary-bg); color:var(--primary-text); }
 .btn-mon-secondary:hover { background: #40301c; }
-.btn-mon-outline { background: transparent; border: 1.5px solid var(--border); color: var(--ink); }
-.btn-mon-outline:hover { background: var(--cream); }
+.btn-mon-outline { background: transparent; border: 1.5px solid var(--border); color:var(--text); }
+.btn-mon-outline:hover { background:var(--surface); }
 
 /* Table styling */
 .mon-table {
@@ -217,7 +215,7 @@ include "includes/layout.php";
 }
 .mon-table th {
     font-weight: 600;
-    background: #faf8f4;
+    background:var(--surface-2);
 }
 
 @media(max-width: 800px) {
@@ -237,12 +235,12 @@ include "includes/layout.php";
 
 <!-- Warning / Success banners -->
 <?php if ($msg): ?>
-<div style="background:#e8f5e9; border:1px solid #c8e6c9; color:#2e7d32; padding:12px 16px; border-radius:6px; margin-bottom:1.25rem; font-size:0.85rem; font-weight:500">
+<div style="background:var(--surface-2); border:1px solid #c8e6c9; color:var(--ok-text); padding:12px 16px; border-radius:6px; margin-bottom:1.25rem; font-size:0.85rem; font-weight:500">
     <?=$msg?>
 </div>
 <?php endif; ?>
 <?php if ($err): ?>
-<div style="background:#ffebee; border:1px solid #ffcdd2; color:#c62828; padding:12px 16px; border-radius:6px; margin-bottom:1.25rem; font-size:0.85rem; font-weight:500">
+<div style="background:var(--surface-2); border:1px solid #ffcdd2; color:var(--bad-text); padding:12px 16px; border-radius:6px; margin-bottom:1.25rem; font-size:0.85rem; font-weight:500">
     <?=$err?>
 </div>
 <?php endif; ?>
@@ -274,7 +272,7 @@ include "includes/layout.php";
                     </div>
                 </div>
                 
-                <h4 style="font-size:0.82rem;font-weight:600;margin-bottom:8px;color:var(--ink)">Recent Scale Queue Records</h4>
+                <h4 style="font-size:0.82rem;font-weight:600;margin-bottom:8px;color:var(--text)">Recent Scale Queue Records</h4>
                 <div style="overflow-x:auto">
                     <table class="mon-table">
                         <thead>

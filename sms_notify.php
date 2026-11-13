@@ -210,17 +210,17 @@ include "includes/layout.php";
 <div id="panel-log" class="tab-panel" data-tabs="smsnotify">
 <div class="card">
 <div class="card-head"><h3>SMS Log</h3><span class="badge badge-gray"><?=count($logs)?></span></div>
-<div class="table-wrap" style="max-height:580px;overflow-y:auto"><table>
+<div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto"><table>
 <thead><tr><th>Time</th><th>Grower</th><th>Phone</th><th>Date</th><th>Status</th></tr></thead>
 <tbody>
 <?php if(empty($logs)):?><tr><td colspan="5" class="text-center text-muted" style="padding:2rem">No SMS sent yet.</td></tr>
 <?php else:foreach($logs as $l):$sc=['sent'=>'badge-green','failed'=>'badge-red','simulated'=>'badge-gold'];?>
 <tr>
   <td style="font-size:.7rem"><?=date('d M H:i',strtotime($l['sent_at']))?></td>
-  <td><span class="badge badge-gold" style="font-size:.6rem"><?=htmlspecialchars($l['grower_num'])?></span></td>
+  <td><span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($l['grower_num'])?></span></td>
   <td style="font-size:.72rem;font-family:monospace"><?=htmlspecialchars($l['phone'])?></td>
   <td style="font-size:.7rem"><?=date('d M',strtotime($l['sell_date']))?></td>
-  <td><span class="badge <?=$sc[$l['status']]?>" style="font-size:.58rem"><?=strtoupper($l['status'])?></span></td>
+  <td><span class="badge <?=$sc[$l['status']]?>" style="font-size:.72rem"><?=strtoupper($l['status'])?></span></td>
 </tr>
 <?php endforeach;endif;?>
 </tbody>

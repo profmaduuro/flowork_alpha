@@ -97,7 +97,7 @@ include "includes/layout.php";
 <tr>
   <td style="font-weight:600"><?=htmlspecialchars($r['ph_barcode'])?></td>
   <td style="font-size:.75rem"><?=htmlspecialchars($r['source_barcode'])?></td>
-  <td><span class="badge badge-blue" style="font-size:.6rem"><?=htmlspecialchars($r['house_code'])?></span></td>
+  <td><span class="badge badge-blue" style="font-size:.72rem"><?=htmlspecialchars($r['house_code'])?></span></td>
   <td><?=htmlspecialchars($r['buyer_grade']?:'—')?></td>
   <td><?=htmlspecialchars($r['grower_num']?:'—')?></td>
   <td class="text-right"><?=number_format($r['mass'],0)?></td>

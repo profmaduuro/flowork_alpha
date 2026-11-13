@@ -14,12 +14,40 @@ function safe($c,$s){$r=$c->query($s);return($r&&$r!==true)?$r->fetch_all(MYSQLI
 function safeVal($c,$s){$r=$c->query($s);return($r&&$r!==true)?($r->fetch_assoc()??[]):[];}
 
 $today      = date('Y-m-d');
-$yr         = (int)date('Y');
-$yr_prev    = $yr - 1;
-$month_start= date('Y-m-01');
-$week_start = date('Y-m-d', strtotime('monday this week'));
 
-// Current season stats
+// Selected period — like dashboard.php, default to this floor's open selling day
+// (start_of_day active=1, description = the sell date), else today.
+// ?date=Y-m-d picks a day; ?period=week|month|ytd widens it to the range ending on that day.
+$open_sod  = safeVal($conn,"SELECT id, description FROM start_of_day WHERE active=1 AND selling_pointid=$spid ORDER BY id DESC LIMIT 1");
+$open_day  = (string)($open_sod['description'] ?? '');
+$is_date   = fn($d)=>preg_match('/^(\d{4})-(\d{2})-(\d{2})$/',$d,$m) && checkdate((int)$m[2],(int)$m[3],(int)$m[1]);
+if (!$is_date($open_day)) $open_day = '';
+$sel_date  = trim((string)($_GET['date'] ?? ''));
+if (!$is_date($sel_date)) $sel_date = $open_day ?: $today;
+$periods   = ['day'=>'Selected day','week'=>'Week to date','month'=>'Month to date','ytd'=>'Year to date'];
+$period    = isset($periods[$_GET['period'] ?? '']) ? $_GET['period'] : 'day';
+$sel_ts    = strtotime($sel_date);
+$date_to   = $sel_date;
+$date_from = match($period){
+    'week'  => date('Y-m-d', strtotime('monday this week', $sel_ts)),
+    'month' => date('Y-m-01', $sel_ts),
+    'ytd'   => date('Y-01-01', $sel_ts),
+    default => $sel_date,
+};
+$yr         = (int)date('Y', $sel_ts);
+$yr_prev    = $yr - 1;
+// Same range one year back, for the comparison arrows
+$prev_from  = date('Y-m-d', strtotime($date_from.' -1 year'));
+$prev_to    = date('Y-m-d', strtotime($date_to.' -1 year'));
+$per_label  = $period==='day' ? date('d M Y', $sel_ts) : $periods[$period].' '.date('d M', strtotime($date_from)).' – '.date('d M Y', $sel_ts);
+$sold_in    = "DATE(sb.created_at) BETWEEN '$date_from' AND '$date_to'";
+
+// Selling days in the period — tickets match by start_of_dayid, fallback to date
+$sod_ids = array_map('intval', array_column(safe($conn,"SELECT id FROM start_of_day WHERE selling_pointid=$spid AND description BETWEEN '$date_from' AND '$date_to'"),'id'));
+$tk_in   = "DATE(tk.created_at) BETWEEN '$date_from' AND '$date_to'";
+if ($sod_ids) $tk_in = "(tk.start_of_dayid IN (".implode(',',$sod_ids).") OR $tk_in)";
+
+// Period sales
 $season = safeVal($conn,"
     SELECT COUNT(DISTINCT sb.id) bales_sold,
            COALESCE(SUM(bm.mass),0) mass,
@@ -36,36 +64,19 @@ $season = safeVal($conn,"
     JOIN growers g ON g.id=bj.growerid
     JOIN buyer_grades bg ON bg.id=sb.buyer_gradesid
     JOIN buyer b ON b.id=bg.buyerid
-    WHERE YEAR(DATE(sb.created_at))=$yr AND g.selling_pointid=$spid
+    WHERE $sold_in AND g.selling_pointid=$spid
 ");
 
-// Today stats
-$today_s = safeVal($conn,"
-    SELECT COUNT(DISTINCT sb.id) bales_sold,
-           COUNT(DISTINCT tk.id) ticketed,
-           COALESCE(SUM(bm.mass),0) mass,
-           COALESCE(SUM(CASE WHEN sb.price>10 THEN sb.price/100*bm.mass ELSE sb.price*bm.mass END),0) usd
+// Bales ticketed on the period's selling days
+$ticketed = safeVal($conn,"
+    SELECT COUNT(DISTINCT tk.id) ticketed
     FROM tickets tk
     JOIN bale_junus bj ON bj.id=tk.bale_junusid
-    JOIN bale_mass bm ON bm.id=bj.bale_massid
     JOIN growers g ON g.id=bj.growerid
-    LEFT JOIN sold_bales sb ON sb.ticketsid=tk.id
-    WHERE DATE(tk.created_at)='$today' AND g.selling_pointid=$spid
+    WHERE $tk_in AND g.selling_pointid=$spid
 ");
 
-// Week stats
-$week_s = safeVal($conn,"
-    SELECT COUNT(DISTINCT sb.id) bales_sold,
-           COALESCE(SUM(CASE WHEN sb.price>10 THEN sb.price/100*bm.mass ELSE sb.price*bm.mass END),0) usd
-    FROM sold_bales sb
-    JOIN tickets tk ON tk.id=sb.ticketsid
-    JOIN bale_junus bj ON bj.id=tk.bale_junusid
-    JOIN bale_mass bm ON bm.id=bj.bale_massid
-    JOIN growers g ON g.id=bj.growerid
-    WHERE DATE(sb.created_at) >= '$week_start' AND g.selling_pointid=$spid
-");
-
-// Previous season for comparison
+// Same period last year, for comparison
 $prev_season = safeVal($conn,"
     SELECT COALESCE(SUM(CASE WHEN sb.price>10 THEN sb.price/100*bm.mass ELSE sb.price*bm.mass END),0) usd,
            COUNT(DISTINCT sb.id) bales_sold,
@@ -74,18 +85,19 @@ $prev_season = safeVal($conn,"
     JOIN bale_junus bj ON bj.id=tk.bale_junusid
     JOIN bale_mass bm ON bm.id=bj.bale_massid
     JOIN growers g ON g.id=bj.growerid
-    WHERE YEAR(DATE(sb.created_at))=$yr_prev AND g.selling_pointid=$spid
+    WHERE DATE(sb.created_at) BETWEEN '$prev_from' AND '$prev_to' AND g.selling_pointid=$spid
 ");
 
 // Exchange rate
 $er_q = $conn->query("SELECT amount FROM exchange_rate WHERE selling_pointid=$spid AND active=1 ORDER BY id DESC LIMIT 1");
 $zig_rate = ($er_q&&$er_q!==true)?(float)($er_q->fetch_assoc()['amount']??0):0;
 
-// Day status
-$day_q = $conn->query("SELECT status FROM selling_days WHERE selling_pointid=$spid AND sell_date='$today' LIMIT 1");
+// Day status — the selected date's selling day
+$day_q = $conn->query("SELECT status FROM selling_days WHERE selling_pointid=$spid AND sell_date='$sel_date' LIMIT 1");
 $day_status = ($day_q&&$day_q!==true)?($day_q->fetch_assoc()['status']??null):null;
+if ($open_day===$sel_date) $day_status = 'open';
 
-// Top buyers this season
+// Top buyers in the period
 $top_buyers = safe($conn,"
     SELECT b.name buyer, COUNT(sb.id) bales,
            COALESCE(SUM(CASE WHEN sb.price>10 THEN sb.price/100*bm.mass ELSE sb.price*bm.mass END),0) usd
@@ -94,11 +106,11 @@ $top_buyers = safe($conn,"
     JOIN bale_mass bm ON bm.id=bj.bale_massid
     JOIN growers g ON g.id=bj.growerid
     JOIN buyer_grades bg ON bg.id=sb.buyer_gradesid JOIN buyer b ON b.id=bg.buyerid
-    WHERE YEAR(DATE(sb.created_at))=$yr AND g.selling_pointid=$spid
+    WHERE $sold_in AND g.selling_pointid=$spid
     GROUP BY b.id ORDER BY usd DESC LIMIT 8
 ");
 
-// Grade breakdown this season
+// Grade breakdown in the period
 $grades = safe($conn,"
     SELECT tg.description grade, COUNT(sb.id) bales,
            COALESCE(SUM(bm.mass),0) mass,
@@ -108,11 +120,13 @@ $grades = safe($conn,"
     JOIN bale_mass bm ON bm.id=bj.bale_massid
     JOIN growers g ON g.id=bj.growerid
     JOIN timb_grades tg ON tg.id=sb.timb_gradesid
-    WHERE YEAR(DATE(sb.created_at))=$yr AND g.selling_pointid=$spid
+    WHERE $sold_in AND g.selling_pointid=$spid
     GROUP BY tg.id ORDER BY bales DESC
 ");
 
-// Last 14 days trend
+// Revenue trend — a single day shows the 14 days up to it, a range shows every day in it
+$trend_from = $period==='day' ? date('Y-m-d', strtotime($sel_date.' -13 days')) : $date_from;
+$trend_title = $period==='day' ? '14-Day Revenue Trend' : 'Daily Revenue — '.$periods[$period];
 $trend = safe($conn,"
     SELECT DATE(sb.created_at) dt,
            COUNT(sb.id) bales,
@@ -121,7 +135,7 @@ $trend = safe($conn,"
     JOIN bale_junus bj ON bj.id=tk.bale_junusid
     JOIN bale_mass bm ON bm.id=bj.bale_massid
     JOIN growers g ON g.id=bj.growerid
-    WHERE DATE(sb.created_at) >= DATE_SUB('$today',INTERVAL 13 DAY) AND g.selling_pointid=$spid
+    WHERE DATE(sb.created_at) BETWEEN '$trend_from' AND '$date_to' AND g.selling_pointid=$spid
     GROUP BY DATE(sb.created_at) ORDER BY dt
 ");
 
@@ -129,7 +143,7 @@ $trend = safe($conn,"
 $pend_pay = safeVal($conn,"SELECT COUNT(*) c, COALESCE(SUM(net_amount),0) amt FROM payment_status WHERE selling_pointid=$spid AND status='pending'");
 
 function pct($a,$b){return $b>0?round(($a-$b)/$b*100,1):($a>0?100:0);}
-function arrow($v){$c=$v>0?'#4caf50':'#e53935';$d=$v>0?'▲':'▼';return "<span style='color:$c;font-size:.72rem'>$d ".abs($v)."%</span>";}
+function arrow($v){$c=$v>0?'var(--ok-text)':'var(--bad-text)';$d=$v>0?'▲':'▼';return "<span style='color:$c;font-size:.72rem'>$d ".abs($v)."%</span>";}
 
 include "includes/layout.php";
 ?>
@@ -137,9 +151,20 @@ include "includes/layout.php";
 <div class="page-header">
   <div class="page-header-left">
     <h2>Management Dashboard</h2>
-    <p><?=$sp_name?> · <?=date('l d F Y')?></p>
+    <p><?=$sp_name?> · <?=htmlspecialchars($per_label)?><?=$open_day===''?' · no selling day open':''?></p>
   </div>
-  <div style="display:flex;gap:.5rem;align-items:center">
+  <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+    <form method="GET" style="display:flex;gap:.4rem;align-items:center;margin:0">
+      <input type="date" name="date" value="<?=$sel_date?>" class="form-control" style="padding:.3rem .5rem;font-size:.78rem;width:auto" onchange="this.form.submit()">
+      <select name="period" class="form-control" style="padding:.3rem .5rem;font-size:.78rem;width:auto" onchange="this.form.submit()">
+        <?php foreach($periods as $pk=>$pl):?>
+        <option value="<?=$pk?>" <?=$period===$pk?'selected':''?>><?=$pl?></option>
+        <?php endforeach;?>
+      </select>
+      <?php if($sel_date!==($open_day ?: $today) || $period!=='day'):?>
+      <a href="management_dashboard.php" class="btn btn-ghost btn-sm"><?=$open_day?'Open day':'Today'?></a>
+      <?php endif;?>
+    </form>
     <?php
     $ds_color = $day_status==='open'?'var(--leaf)':($day_status==='locked'?'var(--danger)':'var(--muted)');
     $ds_icon  = $day_status==='open'?'🟢':($day_status==='locked'?'🔒':($day_status==='closed'?'🔴':'⚪'));
@@ -155,25 +180,25 @@ include "includes/layout.php";
   </div>
 </div>
 
-<!-- TODAY strip -->
+<!-- PERIOD activity strip -->
 <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem;margin-bottom:.75rem">
 <?php
 $today_kpis = [
-    ['Today Ticketed', number_format((int)($today_s['ticketed']??0)), 'bales on floor'],
-    ['Today Sold',     number_format((int)($today_s['bales_sold']??0)), 'bales sold'],
-    ['Today Mass',     number_format((float)($today_s['mass']??0),0).' kg', ''],
-    ['Today USD',      '$'.number_format((float)($today_s['usd']??0),0), $zig_rate>0?'ZiG '.number_format((float)($today_s['usd']??0)*$zig_rate,0):''],
+    ['Ticketed',     number_format((int)($ticketed['ticketed']??0)), 'bales on floor'],
+    ['Growers Sold', number_format((int)($season['growers']??0)), ''],
+    ['Buyers',       number_format((int)($season['buyers']??0)), ''],
+    ['Selling Days', number_format((int)($season['sell_days']??0)), ''],
 ];
 foreach($today_kpis as $k):?>
 <div style="background:var(--cream-d);border:1px solid var(--border);border-radius:var(--radius);padding:.65rem .85rem">
-  <div style="font-size:.6rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)"><?=$k[0]?></div>
-  <div style="font-size:1.3rem;font-weight:700;font-family:'Bebas Neue',sans-serif;color:var(--gold);margin-top:2px"><?=$k[1]?></div>
+  <div style="font-size:.78rem;font-weight:600;color:var(--muted)"><?=$k[0]?></div>
+  <div style="font-size:1.1rem;font-weight:700;font-family:'DM Sans',sans-serif;color:var(--gold);margin-top:2px"><?=$k[1]?></div>
   <?php if($k[2]):?><div style="font-size:.65rem;color:var(--muted)"><?=$k[2]?></div><?php endif;?>
 </div>
 <?php endforeach;?>
 </div>
 
-<!-- SEASON KPIs -->
+<!-- PERIOD KPIs -->
 <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1.25rem">
 <?php
 $usd_curr = (float)($season['usd']??0);
@@ -181,9 +206,9 @@ $usd_prev = (float)($prev_season['usd']??0);
 $bales_curr = (int)($season['bales_sold']??0);
 $bales_prev = (int)($prev_season['bales_sold']??0);
 $season_kpis = [
-    ['Season '.$yr.' Bales',    number_format($bales_curr),  arrow(pct($bales_curr,$bales_prev)).' vs '.$yr_prev],
-    ['Season '.$yr.' Mass',     number_format((float)($season['mass']??0),0).' kg', ''],
-    ['Season '.$yr.' USD',      '$'.number_format($usd_curr,0), arrow(pct($usd_curr,$usd_prev)).' vs '.$yr_prev],
+    ['Bales Sold',    number_format($bales_curr),  arrow(pct($bales_curr,$bales_prev)).' vs '.$yr_prev],
+    ['Mass',          number_format((float)($season['mass']??0),0).' kg', ''],
+    ['USD Value',     '$'.number_format($usd_curr,0), arrow(pct($usd_curr,$usd_prev)).' vs '.$yr_prev.($zig_rate>0?' · ZiG '.number_format($usd_curr*$zig_rate,0):'')],
     ['Avg Price $/kg',           '$'.number_format((float)($season['avg_price']??0),4), 'Hi $'.number_format((float)($season['hi_price']??0),4)],
 ];
 foreach($season_kpis as $k):?>
@@ -200,13 +225,13 @@ foreach($season_kpis as $k):?>
 
 <!-- 14-day trend -->
 <div class="card">
-<div class="card-head"><h3>14-Day Revenue Trend</h3></div>
+<div class="card-head"><h3><?=htmlspecialchars($trend_title)?></h3></div>
 <div class="card-body" style="padding:.75rem"><div style="position:relative;height:180px"><canvas id="trendChart"></canvas></div></div>
 </div>
 
 <!-- Buyer share -->
 <div class="card">
-<div class="card-head"><h3>Buyer Share — <?=$yr?></h3></div>
+<div class="card-head"><h3>Buyer Share — <?=htmlspecialchars($per_label)?></h3></div>
 <div class="card-body" style="padding:.75rem"><div style="position:relative;height:180px"><canvas id="buyerChart"></canvas></div></div>
 </div>
 
@@ -217,7 +242,7 @@ foreach($season_kpis as $k):?>
 
 <!-- Top buyers -->
 <div class="card">
-<div class="card-head"><h3>Top Buyers — <?=$yr?></h3></div>
+<div class="card-head"><h3>Top Buyers — <?=htmlspecialchars($per_label)?></h3></div>
 <div class="table-wrap"><table>
 <thead><tr><th>Buyer</th><th class="text-right">Bales</th><th class="text-right">USD Value</th></tr></thead>
 <tbody>
@@ -242,7 +267,7 @@ foreach($top_buyers as $b):
 
 <!-- Grade breakdown -->
 <div class="card">
-<div class="card-head"><h3>Grade Breakdown — <?=$yr?></h3></div>
+<div class="card-head"><h3>Grade Breakdown — <?=htmlspecialchars($per_label)?></h3></div>
 <div class="table-wrap"><table>
 <thead><tr>
   <th>Grade</th><th class="text-right">Bales</th>
@@ -251,7 +276,7 @@ foreach($top_buyers as $b):
 <tbody>
 <?php foreach($grades as $gr):?>
 <tr>
-  <td><span class="badge badge-gold" style="font-size:.6rem"><?=htmlspecialchars($gr['grade'])?></span></td>
+  <td><span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($gr['grade'])?></span></td>
   <td class="td-mono text-right"><?=number_format((int)$gr['bales'])?></td>
   <td class="td-mono text-right"><?=number_format((float)$gr['mass'],0)?></td>
   <td class="td-mono text-right">$<?=number_format((float)$gr['avg_price'],4)?></td>

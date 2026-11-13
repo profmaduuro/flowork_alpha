@@ -242,37 +242,36 @@ include "includes/layout.php";
 /* ── Split colour palette ──────────────────────────────────────────────────── */
 .split-chip { display:inline-block; padding:.15rem .5rem; border-radius:99px;
               font-size:.68rem; font-weight:700; white-space:nowrap; }
-.split-1  { background:#E8F5E9; color:#1B5E20; }
-.split-2  { background:#E3F2FD; color:#0D47A1; }
-.split-3  { background:#FFF3E0; color:#E65100; }
-.split-4  { background:#F3E5F5; color:#6A1B9A; }
-.split-5  { background:#FCE4EC; color:#880E4F; }
-.split-6  { background:#E0F7FA; color:#006064; }
-.split-7  { background:#FFF9C4; color:#827717; }
-.split-8  { background:#EFEBE9; color:#3E2723; }
-.split-9  { background:#E8EAF6; color:#1A237E; }
-.split-0  { background:#F5F5F5; color:#9E9E9E; }
+.split-1  { background:var(--surface-2); color:var(--ok-text); }
+.split-2  { background:var(--info-tint); color:var(--info-text); }
+.split-3  { background:var(--warn-tint); color:var(--warn-text); }
+.split-4  { background:var(--info-tint); color:var(--info-text); }
+.split-5  { background:var(--info-tint); color:var(--info-text); }
+.split-6  { background:var(--info-tint); color:var(--info-text); }
+.split-7  { background:var(--warn-tint); color:var(--warn-text); }
+.split-8  { background:var(--bad-tint); color:var(--bad-text); }
+.split-9  { background:var(--info-tint); color:var(--info-text); }
+.split-0  { background:var(--surface-2); color:#9E9E9E; }
 
 /* ── Modal ─────────────────────────────────────────────────────────────────── */
 #salesModal { display:none; position:fixed; inset:0; z-index:2000;
               background:rgba(0,0,0,.55); align-items:center; justify-content:center; }
 #salesModal.open { display:flex; }
-#modalBox { background:#fff; border-radius:14px; width:min(96vw,1050px);
+#modalBox { background:var(--surface); border-radius:14px; width:min(96vw,1050px);
             max-height:90vh; display:flex; flex-direction:column;
             box-shadow:0 8px 40px rgba(0,0,0,.25); overflow:hidden; }
 #modalHeader { background:#1A4D2E; color:#fff; padding:1rem 1.25rem;
                display:flex; align-items:center; gap:.75rem; flex-shrink:0; }
 #modalBody   { flex:1; overflow-y:auto; padding:1rem 1.25rem; }
 #modalFooter { padding:.75rem 1.25rem; border-top:1px solid rgba(0,0,0,.08);
-               display:flex; align-items:center; gap:.75rem; background:#FAFAFA; flex-shrink:0; }
+               display:flex; align-items:center; gap:.75rem; background:var(--surface-2); flex-shrink:0; }
 
 /* ── Bales table ────────────────────────────────────────────────────────────── */
 #balesTable { width:100%; border-collapse:collapse; font-size:.78rem; }
-#balesTable th { background:#F5F5F5; padding:.45rem .6rem; text-align:left;
-                  font-size:.65rem; font-weight:700; text-transform:uppercase;
-                  color:#666; border-bottom:2px solid rgba(0,0,0,.08); white-space:nowrap; }
+#balesTable th { background:var(--surface-2); padding:.45rem .6rem; text-align:left;
+                  font-size:.78rem; font-weight:700; color:#666; border-bottom:2px solid rgba(0,0,0,.08); white-space:nowrap; }
 #balesTable td { padding:.4rem .6rem; border-bottom:1px solid rgba(0,0,0,.05); vertical-align:middle; }
-#balesTable tr:hover td { background:#FAFAFA; }
+#balesTable tr:hover td { background:var(--surface-2); }
 #balesTable tr.split-row-1 td { border-left:3px solid #4CAF50; }
 #balesTable tr.split-row-2 td { border-left:3px solid #2196F3; }
 #balesTable tr.split-row-3 td { border-left:3px solid #FF9800; }
@@ -351,7 +350,7 @@ include "includes/layout.php";
     </div>
 
     <!-- Split summary chips -->
-    <div style="padding:.65rem 1.25rem; background:#F9F9F9; border-bottom:1px solid rgba(0,0,0,.07);
+    <div style="padding:.65rem 1.25rem; background:var(--surface-2); border-bottom:1px solid rgba(0,0,0,.07);
                 display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; flex-shrink:0">
         <span style="font-size:.7rem; font-weight:600; color:#666; text-transform:uppercase;
                      letter-spacing:.06em; margin-right:.25rem">Sales / Splits:</span>
@@ -360,7 +359,7 @@ include "includes/layout.php";
 
     <!-- Locked banner (hidden by default) -->
     <div id="lockedBanner" style="display:none; padding:.65rem 1.25rem;
-                background:#FFF3E0; border-bottom:2px solid #FFCC80;
+                background:var(--surface-2); border-bottom:2px solid #FFCC80;
                 gap:.75rem; align-items:center; flex-shrink:0; flex-wrap:wrap">
         <span style="font-size:1.1rem">🔒</span>
         <div style="flex:1; min-width:0">
@@ -374,7 +373,7 @@ include "includes/layout.php";
     </div>
 
     <!-- Assign controls -->
-    <div style="padding:.65rem 1.25rem; background:#fff; border-bottom:1px solid rgba(0,0,0,.07);
+    <div style="padding:.65rem 1.25rem; background:var(--surface); border-bottom:1px solid rgba(0,0,0,.07);
                 display:flex; gap:.65rem; align-items:center; flex-wrap:wrap; flex-shrink:0">
         <label style="font-size:.78rem; font-weight:600; margin:0">Assign selected to:</label>
         <select id="assignSplitSelect" class="form-control" style="width:160px; height:34px; font-size:.82rem">
@@ -467,7 +466,7 @@ function loadGrowers() {
         renderGrowers(d.rows || d);
     }).catch(()=>{
         document.getElementById('growersBody').innerHTML =
-            '<tr><td colspan="9" class="text-center" style="color:#c03030;padding:1.5rem">Network error</td></tr>';
+            '<tr><td colspan="9" class="text-center" style="color:var(--bad-text);padding:1.5rem">Network error</td></tr>';
     });
 }
 
@@ -490,13 +489,13 @@ function renderGrowers(rows) {
 
         // Status
         let statusHtml;
-        if (bal > 0)        statusHtml = '<span class="badge badge-green" style="font-size:.62rem">Balanced</span>';
-        else if (booked)    statusHtml = '<span class="badge badge-green" style="font-size:.62rem">Booked</span>';
+        if (bal > 0)        statusHtml = '<span class="badge badge-green" style="font-size:.72rem">Balanced</span>';
+        else if (booked)    statusHtml = '<span class="badge badge-green" style="font-size:.72rem">Booked</span>';
         else if (sold >= total && total > 0)
-                            statusHtml = '<span class="badge badge-blue"  style="font-size:.62rem">Fully Sold</span>';
-        else if (sold > 0)  statusHtml = '<span class="badge badge-gold"  style="font-size:.62rem">Partial</span>';
-        else if (total > 0) statusHtml = '<span class="badge badge-gray"  style="font-size:.62rem">Pending</span>';
-        else                statusHtml = '<span class="badge badge-gray"  style="font-size:.62rem">No Bales</span>';
+                            statusHtml = '<span class="badge badge-blue"  style="font-size:.72rem">Fully Sold</span>';
+        else if (sold > 0)  statusHtml = '<span class="badge badge-gold"  style="font-size:.72rem">Partial</span>';
+        else if (total > 0) statusHtml = '<span class="badge badge-gray"  style="font-size:.72rem">Pending</span>';
+        else                statusHtml = '<span class="badge badge-gray"  style="font-size:.72rem">No Bales</span>';
 
         // Processing status
         let procHtml;
@@ -505,21 +504,21 @@ function renderGrowers(rows) {
             procHtml = '<span class="badge" style="background:' + (procDark?'rgba(230,126,34,.18)':'#FFF3E0')
                      + ';color:' + (procDark?'#f0a06a':'#E65100')
                      + ';border:1px solid ' + (procDark?'rgba(230,126,34,.45)':'#FFCC80')
-                     + ';font-size:.62rem">🔒 Processed (' + processed + ')</span>';
+                     + ';font-size:.72rem">🔒 Processed (' + processed + ')</span>';
         } else if (bal > 0) {
-            procHtml = '<span class="badge" style="background:#E8F5E9;color:#2E7D32;font-size:.62rem">✓ Balanced</span>';
+            procHtml = '<span class="badge" style="background:var(--surface-2);color:var(--ok-text);font-size:.72rem">✓ Balanced</span>';
         } else {
             procHtml = '<span style="font-size:.72rem;color:var(--text-muted)">—</span>';
         }
 
         // Splits badge
         const splitsBadge = splits > 0
-            ? '<span class="badge" style="background:#E3F2FD;color:#0D47A1;font-size:.62rem">' + (splits+1) + ' splits</span>'
+            ? '<span class="badge" style="background:var(--info-tint);color:var(--info-text);font-size:.72rem">' + (splits+1) + ' splits</span>'
             : '<span style="font-size:.72rem;color:var(--text-muted)">—</span>';
 
         // Booked
         const bookedHtml = booked
-            ? '<span class="badge badge-green" style="font-size:.62rem">Yes</span>'
+            ? '<span class="badge badge-green" style="font-size:.72rem">Yes</span>'
             : '<span style="font-size:.72rem;color:var(--text-muted)">No</span>';
 
         // Progress bar
@@ -663,7 +662,7 @@ function renderBales() {
         const sold  = parseInt(b.sold_id) > 0;
         const bc    = b.barcode || ('<span style="color:#bbb">' + b.temp_bacode + '</span>');
         const rej   = b.sale_code && ['CO','RO','R'].indexOf(b.sale_code.toUpperCase()) !== -1;
-        const prHtml = rej ? '<span style="color:#c03030">' + b.sale_code + '</span>'
+        const prHtml = rej ? '<span style="color:var(--bad-text)">' + b.sale_code + '</span>'
                            : (sold && pr > 0 ? '$' + pr.toFixed(4) : '<span style="color:#bbb">—</span>');
 
         const baleProcessed = parseInt(b.processed) === 1;
@@ -681,7 +680,7 @@ function renderBales() {
             + '<td><code style="font-size:.7rem">' + bc + '</code></td>'
             + '<td class="td-mono" style="font-size:.72rem">' + (b.lot||'?') + '-' + (b.bale_group||'?') + '</td>'
             + '<td class="text-right td-mono">' + parseFloat(b.mass||0).toFixed(1) + 'kg</td>'
-            + '<td><span class="badge badge-gold" style="font-size:.6rem">' + b.timb_grade + '</span></td>'
+            + '<td><span class="badge badge-gold" style="font-size:.72rem">' + b.timb_grade + '</span></td>'
             + '<td style="font-size:.75rem">' + b.buyer_grade
               + (b.buyer_name && b.buyer_name !== '—' ? '<div style="font-size:.68rem;color:var(--text-muted)">' + b.buyer_name + '</div>' : '')
               + '</td>'

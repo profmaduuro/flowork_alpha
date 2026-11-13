@@ -303,14 +303,14 @@ body.theme-dark .premium-tab-btn:hover {
     background: rgba(255, 255, 255, 0.04);
 }
 .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
     box-shadow: 0 4px 12px rgba(26, 18, 8, 0.15);
     font-weight: 600;
 }
 body.theme-light .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
 }
 body.theme-dark .premium-tab-btn.active {
     background: var(--gold);
@@ -352,10 +352,10 @@ body.theme-dark .premium-tab-btn.active {
         💵 Capture Sale
     </button>
     <button class="premium-tab-btn" data-tab="batch" onclick="switchSellingTab('batch')">
-        📦 Batch Delivery <span class="badge badge-gold" id="batch-tab-badge" style="display:none; font-size:.62rem; margin-left:4px"></span>
+        📦 Batch Delivery <span class="badge badge-gold" id="batch-tab-badge" style="display:none; font-size:.72rem; margin-left:4px"></span>
     </button>
     <button class="premium-tab-btn" data-tab="log" onclick="switchSellingTab('log')">
-        📋 Floor Log <span class="badge badge-gray" id="logBadge" style="font-size:.62rem; margin-left:4px"><?= number_format((int)$ts['c']) ?></span>
+        📋 Floor Log <span class="badge badge-gray" id="logBadge" style="font-size:.72rem; margin-left:4px"><?= number_format((int)$ts['c']) ?></span>
     </button>
 </div>
 
@@ -446,7 +446,7 @@ body.theme-dark .premium-tab-btn.active {
                            min="0" step="0.0001" placeholder="0.0000"
                            style="font-size:1.3rem; font-weight:600; color:#1A4D2E">
                 </div>
-                <div id="saleCodeHint" style="font-size:.7rem;margin-bottom:.75rem;display:none;color:#c03030"></div>
+                <div id="saleCodeHint" style="font-size:.7rem;margin-bottom:.75rem;display:none;color:var(--bad-text)"></div>
                 <div id="statusMsg" style="display:none; margin-bottom:.75rem; padding:.6rem .9rem; border-radius:6px; font-size:.82rem"></div>
 
                 <div style="display:flex; gap:.5rem">
@@ -487,7 +487,7 @@ body.theme-dark .premium-tab-btn.active {
         <div class="card-head">
             <h3>Today's Floor Log</h3>
         </div>
-        <div class="table-wrap" style="max-height:580px; overflow-y:auto">
+        <div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem); overflow-y:auto">
             <table id="floorLogTable">
                 <thead>
                     <tr>
@@ -509,13 +509,13 @@ body.theme-dark .premium-tab-btn.active {
                 ?>
                 <tr <?= $rej ? 'style="opacity:.55"' : '' ?>>
                     <td><code style="font-size:.72rem"><?= htmlspecialchars($r['barcode']) ?></code>
-                        <?php if ($rej): ?><span class="badge badge-danger" style="font-size:.55rem;margin-left:3px"><?= htmlspecialchars(strtoupper(trim($r['sale_code']))) ?></span><?php endif; ?>
+                        <?php if ($rej): ?><span class="badge badge-danger" style="font-size:.72rem;margin-left:3px"><?= htmlspecialchars(strtoupper(trim($r['sale_code']))) ?></span><?php endif; ?>
                     </td>
                     <td>
                         <div class="fw-500" style="font-size:.76rem"><?= htmlspecialchars($r['grower_num']) ?></div>
                         <div class="td-muted" style="font-size:.7rem"><?= htmlspecialchars($r['name'].' '.$r['surname']) ?></div>
                     </td>
-                    <td><span class="badge badge-gold" style="font-size:.6rem"><?= htmlspecialchars($r['timb_grade']) ?></span></td>
+                    <td><span class="badge badge-gold" style="font-size:.72rem"><?= htmlspecialchars($r['timb_grade']) ?></span></td>
                     <td class="td-muted" style="font-size:.75rem"><?= htmlspecialchars($r['buyer_grade']) ?></td>
                     <td class="td-muted" style="font-size:.75rem"><?= htmlspecialchars($r['buyer_name']) ?></td>
                     <td class="td-mono text-right"><?= number_format((float)$r['mass'],1) ?>kg</td>
@@ -803,12 +803,12 @@ function loadBatch(tgid) {
             html += '<code style="font-size:.72rem;flex:1">' + t.barcode + '</code>';
             html += '<span style="font-size:.7rem;color:var(--text-muted)">' + parseFloat(t.mass||0).toFixed(1) + 'kg</span>';
             if (!sold) {
-                html += '<span style="font-size:.68rem;background:#FFF8E1;color:#F57C00;padding:.1rem .4rem;border-radius:3px">Pending</span>';
+                html += '<span style="font-size:.68rem;background:var(--warn-tint);color:var(--warn-text);padding:.1rem .4rem;border-radius:3px">Pending</span>';
             } else if (rej) {
-                html += '<span style="font-size:.68rem;background:#FFEBEE;color:#C62828;padding:.1rem .4rem;border-radius:3px">' + t.sale_code + '</span>';
+                html += '<span style="font-size:.68rem;background:var(--surface-2);color:var(--bad-text);padding:.1rem .4rem;border-radius:3px">' + t.sale_code + '</span>';
             } else {
                 const label = (t.buyer_grade || t.buyer_name || 'Sold');
-                html += '<span style="font-size:.68rem;background:#E8F5E9;color:#1B5E20;padding:.1rem .4rem;border-radius:3px">' +
+                html += '<span style="font-size:.68rem;background:var(--surface-2);color:var(--ok-text);padding:.1rem .4rem;border-radius:3px">' +
                         label + '</span>';
                 if (pr > 0) html += '<span style="font-size:.7rem;font-family:monospace;font-weight:600;color:#1A4D2E">$' + pr.toFixed(4) + '</span>';
             }
@@ -834,14 +834,14 @@ function loadFloorLog() {
                 const rej = r.sale_code && r.sale_code.toUpperCase().charAt(0) === 'R';
                 let pr = parseFloat(r.price) || 0;
                 if (pr > 10) pr = pr / 100;
-                const prHtml = rej ? '<span style="color:#c03030">' + r.sale_code.toUpperCase() + '</span>'
+                const prHtml = rej ? '<span style="color:var(--bad-text)">' + r.sale_code.toUpperCase() + '</span>'
                                    : '$' + pr.toFixed(4);
                 html += '<tr' + (rej?' style="opacity:.55"':'') + '>' +
                     '<td><code style="font-size:.72rem">' + r.barcode + '</code>' +
-                    (rej ? '<span class="badge badge-danger" style="font-size:.55rem;margin-left:3px">' + r.sale_code.toUpperCase() + '</span>' : '') + '</td>' +
+                    (rej ? '<span class="badge badge-danger" style="font-size:.72rem;margin-left:3px">' + r.sale_code.toUpperCase() + '</span>' : '') + '</td>' +
                     '<td><div class="fw-500" style="font-size:.76rem">' + r.grower_num + '</div>' +
                          '<div class="td-muted" style="font-size:.7rem">' + r.name + ' ' + r.surname + '</div></td>' +
-                    '<td><span class="badge badge-gold" style="font-size:.6rem">' + r.timb_grade + '</span></td>' +
+                    '<td><span class="badge badge-gold" style="font-size:.72rem">' + r.timb_grade + '</span></td>' +
                     '<td class="td-muted" style="font-size:.75rem">' + r.buyer_grade + '</td>' +
                     '<td class="td-muted" style="font-size:.75rem">' + r.buyer_name + '</td>' +
                     '<td class="td-mono text-right">' + parseFloat(r.mass||0).toFixed(1) + 'kg</td>' +

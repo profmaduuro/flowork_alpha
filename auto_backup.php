@@ -219,7 +219,7 @@ if (!$is_cron && !$token_ok) include "includes/layout.php";
 <div class="card-head"><h3>⏰ Automated Schedule (Cron)</h3></div>
 <div class="card-body">
   <p style="font-size:.82rem;margin-bottom:.75rem">Add this line to your crontab to run a backup every night at 2 AM:</p>
-  <div style="background:var(--ink);color:var(--gold);padding:.75rem 1rem;border-radius:6px;font-family:monospace;font-size:.78rem;overflow-x:auto">
+  <div style="background:var(--surface-2);color:var(--text);padding:.75rem 1rem;border-radius:6px;font-family:monospace;font-size:.78rem;overflow-x:auto">
     <?=htmlspecialchars($cron_line)?>
   </div>
   <p style="font-size:.75rem;color:var(--muted);margin-top:.5rem">
@@ -242,7 +242,7 @@ if (!$is_cron && !$token_ok) include "includes/layout.php";
 <?php if(empty($backups)):?>
 <div class="card-body text-center text-muted">No backups yet. Run your first backup above.</div>
 <?php else:?>
-<div class="table-wrap" style="max-height:450px;overflow-y:auto"><table>
+<div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto"><table>
 <thead><tr><th>File</th><th class="text-right">Size</th><th>Created</th><th></th></tr></thead>
 <tbody>
 <?php foreach($backups as $bk):?>
@@ -274,7 +274,7 @@ if (!$is_cron && !$token_ok) include "includes/layout.php";
 <?php if(empty($logs)):?>
 <div class="card-body text-center text-muted">No backup history yet.</div>
 <?php else:?>
-<div class="table-wrap" style="max-height:450px;overflow-y:auto"><table>
+<div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto"><table>
 <thead><tr><th>Date/Time</th><th class="text-right">Size</th><th>Tables</th><th>Trigger</th><th>Status</th></tr></thead>
 <tbody>
 <?php foreach($logs as $l):?>
@@ -282,8 +282,8 @@ if (!$is_cron && !$token_ok) include "includes/layout.php";
   <td style="font-size:.72rem"><?=date('d M H:i',strtotime($l['created_at']))?></td>
   <td class="td-mono text-right" style="font-size:.72rem"><?=number_format($l['file_size_kb'])?> KB</td>
   <td class="td-mono text-right" style="font-size:.72rem"><?=$l['table_count']?></td>
-  <td><span class="badge badge-gray" style="font-size:.58rem"><?=strtoupper($l['triggered_by'])?></span></td>
-  <td><span class="badge <?=$l['status']==='success'?'badge-green':'badge-red'?>" style="font-size:.58rem"><?=strtoupper($l['status'])?></span></td>
+  <td><span class="badge badge-gray" style="font-size:.72rem"><?=strtoupper($l['triggered_by'])?></span></td>
+  <td><span class="badge <?=$l['status']==='success'?'badge-green':'badge-red'?>" style="font-size:.72rem"><?=strtoupper($l['status'])?></span></td>
 </tr>
 <?php endforeach;?>
 </tbody>

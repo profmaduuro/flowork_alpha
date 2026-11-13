@@ -45,15 +45,15 @@ include "includes/layout.php";
 
 <style>
 .wa-template-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:.85rem;margin-bottom:1.5rem; }
-.wa-template { background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:1rem;position:relative;transition:all .2s;cursor:default; }
+.wa-template { background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;position:relative;transition:all .2s;cursor:default; }
 body.theme-dark .wa-template { background:var(--ink-soft); }
 .wa-template:hover { border-color:rgba(37,211,102,.3);box-shadow:0 4px 16px rgba(37,211,102,.08); }
 .wa-template-head { display:flex;align-items:center;gap:.5rem;margin-bottom:.65rem; }
 .wa-template-emoji { font-size:1.3rem; }
 .wa-template-name { font-weight:500;font-size:.85rem; }
-.wa-template-msg { background:rgba(37,211,102,.05);border:1px solid rgba(37,211,102,.12);border-radius:8px;padding:.65rem;font-size:.72rem;color:var(--ink);line-height:1.5;position:relative; }
+.wa-template-msg { background:rgba(37,211,102,.05);border:1px solid rgba(37,211,102,.12);border-radius:8px;padding:.65rem;font-size:.82rem;color:var(--text);line-height:1.5;position:relative; }
 .wa-template-msg::before { content:'';position:absolute;top:8px;left:-6px;width:12px;height:12px;background:rgba(37,211,102,.05);border-left:1px solid rgba(37,211,102,.12);border-bottom:1px solid rgba(37,211,102,.12);transform:rotate(45deg); }
-.wa-template-vars { font-size:.6rem;color:var(--muted);margin-top:.5rem; }
+.wa-template-vars { font-size:.72rem;color:var(--muted);margin-top:.5rem; }
 .wa-config-box { background:linear-gradient(135deg,rgba(37,211,102,.06),rgba(37,211,102,.02));border:1px solid rgba(37,211,102,.2);border-radius:var(--radius);padding:1.25rem; }
 .wa-status-dot { width:8px;height:8px;border-radius:50%;display:inline-block; }
 .wa-status-sent { background:#25D366; }
@@ -110,7 +110,7 @@ body.theme-dark .wa-template { background:var(--ink-soft); }
 <!-- Recent Log -->
 <div class="card">
   <div class="card-head"><h3>📋 Notification Log</h3></div>
-  <div class="table-wrap" style="max-height:400px;overflow-y:auto">
+  <div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto">
     <table>
       <thead><tr><th>Type</th><th>Recipient</th><th>Subject</th><th>Status</th><th>Sent</th></tr></thead>
       <tbody>
@@ -120,7 +120,7 @@ body.theme-dark .wa-template { background:var(--ink-soft); }
       ?>
       <tr>
         <td><?=$type_icon?> <span style="font-size:.72rem;text-transform:uppercase"><?=htmlspecialchars($l['type'])?></span></td>
-        <td style="font-size:.75rem"><?=htmlspecialchars($l['recipient'])?><?php if(!empty($l['grower_name'])): ?><br><span style="font-size:.6rem;color:var(--muted)"><?=htmlspecialchars($l['grower_name'])?></span><?php endif; ?></td>
+        <td style="font-size:.75rem"><?=htmlspecialchars($l['recipient'])?><?php if(!empty($l['grower_name'])): ?><br><span style="font-size:.72rem;color:var(--muted)"><?=htmlspecialchars($l['grower_name'])?></span><?php endif; ?></td>
         <td style="font-size:.72rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?=htmlspecialchars($l['subject']??'')?></td>
         <td><span class="wa-status-dot <?=$st_class?>"></span> <span style="font-size:.68rem"><?=htmlspecialchars($l['status'])?></span></td>
         <td style="font-size:.7rem;color:var(--muted)"><?=date('d M H:i',strtotime($l['sent_at']))?></td>

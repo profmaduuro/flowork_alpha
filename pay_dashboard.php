@@ -158,14 +158,14 @@ body.theme-dark .premium-tab-btn:hover {
     background: rgba(255, 255, 255, 0.04);
 }
 .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
     box-shadow: 0 4px 12px rgba(26, 18, 8, 0.15);
     font-weight: 600;
 }
 body.theme-light .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
 }
 body.theme-dark .premium-tab-btn.active {
     background: var(--gold);
@@ -227,7 +227,7 @@ body.theme-dark .premium-tab-btn.active {
       🚨 Alerts &amp; Risk
       <?php $total_alerts = (empty($risk_flags)?0:count($risk_flags)) + (((float)$overdue['net_usd'] > 0)?1:0); ?>
       <?php if($total_alerts > 0): ?>
-      <span class="badge badge-red" style="font-size:.62rem; margin-left:4px"><?=$total_alerts?></span>
+      <span class="badge badge-red" style="font-size:.72rem; margin-left:4px"><?=$total_alerts?></span>
       <?php endif; ?>
   </button>
   <button class="premium-tab-btn" data-tab="actions" onclick="switchPayDashTab('actions')">
@@ -325,13 +325,13 @@ body.theme-dark .premium-tab-btn.active {
     <div class="card-body" style="padding:.75rem 1.15rem">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;max-width:600px;margin:0 auto">
         <div style="background:var(--cream-d);border-radius:var(--radius);padding:.75rem;text-align:center">
-          <div style="font-size:.65rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:4px">Avg Days to Pay</div>
-          <div style="font-size:1.6rem;font-family:'Bebas Neue',sans-serif;letter-spacing:.04em"><?=round((float)($avg_days['avg_days']??0),1)?></div>
+          <div style="font-size:.78rem;font-weight:500;color:var(--muted);margin-bottom:4px">Avg Days to Pay</div>
+          <div style="font-size:1.36rem;font-family:'DM Sans',sans-serif;font-weight:600"><?=round((float)($avg_days['avg_days']??0),1)?></div>
           <div style="font-size:.68rem;color:var(--muted)">days from sale</div>
         </div>
         <div style="background:var(--cream-d);border-radius:var(--radius);padding:.75rem;text-align:center">
-          <div style="font-size:.65rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:4px">Growers Paid</div>
-          <div style="font-size:1.6rem;font-family:'Bebas Neue',sans-serif;letter-spacing:.04em"><?=(int)$month_totals['growers']?></div>
+          <div style="font-size:.78rem;font-weight:500;color:var(--muted);margin-bottom:4px">Growers Paid</div>
+          <div style="font-size:1.36rem;font-family:'DM Sans',sans-serif;font-weight:600"><?=(int)$month_totals['growers']?></div>
           <div style="font-size:.68rem;color:var(--muted)">this month</div>
         </div>
       </div>
@@ -372,13 +372,13 @@ body.theme-dark .premium-tab-btn.active {
       <tbody>
       <?php foreach($risk_flags as $rf): ?>
         <tr>
-          <td><span class="badge badge-gold" style="font-size:.62rem"><?=htmlspecialchars($rf['grower_num'])?></span>
+          <td><span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($rf['grower_num'])?></span>
               <span style="font-size:.78rem;margin-left:4px"><?=htmlspecialchars($rf['grower_name'])?></span></td>
           <td>
             <?php foreach(explode(',', $rf['risk_flags']) as $f): $f=trim($f); if(!$f) continue; ?>
               <?php $flag_labels=['DUPLICATE_PAYMENT'=>['Duplicate payment','badge-red'],'BANK_ACCT_CHANGED_RECENTLY'=>['Bank account changed recently','badge-gold'],'AMOUNT_VARIANCE_GT_10PCT'=>['Amount variance >10%','badge-gold'],'NO_BANK_ACCOUNT'=>['No bank account','badge-gray']]; ?>
               <?php [$fl,$fc] = $flag_labels[$f] ?? [$f,'badge-gray']; ?>
-              <span class="badge <?=$fc?>" style="font-size:.6rem;margin-right:3px"><?=$fl?></span>
+              <span class="badge <?=$fc?>" style="font-size:.72rem;margin-right:3px"><?=$fl?></span>
             <?php endforeach; ?>
           </td>
           <td class="td-mono text-right fw-500">$<?=number_format((float)$rf['net_amount'],2)?></td>

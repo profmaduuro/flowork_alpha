@@ -210,17 +210,16 @@ include "includes/layout.php";
 @keyframes pr-fade { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
 
 .pr-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.9rem;margin-bottom:1.75rem}
-.pr-kpi{background:#fff;border:1px solid var(--border);border-radius:10px;padding:1.1rem 1.15rem;
+.pr-kpi{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1.1rem 1.15rem;
   position:relative;overflow:hidden;transition:box-shadow .18s,transform .18s;animation:pr-fade .45s ease both}
 .pr-kpi:hover{box-shadow:0 6px 20px rgba(0,0,0,.07);transform:translateY(-2px)}
 .pr-kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;
   background:var(--pr-accent,linear-gradient(90deg,var(--gold),var(--gold-l)))}
-.pr-kpi-label{font-size:.6rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
-  color:var(--muted);margin-bottom:.5rem}
-.pr-kpi-value{font-family:'Bebas Neue',sans-serif;font-size:1.9rem;letter-spacing:.03em;line-height:1;color:var(--ink)}
+.pr-kpi-label{font-size:.78rem;font-weight:600;color:var(--muted);margin-bottom:.5rem}
+.pr-kpi-value{font-family:'DM Sans',sans-serif;font-size:1.61rem;line-height:1;color:var(--text);font-weight:600}
 .pr-kpi-sub{font-size:.7rem;color:var(--muted);margin-top:.35rem}
 
-.pr-card{background:#fff;border:1px solid var(--border);border-radius:10px;
+.pr-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;
   overflow:hidden;margin-bottom:1.25rem;animation:pr-fade .5s ease both}
 .pr-card-head{padding:.85rem 1.15rem;border-bottom:1px solid var(--border);
   display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap}
@@ -235,7 +234,7 @@ include "includes/layout.php";
 .pr-upload-zone input[type="file"]{display:none}
 .pr-upload-icon{font-size:1.8rem;margin-bottom:.5rem}
 .pr-upload-label{font-size:.8rem;color:var(--muted)}
-.pr-upload-label strong{color:var(--ink)}
+.pr-upload-label strong{color:var(--text)}
 
 /* Progress bar (matched %) */
 .pr-progress-track{height:8px;background:var(--cream-d);border-radius:4px;overflow:hidden;margin-top:.5rem}
@@ -243,21 +242,20 @@ include "includes/layout.php";
 
 /* Table */
 .pr-table{width:100%;border-collapse:collapse;font-size:.78rem}
-.pr-table thead th{font-size:.6rem;font-weight:600;letter-spacing:.1em;
-  text-transform:uppercase;color:var(--muted);padding:.58rem .85rem;
-  text-align:left;border-bottom:1px solid var(--border);background:var(--cream);
+.pr-table thead th{font-size:.78rem;font-weight:600;color:var(--muted);padding:.58rem .85rem;
+  text-align:left;border-bottom:1px solid var(--border);background:var(--surface);
   position:sticky;top:0;z-index:2;white-space:nowrap}
 .pr-table tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
 .pr-table tbody tr:last-child{border-bottom:none}
-.pr-table tbody tr:hover{background:#faf8f5}
+.pr-table tbody tr:hover{background:var(--surface-2)}
 .pr-table tbody td{padding:.55rem .85rem;vertical-align:middle}
 .td-num{font-variant-numeric:tabular-nums}
 .td-r{text-align:right}
 
 /* Status badges */
-.st-matched{background:var(--leaf-l);color:#2a5223;border:1px solid #9bcb94}
+.st-matched{background:var(--leaf-l);color:var(--ok-text);border:1px solid #9bcb94}
 .st-unmatched{background:var(--danger-bg);color:var(--danger);border:1px solid #f5b8b2}
-.st-partial{background:var(--gold-bg);color:#92650e;border:1px solid #e8c96a}
+.st-partial{background:var(--gold-bg);color:var(--warn-text);border:1px solid #e8c96a}
 .st-manual{background:var(--info-bg);color:var(--info);border:1px solid #aacde6}
 
 /* Variance colouring */
@@ -268,18 +266,18 @@ include "includes/layout.php";
 /* Filter tabs */
 .pr-tabs{display:flex;gap:.35rem;flex-wrap:wrap}
 .pr-tab{padding:.3rem .75rem;border-radius:6px;font-size:.72rem;font-weight:500;
-  cursor:pointer;text-decoration:none;border:1px solid var(--border);color:var(--ink);transition:all .15s}
+  cursor:pointer;text-decoration:none;border:1px solid var(--border);color:var(--text);transition:all .15s}
 .pr-tab:hover{border-color:var(--gold);color:var(--gold)}
-.pr-tab.active{background:var(--ink);color:var(--gold-l);border-color:var(--ink)}
+.pr-tab.active{background:var(--primary-bg);color:var(--primary-text);border-color:var(--primary-bg)}
 
 /* Inline edit modal */
 .pr-modal{display:none;position:fixed;inset:0;z-index:2000;
   background:rgba(0,0,0,.45);align-items:center;justify-content:center}
 .pr-modal.open{display:flex}
-.pr-modal-box{background:#fff;border-radius:12px;padding:1.5rem;width:min(460px,95vw);
+.pr-modal-box{background:var(--surface);border-radius:12px;padding:1.5rem;width:min(460px,95vw);
   box-shadow:0 20px 60px rgba(0,0,0,.3);animation:pr-fade .25s ease both}
 .pr-modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
-.pr-modal-head h4{font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:.08em}
+.pr-modal-head h4{font-family:'DM Sans',sans-serif;font-size:1.02rem;font-weight:600}
 .pr-modal-close{background:none;border:none;cursor:pointer;font-size:1.3rem;color:var(--muted);padding:0;line-height:1}
 
 @media(max-width:900px){.pr-kpi-grid{grid-template-columns:repeat(2,1fr)}}
@@ -386,7 +384,7 @@ include "includes/layout.php";
         ];
         foreach ($status_items as [$lbl, $cnt, $cls]): ?>
         <div style="display:flex;align-items:center;justify-content:space-between;
-          padding:.4rem .65rem;background:var(--cream);border-radius:6px;font-size:.75rem">
+          padding:.4rem .65rem;background:var(--surface);border-radius:6px;font-size:.75rem">
           <span><?= $lbl ?></span>
           <span class="<?= $cls ?>"><?= (int)$cnt ?></span>
         </div>
@@ -431,7 +429,7 @@ include "includes/layout.php";
           <a href="?export=unmatched" class="btn btn-ghost btn-sm" style="justify-content:center;color:var(--danger);border-color:var(--danger)">
             ↓ Unmatched
           </a>
-          <a href="?export=partial" class="btn btn-ghost btn-sm" style="justify-content:center;color:#92650e;border-color:var(--gold)">
+          <a href="?export=partial" class="btn btn-ghost btn-sm" style="justify-content:center;color:var(--warn-text);border-color:var(--gold)">
             ↓ Partial
           </a>
         </div>
@@ -464,12 +462,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'clear
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="width:14px;height:14px;opacity:.5"><rect x="1" y="3" width="14" height="11" rx="1"/><path d="M1 7h14M5 3V2M11 3V2"/></svg>
       Reconciliation Records
       <?php if ($filter_status): ?>
-        <span class="badge badge-gray" style="font-size:.58rem;margin-left:.4rem"><?= ucfirst($filter_status) ?></span>
+        <span class="badge badge-gray" style="font-size:.72rem;margin-left:.4rem"><?= ucfirst($filter_status) ?></span>
       <?php endif; ?>
     </h3>
     <span class="badge badge-gray"><?= count($records) ?> records</span>
   </div>
-  <div class="table-wrap" style="max-height:520px;overflow-y:auto">
+  <div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto">
     <table class="pr-table">
       <thead>
         <tr>

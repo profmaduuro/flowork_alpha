@@ -262,7 +262,7 @@ include "includes/layout.php";
 <div id="panel-list" class="tab-panel active" data-tabs="intso">
 <div class="card">
 <div class="card-head"><h3>Active Stop Orders</h3><span class="badge badge-gray"><?=count($iso_rows)?></span></div>
-<div class="table-wrap" style="max-height:620px;overflow-y:auto"><table>
+<div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto"><table>
 <thead><tr>
   <th>Grower</th><th>Type</th><th>Description</th>
   <th>Sell Date</th><th class="text-right">Amount</th><th></th>
@@ -275,10 +275,10 @@ include "includes/layout.php";
 <?php else: foreach($iso_rows as $r):?>
 <tr>
   <td>
-    <span class="badge badge-gold" style="font-size:.6rem"><?=htmlspecialchars($r['grower_num'])?></span>
+    <span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($r['grower_num'])?></span>
     <div style="font-size:.68rem;color:var(--muted)"><?=htmlspecialchars(trim($r['name'].' '.$r['surname']))?></div>
   </td>
-  <td><span class="badge badge-gray" style="font-size:.6rem"><?=htmlspecialchars($charge_types[$r['charge_type']]??$r['charge_type'])?></span></td>
+  <td><span class="badge badge-gray" style="font-size:.72rem"><?=htmlspecialchars($charge_types[$r['charge_type']]??$r['charge_type'])?></span></td>
   <td style="font-size:.78rem"><?=htmlspecialchars($r['description'])?></td>
   <td style="font-size:.72rem"><?=htmlspecialchars($r['sell_date'])?></td>
   <td class="td-mono text-right" style="color:var(--danger);font-weight:600">-$<?=number_format((float)$r['amount'],2)?></td>

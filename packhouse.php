@@ -109,7 +109,7 @@ include "includes/layout.php";
   <tbody>
   <?php foreach($pallets as $p): $bd=['open'=>'badge-gold','full'=>'badge-green','dispatched'=>'badge-gray'][$p['status']]??'badge-gray';?>
   <tr>
-    <td><span class="badge badge-blue" style="font-size:.6rem"><?=htmlspecialchars($p['house_code'])?></span></td>
+    <td><span class="badge badge-blue" style="font-size:.72rem"><?=htmlspecialchars($p['house_code'])?></span></td>
     <td><?=htmlspecialchars($p['line_no']?:'—')?></td>
     <td><a href="ph_pallets.php?view=<?=htmlspecialchars($p['pallet_no'])?>" style="font-weight:600;color:var(--gold)"><?=htmlspecialchars($p['pallet_no'])?></a></td>
     <td><?=htmlspecialchars($p['buyer_grade']?:'—')?></td>
@@ -136,7 +136,7 @@ include "includes/layout.php";
       <form method="POST" style="display:inline-flex;gap:.25rem;align-items:center">
         <input type="hidden" name="action" value="add_line"><input type="hidden" name="house_id" value="<?=$h['id']?>">
         <input name="line_no" class="form-control" style="width:48px;font-size:.7rem;padding:2px 6px" placeholder="+L">
-        <button class="btn btn-ghost btn-sm" style="font-size:.6rem">Add line</button>
+        <button class="btn btn-ghost btn-sm" style="font-size:.72rem">Add line</button>
       </form>
     </td>
   </tr>
@@ -166,7 +166,7 @@ function locate(){
      if(d.ok){
        var x=d.bale;
        box.innerHTML='<div style="padding:.75rem 1rem;background:var(--leaf-l);border-radius:8px;border:1px solid #9bcb94">'
-         +'<div style="font-weight:700;color:#2a5223;font-size:1rem">📍 '+esc(x.location_label)+'</div>'
+         +'<div style="font-weight:700;color:var(--ok-text);font-size:1rem">📍 '+esc(x.location_label)+'</div>'
          +'<div style="font-size:.8rem;color:var(--muted);margin-top:.3rem">Grade <b>'+esc(x.buyer_grade)+'</b> · Grower '+esc(x.grower_num)+' · '+parseFloat(x.mass).toFixed(0)+' kg · '+esc(x.status)+'</div></div>';
      } else { box.innerHTML='<span style="color:var(--danger)">'+esc(d.error||'Not found')+'</span>'; }
    }).catch(function(e){box.innerHTML='<span style="color:var(--danger)">Error</span>';});

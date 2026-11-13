@@ -135,7 +135,7 @@ include "includes/layout.php";
     <!-- Label -->
     <div style="font-size:0.68rem;font-weight:500;margin-top:5px;color:<?= $p['done']?'var(--ink)':'var(--muted)' ?>;text-align:center"><?= $p['step'] ?></div>
     <?php if ($p['ts']): ?>
-    <div style="font-size:0.58rem;color:var(--muted);text-align:center"><?= date('d/m H:i', strtotime($p['ts'])) ?></div>
+    <div style="font-size:.72rem;color:var(--muted);text-align:center"><?= date('d/m H:i', strtotime($p['ts'])) ?></div>
     <?php endif; ?>
     <!-- Connector line -->
     <?php if (!$is_last): ?>
@@ -162,7 +162,7 @@ include "includes/layout.php";
 <tr><td class="fw-500">Split</td><td><?= $bale['splitid'] ?? '—' ?></td></tr>
 <tr><td class="fw-500">Location</td><td>
     <?php if ($bale['loc_code']): ?>
-    <span style="font-family:'Bebas Neue',sans-serif;font-size:1rem;color:var(--gold)"><?= $bale['loc_code'] ?></span>
+    <span style="font-family:'DM Sans',sans-serif;font-size:0.85rem;color:var(--gold);font-weight:600"><?= $bale['loc_code'] ?></span>
     <span class="td-muted"> — <?= htmlspecialchars($bale['loc_name']) ?></span>
     <?php else: ?>—<?php endif; ?>
 </td></tr>

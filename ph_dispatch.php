@@ -137,7 +137,7 @@ include "includes/layout.php";
 <?php foreach($recent as $d):?>
 <tr>
   <td><a href="?id=<?=$d['id']?>" style="font-weight:600;color:var(--gold)"><?=htmlspecialchars($d['dispatch_no'])?></a></td>
-  <td><span class="badge badge-blue" style="font-size:.6rem"><?=htmlspecialchars($d['house_code'])?></span></td>
+  <td><span class="badge badge-blue" style="font-size:.72rem"><?=htmlspecialchars($d['house_code'])?></span></td>
   <td style="font-size:.78rem"><?=htmlspecialchars($d['vehicle']?:'—')?></td>
   <td class="text-right"><?=(int)$d['pallet_count']?></td><td class="text-right"><?=(int)$d['bale_count']?></td>
   <td><span class="badge <?=$d['status']==='dispatched'?'badge-green':'badge-gold'?>"><?=strtoupper($d['status'])?></span></td>

@@ -81,10 +81,10 @@ include "includes/layout.php";
 .lf-live-badge { display:inline-flex;align-items:center;gap:6px;background:rgba(61,107,53,.12);border:1px solid rgba(61,107,53,.3);color:var(--leaf);font-size:.65rem;font-weight:600;letter-spacing:.1em;padding:3px 10px;border-radius:999px; }
 .lf-live-dot { width:8px;height:8px;border-radius:50%;background:var(--leaf);animation:lf-pulse 2s ease infinite; }
 .lf-stat-strip { display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;margin-bottom:1.5rem; }
-.lf-stat-box { background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:1rem;text-align:center;transition:all .3s; }
+.lf-stat-box { background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;text-align:center;transition:all .3s; }
 body.theme-dark .lf-stat-box { background:var(--ink-soft); }
-.lf-stat-num { font-family:'Bebas Neue',sans-serif;font-size:2.5rem;line-height:1;transition:all .3s; }
-.lf-stat-lbl { font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;font-weight:500;margin-top:.3rem; }
+.lf-stat-num { font-family:'DM Sans',sans-serif;font-size:2.12rem;line-height:1;transition:all .3s;font-weight:600}
+.lf-stat-lbl { font-size:.78rem;color:var(--muted);font-weight:500;margin-top:.3rem; }
 .lf-feed-item { display:flex;align-items:center;gap:.85rem;padding:.65rem 1rem;border-bottom:1px solid var(--border);animation:lf-slideIn .3s ease both;transition:background .15s; }
 .lf-feed-item:hover { background:rgba(200,149,42,.04); }
 .lf-feed-item.new { background:rgba(61,107,53,.06); }
@@ -92,11 +92,11 @@ body.theme-dark .lf-stat-box { background:var(--ink-soft); }
 .lf-feed-main { flex:1;min-width:0; }
 .lf-feed-title { font-size:.8rem;font-weight:500; }
 .lf-feed-sub { font-size:.68rem;color:var(--muted); }
-.lf-feed-price { font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--gold);text-align:right; }
-.lf-feed-time { font-size:.6rem;color:var(--muted);text-align:right;min-width:50px; }
+.lf-feed-price { font-family:'DM Sans',sans-serif;font-size:0.94rem;color:var(--gold);text-align:right;font-weight:600}
+.lf-feed-time { font-size:.72rem;color:var(--muted);text-align:right;min-width:50px; }
 .lf-high-price .lf-feed-icon { background:rgba(61,107,53,.12); }
 .lf-high-price .lf-feed-price { color:var(--leaf); }
-.lf-feed-wrap { max-height:600px;overflow-y:auto; }
+.lf-feed-wrap { max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto; }
 
 </style>
 
@@ -119,7 +119,7 @@ body.theme-dark .lf-stat-box { background:var(--ink-soft); }
     <div class="lf-stat-lbl">Bales Sold Today</div>
   </div>
   <div class="lf-stat-box">
-    <div class="lf-stat-num" id="lf-mass" style="color:var(--ink)"><?=number_format((float)($stats['mass']??0),0)?></div>
+    <div class="lf-stat-num" id="lf-mass" style="color:var(--text)"><?=number_format((float)($stats['mass']??0),0)?></div>
     <div class="lf-stat-lbl">Mass (kg)</div>
   </div>
   <div class="lf-stat-box">

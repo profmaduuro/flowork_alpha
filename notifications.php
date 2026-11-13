@@ -5,6 +5,7 @@ require_once "includes/auth.php";
 require_once "includes/conn.php";
 require_once "includes/audit.php";
 require_once "email_reports.php";
+require_once "includes/rbz_change.php";
 require_login();
 
 $page_title  = "Notifications & Reports";
@@ -106,6 +107,11 @@ foreach($stats_raw as $s) $stats[$s['type']][$s['status']] = (int)$s['cnt'];
 $sms_today_q=$conn->query("SELECT COUNT(DISTINCT g.id) c FROM growers g JOIN bale_junus bj ON bj.growerid=g.id JOIN tickets tk ON tk.bale_junusid=bj.id JOIN sold_bales sb ON sb.ticketsid=tk.id WHERE g.selling_pointid=$spid AND DATE(sb.created_at)='$today' AND g.phone IS NOT NULL AND g.phone!=''");
 $sms_today_count=($sms_today_q&&$sms_today_q!==true)?(int)$sms_today_q->fetch_assoc()['c']:0;
 
+// System changes that affect figures (RBZ retention rate)
+$rbz_changes = flowork_rbz_changes($conn, 10);
+$rbz_now     = flowork_rbz_current($conn);
+$rbz_stale   = flowork_rbz_stale_count($conn, $spid, $rbz_now);
+
 include "includes/layout.php";
 ?>
 <div class="page-header">
@@ -117,6 +123,23 @@ include "includes/layout.php";
 <?php if(!($cfg['telerivet_api_key']??'')||!($cfg['email_reports_to']??'')):?>
 <div class="alert" style="background:rgba(200,149,42,.08);border-left:3px solid var(--gold);padding:.75rem 1rem;font-size:.82rem">
   ⚠ <?=!($cfg['email_reports_to']??'')?'No email recipients set. ':'';?><?=!($cfg['telerivet_api_key']??'')?'Telerivet SMS not configured. ':'';?>Actions will run in simulation mode.
+</div>
+<?php endif;?>
+
+<?php if($rbz_changes): $_pc = fn($s) => rtrim(rtrim(number_format($s*100,2),'0'),'.'); ?>
+<div class="card mb-3">
+<div class="card-head"><h3>System changes</h3>
+  <?php if($rbz_stale):?><a href="balance.php" class="badge badge-gold"><?=$rbz_stale?> balanced sale(s) on this floor to recalculate</a>
+  <?php else:?><span class="badge badge-green">All balanced sales use the current rate</span><?php endif;?></div>
+<div class="table-wrap"><table>
+<thead><tr><th>When</th><th>Change</th><th>By</th></tr></thead>
+<tbody>
+<?php foreach($rbz_changes as $c):?>
+<tr><td class="nowrap"><?=htmlspecialchars(date('d M Y H:i', strtotime($c['changed_at'])))?></td>
+<td>RBZ retention <?=$c['old_usd']!==null?'USD '.$_pc((float)$c['old_usd']).'% → ':''?>USD <?=$_pc((float)$c['new_usd'])?>% / ZiG <?=$_pc(1-(float)$c['new_usd'])?>%</td>
+<td><?=htmlspecialchars($c['username'] ?: '—')?></td></tr>
+<?php endforeach;?>
+</tbody></table></div>
 </div>
 <?php endif;?>
 
@@ -172,10 +195,10 @@ include "includes/layout.php";
 <div class="card-head"><h3>⏰ Automation (Cron)</h3></div>
 <div class="card-body" style="font-size:.75rem">
   <p style="color:var(--muted);margin-bottom:.5rem">Add to crontab for daily automation:</p>
-  <div style="background:var(--ink);color:var(--gold);padding:.5rem .75rem;border-radius:5px;font-family:monospace;font-size:.68rem;overflow-x:auto;margin-bottom:.4rem">
+  <div style="background:var(--surface-2);color:var(--text);padding:.5rem .75rem;border-radius:5px;font-family:monospace;font-size:.68rem;overflow-x:auto;margin-bottom:.4rem">
     0 18 * * * curl -s "<?=htmlspecialchars('https://yourdomain.com/flowork/notifications.php?cron=eod&token=flowork_cron&spid='.$spid)?>"
   </div>
-  <div style="background:var(--ink);color:var(--gold);padding:.5rem .75rem;border-radius:5px;font-family:monospace;font-size:.68rem;overflow-x:auto">
+  <div style="background:var(--surface-2);color:var(--text);padding:.5rem .75rem;border-radius:5px;font-family:monospace;font-size:.68rem;overflow-x:auto">
     0 17 * * * curl -s "<?=htmlspecialchars('https://yourdomain.com/flowork/notifications.php?cron=sms&token=flowork_cron&spid='.$spid)?>"
   </div>
 </div>
@@ -188,7 +211,7 @@ include "includes/layout.php";
 <div class="card-head"><h3>⚙ Settings</h3></div>
 <div class="card-body">
 <form method="POST"><input type="hidden" name="action" value="save_settings">
-<div style="font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:.4rem">Email (SMTP)</div>
+<div style="font-size:.78rem;font-weight:600;color:var(--muted);margin-bottom:.4rem">Email (SMTP)</div>
 <div class="form-group"><label>Recipients (comma-separated) *</label>
   <input type="text" name="email_reports_to" class="form-control" value="<?=htmlspecialchars($cfg['email_reports_to']??'')?>" placeholder="gm@co.com,accounts@co.com,manager@co.com"></div>
 <div class="form-row cols-2">
@@ -201,7 +224,7 @@ include "includes/layout.php";
 </div>
 <div class="form-group"><label>SMTP Password</label><input type="password" name="email_smtp_pass" class="form-control" value="<?=htmlspecialchars($cfg['email_smtp_pass']??'')?>"></div>
 <hr style="margin:.6rem 0;border-color:var(--border)">
-<div style="font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:.4rem">SMS (Telerivet)</div>
+<div style="font-size:.78rem;font-weight:600;color:var(--muted);margin-bottom:.4rem">SMS (Telerivet)</div>
 <div class="form-row cols-2">
   <div class="form-group"><label>API Key</label><input type="password" name="telerivet_api_key" class="form-control" value="<?=htmlspecialchars($cfg['telerivet_api_key']??'')?>" placeholder="Telerivet API key"></div>
   <div class="form-group"><label>Project ID</label><input type="text" name="telerivet_project_id" class="form-control" value="<?=htmlspecialchars($cfg['telerivet_project_id']??'')?>" placeholder="PJ..."></div>
@@ -250,9 +273,9 @@ include "includes/layout.php";
 <?php else:foreach($logs as $l):$sc=['sent'=>'badge-green','failed'=>'badge-red','simulated'=>'badge-gold'];?>
 <tr>
   <td style="font-size:.68rem;white-space:nowrap"><?=date('d M H:i',strtotime($l['sent_at']))?></td>
-  <td><span class="badge badge-gray" style="font-size:.58rem"><?=strtoupper($l['type'])?></span></td>
+  <td><span class="badge badge-gray" style="font-size:.72rem"><?=strtoupper($l['type'])?></span></td>
   <td style="font-size:.7rem;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?=htmlspecialchars($l['recipient'])?></td>
-  <td><span class="badge <?=$sc[$l['status']]??'badge-gray'?>" style="font-size:.58rem"><?=strtoupper($l['status'])?></span></td>
+  <td><span class="badge <?=$sc[$l['status']]??'badge-gray'?>" style="font-size:.72rem"><?=strtoupper($l['status'])?></span></td>
   <td style="font-size:.68rem;color:var(--muted)"><?=htmlspecialchars($l['subject'])?></td>
 </tr>
 <?php endforeach;endif;?>

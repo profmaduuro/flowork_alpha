@@ -101,7 +101,7 @@ include "includes/layout.php";
 <?php endif;?>
 
 <div class="card" style="max-width:540px">
-<div class="card-head" style="background:var(--ink);color:var(--cream)"><h3>Confirm Day Close</h3></div>
+<div class="card-head" style="background:var(--surface-2);color:var(--text)"><h3>Confirm Day Close</h3></div>
 <div class="card-body">
 <p style="font-size:.82rem;margin-bottom:1rem;color:var(--muted)">
   Closing the payment day will <strong>lock all batches</strong> and prevent any further payment edits for <?=date('d M Y',strtotime($date_f))?>. This action cannot be undone without admin intervention.

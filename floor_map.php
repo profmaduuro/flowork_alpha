@@ -81,10 +81,10 @@ include "includes/layout.php";
 
 <style>
 .floor-grid{display:grid;gap:.75rem;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));margin-bottom:1.25rem}
-.loc-card{background:var(--cream);border:2px solid var(--border);border-radius:10px;padding:1rem;cursor:pointer;transition:all .18s;position:relative;overflow:hidden}
+.loc-card{background:var(--surface);border:2px solid var(--border);border-radius:10px;padding:1rem;cursor:pointer;transition:all .18s;position:relative;overflow:hidden}
 .loc-card:hover{border-color:var(--gold);transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.12)}
 .loc-card.has-data{border-color:rgba(200,149,42,.4)}
-.loc-card .loc-code{font-family:'Bebas Neue',sans-serif;font-size:2.5rem;color:var(--gold);line-height:1;margin-bottom:.25rem}
+.loc-card .loc-code{font-family:'DM Sans',sans-serif;font-size:2.12rem;color:var(--gold);line-height:1;margin-bottom:.25rem;font-weight:600}
 .loc-card .loc-name{font-size:.7rem;color:var(--muted);margin-bottom:.75rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .loc-card .bale-bar{height:6px;background:var(--cream-d);border-radius:3px;overflow:hidden;margin-bottom:.6rem}
 .loc-card .bale-bar-fill{height:6px;border-radius:3px;transition:width .6s ease}
@@ -96,9 +96,9 @@ include "includes/layout.php";
 .pulse-dot.inactive{background:var(--muted)}
 @keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
 
-.detail-panel{position:fixed;right:0;top:0;bottom:0;width:320px;background:var(--cream);border-left:1px solid var(--border);z-index:500;transform:translateX(320px);transition:transform .28s cubic-bezier(.4,0,.2,1);box-shadow:-4px 0 20px rgba(0,0,0,.1);overflow-y:auto}
+.detail-panel{position:fixed;right:0;top:0;bottom:0;width:320px;background:var(--surface);border-left:1px solid var(--border);z-index:500;transform:translateX(320px);transition:transform .28s cubic-bezier(.4,0,.2,1);box-shadow:-4px 0 20px rgba(0,0,0,.1);overflow-y:auto}
 .detail-panel.open{transform:translateX(0)}
-.detail-head{background:var(--ink);color:var(--cream);padding:1rem 1.15rem;display:flex;justify-content:space-between;align-items:flex-start}
+.detail-head{background:var(--surface-2);color:var(--text);padding:1rem 1.15rem;display:flex;justify-content:space-between;align-items:flex-start}
 </style>
 
 <div class="page-header">
@@ -127,10 +127,10 @@ include "includes/layout.php";
 <div class="detail-panel" id="detail-panel">
   <div class="detail-head">
     <div>
-      <div id="dp-code" style="font-family:'Bebas Neue',sans-serif;font-size:2rem;line-height:1"></div>
+      <div id="dp-code" style="font-family:'DM Sans',sans-serif;font-size:1.7rem;line-height:1;font-weight:600"></div>
       <div id="dp-name" style="font-size:.72rem;opacity:.5;margin-top:2px"></div>
     </div>
-    <button onclick="closeDetail()" style="background:none;border:none;color:var(--cream);cursor:pointer;font-size:1.2rem;opacity:.6">✕</button>
+    <button onclick="closeDetail()" style="background:none;border:none;color:var(--text);cursor:pointer;font-size:1.2rem;opacity:.6">✕</button>
   </div>
   <div id="dp-body" style="padding:1rem"></div>
 </div>
@@ -203,10 +203,10 @@ function showDetail(loc) {
         body += '<div style="font-size:.72rem;color:var(--muted);margin-bottom:.75rem">Avg price: <strong>$' + loc.avg_price.toFixed(4) + '/kg</strong></div>';
     }
     if (loc.growers && loc.growers.length) {
-        body += '<div style="font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:.35rem">Top Growers</div>';
+        body += '<div style="font-size:.78rem;font-weight:600;color:var(--muted);margin-bottom:.35rem">Top Growers</div>';
         loc.growers.forEach(function(g) {
             body += '<div style="display:flex;justify-content:space-between;font-size:.75rem;padding:.3rem 0;border-bottom:1px solid var(--border)">' +
-                '<span class="badge badge-gold" style="font-size:.6rem">' + g.grower_num + '</span>' +
+                '<span class="badge badge-gold" style="font-size:.72rem">' + g.grower_num + '</span>' +
                 '<span>' + g.bales + ' bales · ' + parseFloat(g.mass).toFixed(1) + ' kg</span></div>';
         });
     }
@@ -219,7 +219,7 @@ function showDetail(loc) {
 function kpiBox(lbl, val, color) {
     return '<div style="background:var(--cream-d);border-radius:6px;padding:.6rem .75rem;text-align:center">' +
         '<div style="font-size:1.2rem;font-weight:700;color:' + (color||'var(--gold)') + ';line-height:1.1">' + val + '</div>' +
-        '<div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-top:2px">' + lbl + '</div></div>';
+        '<div style="font-size:.78rem;color:var(--muted);margin-top:2px">' + lbl + '</div></div>';
 }
 
 function closeDetail() {

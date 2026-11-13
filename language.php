@@ -115,23 +115,23 @@ include "includes/layout.php";
 
 <style>
 .lang-card-grid { display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.5rem; }
-.lang-card { background:#fff;border:2px solid var(--border);border-radius:var(--radius);padding:1.5rem;text-align:center;cursor:pointer;transition:all .2s; }
+.lang-card { background:var(--surface);border:2px solid var(--border);border-radius:var(--radius);padding:1.5rem;text-align:center;cursor:pointer;transition:all .2s; }
 body.theme-dark .lang-card { background:var(--ink-soft); }
 .lang-card:hover { border-color:var(--gold);transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.06); }
 .lang-card.active { border-color:var(--gold);background:var(--gold-bg); }
 body.theme-dark .lang-card.active { background:rgba(200,149,42,.1); }
 .lang-flag { font-size:2.5rem;margin-bottom:.5rem; }
-.lang-name { font-family:'Bebas Neue',sans-serif;font-size:1.5rem;letter-spacing:.06em; }
+.lang-name { font-family:'DM Sans',sans-serif;font-size:1.27rem;font-weight:600}
 .lang-sample { font-size:.72rem;color:var(--muted);margin-top:.35rem; }
 .lang-dict { display:grid;grid-template-columns:1fr 1fr 1fr;gap:0; }
-.lang-dict-head { font-size:.6rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:.6rem .85rem;background:var(--cream);border-bottom:1px solid var(--border); }
+.lang-dict-head { font-size:.78rem;font-weight:600;color:var(--muted);padding:.6rem .85rem;background:var(--surface);border-bottom:1px solid var(--border); }
 .lang-dict-cell { font-size:.75rem;padding:.5rem .85rem;border-bottom:1px solid var(--border);border-right:1px solid var(--border); }
 .lang-dict-cell:nth-child(3n) { border-right:none; }
-.lang-dict-key { font-weight:500;color:var(--ink); }
+.lang-dict-key { font-weight:500;color:var(--text); }
 </style>
 
 <div class="page-header" style="text-align:center;display:block">
-  <h2 style="font-family:'Bebas Neue',sans-serif;font-size:2rem;letter-spacing:.08em">Language / Mutauro / Ulimi</h2>
+  <h2 style="font-family:'DM Sans',sans-serif;font-size:1.7rem;font-weight:600">Language / Mutauro / Ulimi</h2>
   <p style="color:var(--muted)">Multi-language support for grower-facing communications</p>
 </div>
 
@@ -153,7 +153,7 @@ body.theme-dark .lang-card.active { background:rgba(200,149,42,.1); }
 <!-- Translation Dictionary -->
 <div class="card mb-3">
   <div class="card-head"><h3>📖 Translation Dictionary</h3><span class="badge badge-gold"><?=count($translations['en'])?> terms</span></div>
-  <div class="table-wrap" style="max-height:500px;overflow-y:auto">
+  <div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto">
     <div class="lang-dict">
       <div class="lang-dict-head">English 🇬🇧</div>
       <div class="lang-dict-head">Shona 🇿🇼</div>
@@ -175,15 +175,15 @@ body.theme-dark .lang-card.active { background:rgba(200,149,42,.1); }
   <div class="card-body">
     <div class="grid-3" style="gap:.75rem">
       <div style="padding:.75rem;background:rgba(37,211,102,.05);border:1px solid rgba(37,211,102,.12);border-radius:8px">
-        <div style="font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.3rem">Sale Notification</div>
+        <div style="font-size:.78rem;color:var(--muted);margin-bottom:.3rem">Sale Notification</div>
         <div style="font-size:.78rem;line-height:1.5"><?=htmlspecialchars($translations[$current_lang]['your_bales_sold'])?></div>
       </div>
       <div style="padding:.75rem;background:rgba(37,211,102,.05);border:1px solid rgba(37,211,102,.12);border-radius:8px">
-        <div style="font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.3rem">Payment Ready</div>
+        <div style="font-size:.78rem;color:var(--muted);margin-bottom:.3rem">Payment Ready</div>
         <div style="font-size:.78rem;line-height:1.5"><?=htmlspecialchars($translations[$current_lang]['payment_ready'])?></div>
       </div>
       <div style="padding:.75rem;background:rgba(37,211,102,.05);border:1px solid rgba(37,211,102,.12);border-radius:8px">
-        <div style="font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.3rem">Booking Confirmed</div>
+        <div style="font-size:.78rem;color:var(--muted);margin-bottom:.3rem">Booking Confirmed</div>
         <div style="font-size:.78rem;line-height:1.5"><?=htmlspecialchars($translations[$current_lang]['booking_confirmed'])?></div>
       </div>
     </div>

@@ -76,11 +76,11 @@ include "includes/layout.php";
 .check-item.ok::before{background:#4caf50}
 .check-item.warn::before{background:#e8b84b}
 .check-item.error::before{background:#e53935}
-.check-item .ci-label{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem}
+.check-item .ci-label{font-size:.78rem;font-weight:600;color:var(--muted);margin-bottom:.3rem}
 .check-item .ci-status{font-size:1.1rem;font-weight:700;margin-bottom:.25rem}
-.check-item.ok .ci-status{color:#4caf50}
-.check-item.warn .ci-status{color:#e8b84b}
-.check-item.error .ci-status{color:#e53935}
+.check-item.ok .ci-status{color:var(--ok-text)}
+.check-item.warn .ci-status{color:var(--warn-text)}
+.check-item.error .ci-status{color:var(--bad-text)}
 .check-item .ci-detail{font-size:.72rem;color:var(--muted)}
 </style>
 
@@ -116,7 +116,7 @@ include "includes/layout.php";
 <!-- Error log viewer -->
 <div class="card mt-3">
 <div class="card-head"><h3>Recent PHP Errors</h3></div>
-<div id="error-log" class="card-body" style="font-family:monospace;font-size:.72rem;max-height:240px;overflow-y:auto;background:var(--ink);color:#a0e8a0;border-radius:0 0 var(--radius) var(--radius)">
+<div id="error-log" class="card-body" style="font-family:monospace;font-size:.72rem;max-height:240px;overflow-y:auto;background:var(--surface-2);color:#a0e8a0;border-radius:0 0 var(--radius) var(--radius)">
 <?php
 $log_file=ini_get('error_log');
 if($log_file&&file_exists($log_file)){

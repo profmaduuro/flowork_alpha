@@ -199,7 +199,7 @@ if ($step === 'login' && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['
             $stmt_fa->bind_param("i", $uid);
             $stmt_fa->execute();
             $fa_q = $stmt_fa->get_result();
-            $fa_enabled = ($fa_q && $fa_q->num_rows > 0);
+            $fa_enabled = ($fa_q && $fa_q->num_rows > 0) && flowork_2fa_system_on($conn);
             $stmt_fa->close();
             
             if ($fa_enabled) {
@@ -246,503 +246,377 @@ if ($step === 'login' && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['
 }
 ?>
 <!DOCTYPE html>
+<?php
+// Theme: the user's saved choice (same cookie as the app), else the device setting.
+$lg_theme = $_COOKIE['flowork_theme'] ?? '';
+$lg_theme = in_array($lg_theme, ['light', 'dark'], true) ? $lg_theme : '';
+$lg_title = $step === 'choose_floor' ? 'Choose floor' : ($step === 'activate_license' ? 'Activate license' : 'Sign in');
+?>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title><?= $step === 'choose_floor' ? 'Choose Floor' : 'Login' ?> — Flowork</title>
+<title><?= $lg_title ?> — Flowork</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="includes/layout.css?v=9">
+<link rel="preload" as="image" href="images/login-tobacco-bales.jpg">
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+/* Sign-in pages: brand panel + form card. Colours come from the shared tokens
+   in includes/layout.css, so light and dark mode match the rest of the app. */
+html,body{height:auto;min-height:100%}
+body{display:flex;min-height:100vh;background:var(--page);color:var(--text)}
+.lg-shell{flex:1;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);min-height:100vh}
 
-*{box-sizing:border-box;margin:0;padding:0}
-body{
-  font-family:'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif;
-  background:#050811;
-  background-image: 
-    radial-gradient(circle at 15% 15%, rgba(245, 158, 11, 0.18) 0%, transparent 40%),
-    radial-gradient(circle at 85% 85%, rgba(16, 185, 129, 0.15) 0%, transparent 40%),
-    radial-gradient(circle at 50% 50%, rgba(2, 132, 199, 0.1) 0%, transparent 60%),
-    radial-gradient(rgba(245, 158, 11, 0.08) 1px, transparent 1px);
-  background-size: 100% 100%, 100% 100%, 100% 100%, 24px 24px;
-  min-height:100vh;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding:1.5rem;
-  color:#f8fafc;
-}
+/* Brand panel: bales of cured tobacco on the auction floor
+   (images/login-tobacco-bales.jpg) under a dark shade so the white text
+   stays readable; the bales show through above the text. */
+.lg-brand{position:relative;background:#14110D url('images/login-tobacco-bales.jpg') 55% center/cover no-repeat;color:#F4EFE6;padding:2.5rem 3rem;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden}
+.lg-brand::before{content:'';position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(180deg,rgba(20,17,13,.72) 0%,rgba(20,17,13,.38) 22%,rgba(20,17,13,.42) 42%,rgba(20,17,13,.82) 64%,rgba(20,17,13,.95) 100%)}
+.lg-brand > *{position:relative}
+.lg-mark{display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit}
+.lg-mark .dot{width:40px;height:40px;border-radius:10px;background:#2A231A;display:flex;align-items:center;justify-content:center;border:1px solid rgba(226,176,74,.25)}
+.lg-mark .dot svg{width:21px;height:21px}
+.lg-mark span{font-family:'Bebas Neue',sans-serif;font-size:1.9rem;letter-spacing:.12em;line-height:1}
+.lg-hero{margin-top:auto;margin-bottom:2rem}
+.lg-hero h1{font-size:2.1rem;font-weight:600;letter-spacing:-.01em;line-height:1.2;max-width:440px;text-shadow:0 1px 12px rgba(0,0,0,.35)}
+.lg-hero p{margin-top:.8rem;color:#D8CFC0;font-size:.98rem;line-height:1.6;max-width:440px}
+.lg-points{list-style:none;margin-top:1.75rem;display:flex;flex-direction:column;gap:.7rem}
+.lg-points li{display:flex;align-items:center;gap:.65rem;color:#CFC6B6;font-size:.9rem}
+.lg-points svg{width:18px;height:18px;color:#E2B04A;flex-shrink:0}
+.lg-brand-foot{display:flex;justify-content:space-between;gap:1rem;font-size:.78rem;color:#B5AA98}
+.lg-brand-foot a{color:inherit}
 
-.box{
-  background:rgba(13, 19, 33, 0.78);
-  backdrop-filter:blur(24px);
-  -webkit-backdrop-filter:blur(24px);
-  border:1px solid rgba(245, 158, 11, 0.28);
-  border-radius:20px;
-  width:100%;
-  box-shadow:0 30px 80px rgba(0,0,0,0.85), 0 0 40px rgba(245, 158, 11, 0.15);
-  overflow:hidden;
-}
-.box-login{max-width:380px}
-.box-floor{max-width:440px}
+/* Form side */
+.lg-side{display:flex;align-items:center;justify-content:center;padding:2.5rem 1.5rem}
+.lg-card{width:100%;max-width:400px}
+.lg-card.wide{max-width:560px}
+.lg-mobile-mark{display:none;margin-bottom:1.75rem}
+.lg-mobile-mark .dot{background:#1F1A14}
+body.theme-dark .lg-mobile-mark .dot{background:#2A231A}
+.lg-mobile-mark span{color:var(--text)}
+.lg-head h2{font-size:1.6rem;font-weight:600;letter-spacing:-.01em;line-height:1.25}
+.lg-head p{margin-top:.35rem;color:var(--text-muted);font-size:.92rem}
+.lg-body{margin-top:1.6rem}
+.lg-field{margin-bottom:1rem}
+.lg-field label{display:block;font-size:.84rem;font-weight:500;color:var(--text-soft);margin-bottom:.4rem}
+.lg-input{position:relative}
+.lg-input > svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:17px;height:17px;color:var(--text-muted);pointer-events:none}
+.lg-input .form-control{min-height:44px;padding-left:2.4rem;font-size:.92rem}
+.lg-input.has-toggle .form-control{padding-right:3rem}
+.lg-eye{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:38px;height:38px;border:none;background:transparent;color:var(--text-muted);border-radius:var(--radius);cursor:pointer;display:flex;align-items:center;justify-content:center}
+.lg-eye:hover{color:var(--text);background:var(--surface-3)}
+.lg-eye svg{width:18px;height:18px}
+.lg-caps{display:none;margin-top:.4rem;font-size:.8rem;color:var(--warn-text)}
+.lg-caps.on{display:flex;align-items:center;gap:.35rem}
+.lg-submit{width:100%;min-height:46px;font-size:.95rem;font-weight:600;margin-top:.4rem}
+.lg-submit .fw-spinner{border-color:rgba(255,255,255,.35);border-top-color:#fff}
+body.theme-dark .lg-submit .fw-spinner{border-color:rgba(20,17,13,.3);border-top-color:#14110D}
+.lg-alert{display:flex;gap:.55rem;align-items:flex-start}
+.lg-alert svg{width:18px;height:18px;flex-shrink:0;margin-top:1px}
+.lg-foot{margin-top:2rem;font-size:.8rem;color:var(--text-muted);text-align:center}
+.lg-link{color:var(--accent-text);font-weight:500;text-decoration:none}
+.lg-link:hover{text-decoration:underline}
 
-/* Header band */
-.bh{
-  background:linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.85));
-  padding:1.35rem 1.5rem 1.1rem;
-  text-align:center;
-  border-bottom:1px solid rgba(245, 158, 11, 0.2);
-  position:relative;
-}
-.bh::after{
-  content:'';
-  position:absolute;
-  bottom:-1px;
-  left:15%;
-  right:15%;
-  height:1px;
-  background:linear-gradient(90deg, transparent, #f59e0b, transparent);
-}
-.bh-icon{
-  width:46px;
-  height:46px;
-  background:linear-gradient(135deg, #10b981, #059669);
-  border-radius:12px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:1.4rem;
-  margin:0 auto .5rem;
-  box-shadow:0 0 18px rgba(16, 185, 129, 0.4);
-  border:1px solid rgba(255,255,255,0.25);
-}
-.bh h1{
-  font-size:1.25rem;
-  color:#ffffff;
-  font-weight:800;
-  letter-spacing:.08em;
-  text-shadow:0 2px 8px rgba(0,0,0,0.5);
-}
-.bh p{
-  font-size:.72rem;
-  color:#94a3b8;
-  margin-top:.2rem;
-  font-weight:500;
-  letter-spacing:.02em;
-}
-
-/* Body */
-.bb{padding:1.25rem 1.5rem 1.5rem}
-
-/* Form */
-.form-group{margin-bottom:1rem}
-label{
-  display:block;
-  font-size:.7rem;
-  font-weight:700;
-  color:#cbd5e1;
-  margin-bottom:.35rem;
-  letter-spacing:.06em;
-  text-transform:uppercase;
-}
-input[type=text],input[type=password]{
-  width:100%;
-  padding:.65rem .85rem;
-  border:1.5px solid rgba(245, 158, 11, 0.35);
-  border-radius:8px;
-  font-size:.88rem;
-  outline:none;
-  background:rgba(15, 23, 42, 0.85);
-  color:#ffffff;
-  font-weight:600;
-  transition:all .2s ease;
-}
-input:focus{
-  border-color:#f59e0b;
-  box-shadow:0 0 0 3px rgba(245, 158, 11, 0.25), 0 0 12px rgba(245, 158, 11, 0.2);
-}
-.btn{
-  width:100%;
-  padding:.7rem;
-  background:linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-  color:#000000;
-  border:none;
-  border-radius:8px;
-  font-size:.88rem;
-  font-weight:800;
-  cursor:pointer;
-  letter-spacing:.04em;
-  margin-top:.2rem;
-  box-shadow:0 4px 16px rgba(245, 158, 11, 0.35);
-  transition:all .2s ease;
-}
-.btn:hover{
-  transform:translateY(-2px);
-  box-shadow:0 6px 22px rgba(245, 158, 11, 0.5);
-}
-.err{
-  background:rgba(239, 68, 68, 0.15);
-  color:#fca5a5;
-  padding:.6rem .85rem;
-  border-radius:8px;
-  font-size:.8rem;
-  margin-bottom:1rem;
-  border:1px solid rgba(239, 68, 68, 0.4);
-  font-weight:600;
-}
-.footer{
-  text-align:center;
-  font-size:.68rem;
-  color:#64748b;
-  margin-top:1rem;
-  font-weight:500;
-}
-
-/* Floor grid */
-.floor-grid{
-  display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(130px,1fr));
-  gap:.75rem;
-  margin-bottom:1rem;
-}
-.floor-card{
-  border:1.5px solid rgba(255,255,255,0.12);
-  border-radius:12px;
-  padding:.9rem .75rem;
-  cursor:pointer;
-  text-align:center;
-  transition:all .25s cubic-bezier(0.4, 0, 0.2, 1);
-  background:linear-gradient(145deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.8) 100%);
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  gap:.45rem;
-  position:relative;
-  overflow:hidden;
-}
-.floor-card:hover{
-  border-color:#f59e0b;
-  background:linear-gradient(145deg, rgba(245, 158, 11, 0.18) 0%, rgba(30, 41, 59, 0.9) 100%);
-  transform:translateY(-3px) scale(1.02);
-  box-shadow:0 10px 24px rgba(0,0,0,0.6), 0 0 16px rgba(245, 158, 11, 0.25);
-}
-.floor-card.selected{
-  border-color:#10b981;
-  background:linear-gradient(145deg, rgba(16, 185, 129, 0.2) 0%, rgba(15, 23, 42, 0.9) 100%);
-  box-shadow:0 0 20px rgba(16, 185, 129, 0.35);
-}
-.floor-icon{
-  width:40px;
-  height:40px;
-  border-radius:50%;
-  background:linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(16, 185, 129, 0.2));
-  border:1px solid rgba(245, 158, 11, 0.35);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:1.2rem;
-  box-shadow:0 0 10px rgba(245, 158, 11, 0.2);
-}
-.floor-name{
-  font-size:.82rem;
-  font-weight:700;
-  color:#f8fafc;
-  line-height:1.25;
-}
-.floor-code{
-  font-size:.65rem;
-  color:#f59e0b;
-  font-weight:800;
-  font-family:monospace;
-  margin-top:.1rem;
-  letter-spacing:.05em;
-  background:rgba(245, 158, 11, 0.12);
-  padding:1px 5px;
-  border-radius:4px;
-  border:1px solid rgba(245, 158, 11, 0.25);
-}
+/* Choose floor */
+.lg-user{display:flex;align-items:center;gap:.7rem;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:.65rem .85rem;margin-bottom:1rem;font-size:.88rem;color:var(--text-muted)}
+.lg-user strong{color:var(--text);font-weight:600}
+.lg-avatar{width:34px;height:34px;border-radius:50%;background:var(--accent-tint);color:var(--accent-text);display:flex;align-items:center;justify-content:center;font-weight:600;flex-shrink:0;text-transform:uppercase}
+.lg-user .badge{margin-left:.35rem}
+.lg-user .btn{margin-left:auto}
+.lg-master{display:flex;gap:.7rem;align-items:flex-start;background:var(--accent-tint);color:var(--text);border-radius:var(--radius-lg);padding:.8rem .95rem;margin-bottom:1rem;font-size:.86rem}
+.lg-master svg{width:20px;height:20px;color:var(--accent-text);flex-shrink:0;margin-top:1px}
+.lg-master strong{display:block;font-weight:600}
+.lg-master span{color:var(--text-soft);font-size:.8rem}
+.lg-master-actions{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:1.25rem}
+.lg-master-actions .btn{min-height:42px}
+.floor-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.7rem}
+.floor-card{display:flex;flex-direction:column;align-items:flex-start;gap:.55rem;text-align:left;padding:1rem;min-height:110px;border-radius:var(--radius-lg);border:1px solid var(--line);background:var(--surface);color:var(--text);cursor:pointer;font:inherit;box-shadow:var(--shadow-sm);transition:border-color .15s,background .15s,box-shadow .15s}
+.floor-card:hover{border-color:var(--accent);box-shadow:var(--shadow-md)}
+.floor-card.selected{border-color:var(--ok-text);background:var(--ok-tint)}
+.floor-icon{width:36px;height:36px;border-radius:10px;background:var(--accent-tint);color:var(--accent-text);display:flex;align-items:center;justify-content:center}
+.floor-icon svg{width:19px;height:19px}
+.floor-card.selected .floor-icon{background:var(--surface);color:var(--ok-text)}
+.floor-name{font-size:.92rem;font-weight:600;line-height:1.3}
+.floor-code{display:inline-block;margin-top:.2rem;font-size:.75rem;font-weight:600;color:var(--accent-text);background:var(--accent-tint);padding:1px 7px;border-radius:999px;font-variant-numeric:tabular-nums}
 .floor-submit{display:none}
+.lg-success{display:flex;gap:.5rem;align-items:center}
 
-.user-info{
-  display:flex;
-  align-items:center;
-  gap:.65rem;
-  background:rgba(15, 23, 42, 0.7);
-  border:1px solid rgba(255,255,255,0.12);
-  border-radius:10px;
-  padding:.55rem .85rem;
-  margin-bottom:1rem;
-  font-size:.78rem;
-  color:#94a3b8;
-}
-.user-info strong{color:#ffffff;font-weight:700}
-.user-avatar{
-  width:30px;
-  height:30px;
-  background:linear-gradient(135deg, #f59e0b, #d97706);
-  border-radius:50%;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:.8rem;
-  font-weight:800;
-  color:#000000;
-  flex-shrink:0;
-  box-shadow:0 0 10px rgba(245, 158, 11, 0.3);
-}
-.logout-link{
-  margin-left:auto;
-  font-size:.72rem;
-  color:#f59e0b;
-  text-decoration:none;
-  font-weight:700;
-  padding:3px 8px;
-  border-radius:5px;
-  background:rgba(245, 158, 11, 0.12);
-  border:1px solid rgba(245, 158, 11, 0.25);
-  transition:all .15s ease;
-}
-.logout-link:hover{
-  background:rgba(245, 158, 11, 0.25);
-  color:#ffffff;
+/* Master user modal */
+#master-user-modal-overlay{position:fixed;inset:0;background:rgba(20,17,13,.55);backdrop-filter:blur(3px);z-index:99999;align-items:center;justify-content:center;padding:1rem}
+.lg-modal{width:100%;max-width:520px;max-height:calc(100vh - 2rem);overflow-y:auto;background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:var(--radius-lg);box-shadow:var(--shadow-md)}
+.lg-modal-head{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;border-bottom:1px solid var(--line)}
+.lg-modal-head h3{font-size:1.05rem;font-weight:600}
+.lg-modal-head p{font-size:.8rem;color:var(--text-muted);margin-top:2px}
+.lg-modal-head .btn{margin-left:auto}
+.lg-modal-body{padding:1.1rem 1.25rem 1.25rem}
+.lg-seg{display:flex;padding:3px;border-radius:10px;background:var(--surface-3);border:1px solid var(--line);margin-bottom:1.1rem}
+.lg-seg button{flex:1;height:36px;border:none;border-radius:7px;background:transparent;color:var(--text-soft);font:500 .86rem 'DM Sans',sans-serif;cursor:pointer}
+.lg-seg button.on{background:var(--surface);color:var(--text);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+body.theme-dark .lg-seg button.on{background:var(--line-strong)}
+.lg-grid2{display:grid;grid-template-columns:1fr 1fr;gap:.8rem}
+.lg-modal-foot{display:flex;gap:.6rem;justify-content:flex-end;margin-top:1.25rem}
+
+/* Narrow screens: no brand panel, the card carries the logo */
+@media(max-width:900px){
+  .lg-shell{grid-template-columns:1fr}
+  .lg-brand{display:none}
+  .lg-mobile-mark{display:flex}
+  /* the field photo becomes the page background; the form sits on a card */
+  .lg-side{align-items:center;padding:2rem 1rem;
+    background:linear-gradient(180deg,rgba(20,17,13,.25),rgba(20,17,13,.7)),#14110D url('images/login-tobacco-bales.jpg') center/cover no-repeat}
+  .lg-card{background:var(--surface);padding:1.6rem 1.35rem;border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.35)}
 }
 
-.master-banner{
-  background:linear-gradient(135deg, rgba(245, 158, 11, 0.18) 0%, rgba(16, 185, 129, 0.18) 100%);
-  border:1px solid rgba(245, 158, 11, 0.45);
-  color:#fcd34d;
-  padding:.65rem .85rem;
-  border-radius:10px;
-  margin-bottom:1rem;
-  font-size:.78rem;
-  text-align:center;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap:8px;
-  box-shadow:0 0 16px rgba(245, 158, 11, 0.15);
+@media(max-width:480px){
+  .lg-master-actions,.lg-grid2{grid-template-columns:1fr}
+  .floor-grid{grid-template-columns:1fr 1fr}
+  .lg-head h2{font-size:1.4rem}
 }
 </style>
 </head>
-<body>
+<body class="<?= $lg_theme ? 'theme-' . $lg_theme : '' ?>">
+<?php if (!$lg_theme): ?>
+<script>
+// No saved choice: follow the device's light/dark setting
+if (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) document.body.classList.add('theme-dark');
+</script>
+<?php endif; ?>
+<?php
+$lg_leaf = '<svg viewBox="0 0 24 24" fill="none" stroke="#E2B04A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 20A7 7 0 0 1 4 13c0-5 4-9 16-9 0 12-4 16-9 16z"/><path d="M4 20c4-4 7-6 11-8"/></svg>';
+$lg_ic = function ($n) {
+    $p = [
+        'user'  => '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/>',
+        'lock'  => '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+        'eye'   => '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+        'alert' => '<path d="M12 3 2 21h20z"/><path d="M12 10v5M12 18h.01"/>',
+        'check' => '<path d="M20 6 9 17l-5-5"/>',
+        'scale' => '<path d="M12 3v18M6 21h12M5 7h14"/><path d="m5 7-3 7a3 3 0 0 0 6 0zM19 7l-3 7a3 3 0 0 0 6 0z"/>',
+        'floor' => '<path d="M3 21h18M5 21V8l7-5 7 5v13"/><path d="M9 21v-6h6v6"/>',
+        'crown' => '<path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/>',
+        'users' => '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6.5 6.5-6.5s6.5 2.9 6.5 6.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 13.7c2 .9 3.5 3 3.5 6.3"/>',
+        'plus'  => '<path d="M12 5v14M5 12h14"/>',
+        'key'   => '<circle cx="8" cy="15" r="4"/><path d="m10.8 12.2 9.2-9.2M17 6l3 3M14 9l2 2"/>',
+        'x'     => '<path d="M18 6 6 18M6 6l12 12"/>',
+        'chart' => '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+        'shield'=> '<path d="M12 3 4 6v6c0 5 3.4 8.4 8 9 4.6-.6 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/>',
+    ][$n] ?? '';
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . $p . '</svg>';
+};
+?>
+<div class="lg-shell">
+  <aside class="lg-brand" aria-hidden="true">
+    <div class="lg-mark"><span class="dot"><?= $lg_leaf ?></span><span>Flowork</span></div>
+    <div class="lg-hero">
+      <h1>Tobacco floor management, from booking to payment.</h1>
+      <p>Book growers, weigh and sell bales, balance deliveries and pay growers, all on one floor system.</p>
+      <ul class="lg-points">
+        <li><?= $lg_ic('scale') ?> Weighing, ticketing and selling on the floor</li>
+        <li><?= $lg_ic('chart') ?> Balancing, stop orders and grower payments</li>
+        <li><?= $lg_ic('shield') ?> Per-floor access with two-factor sign-in</li>
+      </ul>
+    </div>
+    <div class="lg-brand-foot"><span>© <?= date('Y') ?> Core Africa Group</span></div>
+  </aside>
 
+  <main class="lg-side">
 <?php if ($step === 'login'): ?>
-<!-- ═══════════════════════════════════════════════════════ LOGIN ═══════ -->
-<div class="box box-login">
-  <div class="bh">
-    <div class="bh-icon">🌿</div>
-    <h1>FLOWORK</h1>
-    <p>Tobacco Floor Management System</p>
-  </div>
-  <div class="bb">
-    <?php if ($err): ?>
-    <div class="err"><?=htmlspecialchars($err)?></div>
-    <?php endif; ?>
-
-    <form method="POST">
-      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
-      <div class="form-group">
-        <label>Username</label>
-        <input type="text" name="username" value="<?=htmlspecialchars($_POST['username']??'')?>"
-               autofocus autocomplete="username" required placeholder="Enter your username">
+    <div class="lg-card">
+      <div class="lg-mark lg-mobile-mark"><span class="dot"><?= $lg_leaf ?></span><span>Flowork</span></div>
+      <div class="lg-head">
+        <h2>Sign in</h2>
+        <p>Welcome back. Enter your username and password.</p>
       </div>
-      <div class="form-group">
-        <label>Password</label>
-        <input type="password" name="password" autocomplete="current-password" required placeholder="••••••••">
-      </div>
-      <button type="submit" class="btn">Sign In &rarr;</button>
-    </form>
+      <div class="lg-body">
+        <?php if ($err): ?>
+        <div class="alert alert-danger lg-alert" role="alert"><?= $lg_ic('alert') ?><span><?= htmlspecialchars($err) ?></span></div>
+        <?php endif; ?>
 
-    <div class="footer">Flowork &copy; <?=date('Y')?> &middot; Core Africa Group</div>
-  </div>
-</div>
-
-<?php elseif ($step === 'choose_floor'): ?>
-<!-- ════════════════════════════════════════════════════ CHOOSE FLOOR ═══ -->
-<?php $floors = $_SESSION['accessible_floors'] ?? []; ?>
-<div class="box box-floor">
-  <div class="bh">
-    <div class="bh-icon">🏭</div>
-    <h1>SELECT FLOOR</h1>
-    <p>Choose your active auction floor to continue</p>
-  </div>
-  <div class="bb">
-
-    <?php if ($err): ?>
-    <div class="err"><?=htmlspecialchars($err)?></div>
-    <?php endif; ?>
-
-    <?php if (is_master_user()): ?>
-    <div class="master-banner">
-      <span style="font-size:1.2rem">👑</span>
-      <div>
-        <strong style="color:#fcd34d">Master User Logged In</strong>
-        <div style="font-size:.72rem;color:#cbd5e1;margin-top:2px">Unrestricted access to manage users and monitor all floors</div>
-      </div>
-    </div>
-
-    <?php if (!empty($success_msg)): ?>
-    <div style="background:rgba(16,185,129,0.2);color:#6ee7b7;border:1px solid #10b981;padding:.75rem 1rem;border-radius:10px;font-size:.85rem;font-weight:600;margin-bottom:1.25rem;display:flex;align-items:center;gap:8px;box-shadow:0 0 15px rgba(16,185,129,0.2)">
-      <span style="font-size:1.1rem">✓</span> <?= htmlspecialchars($success_msg) ?>
-    </div>
-    <?php endif; ?>
-
-    <!-- Master Pre-Floor User Management Actions -->
-    <div style="display:flex;gap:12px;margin-bottom:1.25rem">
-      <button type="button" onclick="openMasterUserModal()" style="background:linear-gradient(135deg, #f59e0b 0%, #d97706 100%);color:#000000;font-size:.9rem;padding:.8rem 1.1rem;flex:1;border-radius:10px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid #fbbf24;box-shadow:0 4px 20px rgba(245, 158, 11, 0.4);letter-spacing:.02em;transition:all 0.2s">
-        <span style="font-size:1.1rem">➕</span> Create / Edit User Modal
-      </button>
-      <a href="users.php" style="background:linear-gradient(135deg, rgba(30, 58, 138, 0.7) 0%, rgba(14, 165, 233, 0.35) 100%);border:1px solid #0284c7;color:#38bdf8;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:8px;font-size:.9rem;padding:.8rem 1.1rem;flex:1;border-radius:10px;font-weight:800;box-shadow:0 4px 20px rgba(2, 132, 199, 0.35);transition:all 0.2s">
-        <span style="font-size:1.1rem">👥</span> Full User Directory &rarr;
-      </a>
-    </div>
-
-    <!-- Interactive Pop-up Modal for Master User Pre-Floor User Creation & Editing -->
-    <div id="master-user-modal-overlay" style="display:<?= (!empty($_POST['action']) && $_POST['action']==='quick_create_user' && $err) ? 'flex' : 'none' ?>;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(5,8,17,0.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);z-index:99999;align-items:center;justify-content:center;padding:1rem">
-      <div style="background:linear-gradient(145deg, #0d1322 0%, #151d30 50%, #080c16 100%);border:1.5px solid #f59e0b;border-radius:18px;width:100%;max-width:510px;padding:1.75rem;box-shadow:0 30px 90px rgba(0,0,0,0.95), 0 0 40px rgba(245,158,11,0.35);box-sizing:border-box">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.1rem;background:rgba(15,23,42,0.8);padding:.85rem 1.1rem;margin:-1.75rem -1.75rem 1.25rem -1.75rem;border-bottom:1.5px solid #f59e0b;border-radius:16px 16px 0 0">
-          <div style="display:flex;align-items:center;gap:10px">
-            <span style="font-size:1.4rem">👑</span>
-            <div>
-              <h3 id="modal-title-text" style="font-size:1.05rem;color:#fcd34d;margin:0;font-weight:800;letter-spacing:.02em">Create / Edit User</h3>
-              <div style="font-size:.72rem;color:#cbd5e1;margin-top:2px">Pre-Floor System User Management</div>
+        <form method="POST" id="login-form" novalidate>
+          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
+          <div class="lg-field">
+            <label for="lg-username">Username</label>
+            <div class="lg-input">
+              <?= $lg_ic('user') ?>
+              <input type="text" id="lg-username" name="username" class="form-control" value="<?= htmlspecialchars($_POST['username'] ?? '') ?>"
+                     <?= empty($_POST['username']) ? 'autofocus' : '' ?> autocomplete="username" autocapitalize="none" spellcheck="false" required placeholder="Your username">
             </div>
           </div>
-          <button type="button" onclick="closeMasterUserModal()" style="background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2);color:#ffffff;width:34px;height:34px;border-radius:50%;font-size:1.3rem;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;font-weight:700">&times;</button>
+          <div class="lg-field">
+            <label for="lg-password">Password</label>
+            <div class="lg-input has-toggle">
+              <?= $lg_ic('lock') ?>
+              <input type="password" id="lg-password" name="password" class="form-control" autocomplete="current-password" required
+                     <?= !empty($_POST['username']) ? 'autofocus' : '' ?> placeholder="Your password">
+              <button type="button" class="lg-eye" id="lg-eye" aria-label="Show password" aria-pressed="false"><?= $lg_ic('eye') ?></button>
+            </div>
+            <div class="lg-caps" id="lg-caps" role="status"><?= $lg_ic('alert') ?> Caps Lock is on</div>
+          </div>
+          <button type="submit" class="btn btn-primary lg-submit" id="lg-submit">Sign in</button>
+        </form>
+
+        <p class="lg-foot">Trouble signing in? Ask your floor administrator to reset your password.</p>
+      </div>
+    </div>
+
+<?php elseif ($step === 'choose_floor'): ?>
+<?php $floors = $_SESSION['accessible_floors'] ?? []; ?>
+    <div class="lg-card wide">
+      <div class="lg-mark lg-mobile-mark"><span class="dot"><?= $lg_leaf ?></span><span>Flowork</span></div>
+      <div class="lg-head">
+        <h2>Choose a floor</h2>
+        <p>Pick the auction floor you are working on today.</p>
+      </div>
+      <div class="lg-body">
+        <?php if ($err): ?>
+        <div class="alert alert-danger lg-alert" role="alert"><?= $lg_ic('alert') ?><span><?= htmlspecialchars($err) ?></span></div>
+        <?php endif; ?>
+
+        <div class="lg-user">
+          <div class="lg-avatar" aria-hidden="true"><?= htmlspecialchars(strtoupper(substr($_SESSION['username'] ?? '?', 0, 1))) ?></div>
+          <div>
+            Signed in as <strong><?= htmlspecialchars($_SESSION['username'] ?? '') ?></strong>
+            <?php if (is_master_user()): ?><span class="badge badge-gold">Master user</span>
+            <?php elseif ($_SESSION['is_admin'] ?? 0): ?><span class="badge badge-blue">Admin</span><?php endif; ?>
+          </div>
+          <a href="logout.php" class="btn btn-ghost btn-sm">Sign out</a>
         </div>
 
-        <div style="display:flex;gap:8px;margin-bottom:1.25rem;padding:5px;background:#050811;border-radius:10px;border:1px solid rgba(245,158,11,0.3)">
-          <button type="button" id="modal-tab-btn-create" onclick="setModalMode('create')" style="flex:1;padding:.65rem .75rem;font-size:.85rem;font-weight:800;border-radius:8px;border:1.5px solid #fbbf24;cursor:pointer;background:linear-gradient(135deg, #f59e0b, #d97706);color:#000000 !important;box-shadow:0 4px 14px rgba(245, 158, 11, 0.45)">➕ Create User</button>
-          <button type="button" id="modal-tab-btn-edit" onclick="setModalMode('edit')" style="flex:1;padding:.65rem .75rem;font-size:.85rem;font-weight:800;border-radius:8px;border:1.5px solid rgba(255,255,255,0.15);cursor:pointer;background:rgba(30,41,59,0.7);color:#ffffff !important">✏ Edit Existing User</button>
+        <?php if (is_master_user()): ?>
+        <div class="lg-master">
+          <?= $lg_ic('crown') ?>
+          <div><strong>Master user</strong><span>You can manage users and see every floor.</span></div>
         </div>
 
-        <?php if (!empty($err) && !empty($_POST['action']) && $_POST['action']==='quick_create_user'): ?>
-        <div style="background:rgba(239,68,68,0.2);border:1.5px solid #ef4444;color:#fca5a5;padding:.7rem .9rem;border-radius:8px;font-size:.85rem;font-weight:700;margin-bottom:1.1rem">
-          <?= htmlspecialchars($err) ?>
+        <?php if (!empty($success_msg)): ?>
+        <div class="alert alert-success lg-success" role="status"><?= $lg_ic('check') ?> <?= htmlspecialchars($success_msg) ?></div>
+        <?php endif; ?>
+
+        <div class="lg-master-actions">
+          <button type="button" class="btn btn-ghost" onclick="openMasterUserModal()"><?= $lg_ic('plus') ?> Create or edit a user</button>
+          <a href="users.php" class="btn btn-ghost"><?= $lg_ic('users') ?> All users</a>
+        </div>
+
+        <!-- Master user: create / edit a user before choosing a floor -->
+        <div id="master-user-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title-text"
+             style="display:<?= (!empty($_POST['action']) && $_POST['action'] === 'quick_create_user' && $err) ? 'flex' : 'none' ?>">
+          <div class="lg-modal">
+            <div class="lg-modal-head">
+              <div>
+                <h3 id="modal-title-text">Create a user</h3>
+                <p>Manage users before choosing a floor</p>
+              </div>
+              <button type="button" class="btn btn-ghost btn-sm btn-icon" onclick="closeMasterUserModal()" aria-label="Close"><?= $lg_ic('x') ?></button>
+            </div>
+            <div class="lg-modal-body">
+              <div class="lg-seg" role="tablist" aria-label="Create or edit">
+                <button type="button" id="modal-tab-btn-create" class="on" onclick="setModalMode('create')" role="tab" aria-selected="true">Create user</button>
+                <button type="button" id="modal-tab-btn-edit" onclick="setModalMode('edit')" role="tab" aria-selected="false">Edit existing user</button>
+              </div>
+
+              <?php if (!empty($err) && !empty($_POST['action']) && $_POST['action'] === 'quick_create_user'): ?>
+              <div class="alert alert-danger lg-alert" role="alert"><?= $lg_ic('alert') ?><span><?= htmlspecialchars($err) ?></span></div>
+              <?php endif; ?>
+
+              <form method="POST" id="modal-user-form">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
+                <input type="hidden" name="action" value="quick_create_user">
+                <input type="hidden" name="edit_userid" id="modal-edit-userid" value="0">
+                <?php
+                $sp_map_login = [];
+                foreach ($floors as $fl_item) { $sp_map_login[(int)$fl_item['id']] = $fl_item['name']; }
+                ?>
+                <div id="modal-user-picker-wrapper" class="form-group" style="display:none">
+                  <label for="modal-user-picker">User to edit</label>
+                  <select id="modal-user-picker" onchange="onSelectUserToEdit(this.value)" class="form-control">
+                    <option value="">Choose a user…</option>
+                    <?php foreach ($all_sys_users as $su):
+                      $su_spid = (int)($su['selling_pointid'] ?? 0);
+                      $fl_desc = (!empty($su['is_master']) || $su['role'] === 'master') ? 'Master user' : ($sp_map_login[$su_spid] ?? ($su_spid > 0 ? "Floor #$su_spid" : 'All floors'));
+                    ?>
+                    <option value="<?= $su['id'] ?>"><?= htmlspecialchars($su['username']) ?> (<?= htmlspecialchars($su['full_name'] ?: ucfirst($su['role'])) ?> · <?= htmlspecialchars($fl_desc) ?>)</option>
+                    <?php endforeach; ?>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="modal-input-username">Username</label>
+                  <input type="text" name="username" id="modal-input-username" class="form-control" required placeholder="e.g. jmoyo" autocomplete="off">
+                </div>
+                <div class="form-group">
+                  <label for="modal-input-fullname">Full name</label>
+                  <input type="text" name="full_name" id="modal-input-fullname" class="form-control" placeholder="e.g. John Moyo" autocomplete="off">
+                </div>
+                <div class="lg-grid2">
+                  <div class="form-group">
+                    <label for="modal-role-select">Role</label>
+                    <select name="role" id="modal-role-select" onchange="onModalRoleChange(this.value)" class="form-control">
+                      <option value="clerk">Floor clerk</option>
+                      <option value="manager">Floor manager</option>
+                      <option value="accounts">Accounts officer</option>
+                      <option value="master">Master user (all floors)</option>
+                      <option value="admin">Administrator</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="modal-sp-select">Floor</label>
+                    <select name="selling_pointid" id="modal-sp-select" class="form-control">
+                      <option value="0">All floors</option>
+                      <?php foreach ($floors as $fl_item): ?>
+                      <option value="<?= $fl_item['id'] ?>"><?= htmlspecialchars($fl_item['name']) ?></option>
+                      <?php endforeach; ?>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="modal-input-password" id="modal-label-password">Initial password</label>
+                  <input type="text" name="password" id="modal-input-password" class="form-control" value="" placeholder="Leave blank to generate one" autocomplete="new-password">
+                </div>
+                <div class="lg-modal-foot">
+                  <button type="button" class="btn btn-ghost" onclick="closeMasterUserModal()">Cancel</button>
+                  <button type="submit" id="modal-btn-submit" class="btn btn-primary">Create user</button>
+                </div>
+              </form>
+            </div>
+          </div>
         </div>
         <?php endif; ?>
 
-        <form method="POST" id="modal-user-form">
+        <form method="POST" id="floor-form">
           <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
-          <input type="hidden" name="action" value="quick_create_user">
-          <input type="hidden" name="edit_userid" id="modal-edit-userid" value="0">
-
-          <?php
-          $sp_map_login = [];
-          foreach ($floors as $fl_item) { $sp_map_login[(int)$fl_item['id']] = $fl_item['name']; }
-          ?>
-          <div id="modal-user-picker-wrapper" style="display:none;margin-bottom:1rem">
-            <label style="font-size:.75rem;color:#fcd34d;font-weight:800;display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">Select Existing User to Edit *</label>
-            <select id="modal-user-picker" onchange="onSelectUserToEdit(this.value)" class="form-control" style="font-size:.88rem;padding:.65rem .85rem;width:100%;border-radius:8px;border:1.5px solid #f59e0b;background:#0f172a;color:#ffffff;font-weight:700">
-              <option value="" style="background:#0f172a;color:#ffffff">-- Choose User --</option>
-              <?php foreach ($all_sys_users as $su):
-                $su_spid = (int)($su['selling_pointid'] ?? 0);
-                $fl_desc = (!empty($su['is_master']) || $su['role']==='master') ? '👑 Master User' : ($sp_map_login[$su_spid] ?? ($su_spid > 0 ? "Floor #$su_spid" : '🌐 All Floors'));
-              ?>
-              <option value="<?= $su['id'] ?>" style="background:#0f172a;color:#ffffff"><?= htmlspecialchars($su['username']) ?> (<?= htmlspecialchars($su['full_name'] ?: ucfirst($su['role'])) ?> &middot; <?= htmlspecialchars($fl_desc) ?>)</option>
-              <?php endforeach; ?>
-            </select>
+          <input type="hidden" name="selling_pointid" id="chosen-spid" value="">
+          <div class="floor-grid" role="list">
+            <?php foreach ($floors as $f): ?>
+            <button type="button" class="floor-card" role="listitem" onclick="selectFloor(<?= (int)$f['id'] ?>, this)">
+              <span class="floor-icon"><?= $lg_ic('floor') ?></span>
+              <span>
+                <span class="floor-name"><?= htmlspecialchars($f['name']) ?></span>
+                <?php if (!empty($f['floor_code'])): ?><br><span class="floor-code"><?= htmlspecialchars($f['floor_code']) ?></span><?php endif; ?>
+              </span>
+            </button>
+            <?php endforeach; ?>
           </div>
-
-          <div class="form-group" style="margin-bottom:1rem">
-            <label style="font-size:.75rem;color:#cbd5e1;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em">Username *</label>
-            <input type="text" name="username" id="modal-input-username" class="form-control" required placeholder="e.g. jmoyo" style="font-size:.9rem;padding:.65rem .85rem;width:100%;border-radius:8px;border:1.5px solid rgba(245,158,11,0.4);background:#0f172a;color:#ffffff;font-weight:600">
-          </div>
-
-          <div class="form-group" style="margin-bottom:1rem">
-            <label style="font-size:.75rem;color:#cbd5e1;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em">Full Name</label>
-            <input type="text" name="full_name" id="modal-input-fullname" class="form-control" placeholder="John Moyo" style="font-size:.9rem;padding:.65rem .85rem;width:100%;border-radius:8px;border:1.5px solid rgba(245,158,11,0.4);background:#0f172a;color:#ffffff;font-weight:600">
-          </div>
-
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
-            <div>
-              <label style="font-size:.75rem;color:#cbd5e1;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em">System Role</label>
-              <select name="role" id="modal-role-select" onchange="onModalRoleChange(this.value)" class="form-control" style="font-size:.88rem;padding:.65rem .85rem;width:100%;border-radius:8px;border:1.5px solid rgba(245,158,11,0.4);background:#0f172a;color:#ffffff;font-weight:700">
-                <option value="clerk" style="background:#0f172a;color:#ffffff">Floor Clerk</option>
-                <option value="manager" style="background:#0f172a;color:#ffffff">Floor Manager</option>
-                <option value="accounts" style="background:#0f172a;color:#ffffff">Accounts Officer</option>
-                <option value="master" style="background:#0f172a;color:#ffffff">Master User (All Floors Access)</option>
-                <option value="admin" style="background:#0f172a;color:#ffffff">Administrator</option>
-              </select>
-            </div>
-            <div>
-              <label style="font-size:.75rem;color:#cbd5e1;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em">Floor Dedication</label>
-              <select name="selling_pointid" id="modal-sp-select" class="form-control" style="font-size:.88rem;padding:.65rem .85rem;width:100%;border-radius:8px;border:1.5px solid rgba(245,158,11,0.4);background:#0f172a;color:#ffffff;font-weight:700">
-                <option value="0" style="background:#0f172a;color:#ffffff">🌐 All Floors (Master)</option>
-                <?php foreach ($floors as $fl_item): ?>
-                <option value="<?= $fl_item['id'] ?>" style="background:#0f172a;color:#ffffff">🔒 Floor: <?= htmlspecialchars($fl_item['name']) ?></option>
-                <?php endforeach; ?>
-              </select>
-            </div>
-          </div>
-
-          <div class="form-group" style="margin-bottom:1.5rem">
-            <label style="font-size:.75rem;color:#cbd5e1;font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em" id="modal-label-password">Initial Password</label>
-            <input type="text" name="password" id="modal-input-password" class="form-control" value="" placeholder="Leave blank to generate one" style="font-size:.9rem;padding:.65rem .85rem;width:100%;border-radius:8px;border:1.5px solid rgba(245,158,11,0.4);background:#0f172a;color:#ffffff;font-weight:600">
-          </div>
-
-          <div style="display:flex;gap:12px;justify-content:flex-end">
-            <button type="button" onclick="closeMasterUserModal()" style="padding:.7rem 1.4rem;background:rgba(255,255,255,0.12);color:#ffffff !important;border:1px solid rgba(255,255,255,0.2);border-radius:8px;cursor:pointer;font-weight:700;font-size:.88rem">Cancel</button>
-            <button type="submit" id="modal-btn-submit" style="padding:.7rem 1.6rem;background:linear-gradient(135deg, #10b981 0%, #059669 100%);color:#ffffff !important;border:none;border-radius:8px;font-weight:800;font-size:.92rem;box-shadow:0 4px 18px rgba(16,185,129,0.45);cursor:pointer;text-shadow:0 1px 2px rgba(0,0,0,0.5)">Create User &rarr;</button>
-          </div>
+          <button type="submit" id="floor-btn" class="btn floor-submit">Enter floor</button>
         </form>
+
+        <p class="lg-foot">Choose a floor to continue.</p>
       </div>
     </div>
-    <?php endif; ?>
-
-    <!-- User info bar -->
-    <div class="user-info">
-      <div class="user-avatar"><?=strtoupper(substr($_SESSION['username']??'?',0,1))?></div>
-      <div>
-        Signed in as <strong><?=htmlspecialchars($_SESSION['username']??'')?></strong>
-        <?php if(is_master_user()):?>
-        <span style="font-size:.68rem;background:linear-gradient(135deg,#f59e0b,#d97706);color:#000000;font-weight:800;padding:3px 10px;border-radius:12px;margin-left:6px;letter-spacing:.04em">👑 MASTER USER</span>
-        <?php elseif($_SESSION['is_admin']??0):?>
-        <span style="font-size:.68rem;background:#0284c7;color:#fff;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:6px">ADMIN</span>
-        <?php endif;?>
-      </div>
-      <a href="logout.php" class="logout-link">&larr; Sign out</a>
-    </div>
-
-    <form method="POST" id="floor-form">
-      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
-      <input type="hidden" name="selling_pointid" id="chosen-spid" value="">
-
-      <div class="floor-grid">
-        <?php foreach ($floors as $f): ?>
-        <div class="floor-card" onclick="selectFloor(<?=(int)$f['id']?>, this)">
-          <div class="floor-icon">🏛</div>
-          <div>
-            <div class="floor-name"><?=htmlspecialchars($f['name'])?></div>
-            <?php if(!empty($f['floor_code'])):?>
-            <div class="floor-code"><?=htmlspecialchars($f['floor_code'])?></div>
-            <?php endif;?>
-          </div>
-        </div>
-        <?php endforeach; ?>
-      </div>
-
-      <button type="submit" id="floor-btn" class="btn floor-submit" style="display:none">
-        Enter Floor &rarr;
-      </button>
-    </form>
-
-    <div class="footer">Click a floor above to continue &middot; Flowork &copy; <?=date('Y')?></div>
-  </div>
-</div>
 
 <script>
-var ALL_SYS_USERS = <?= json_encode($all_sys_users) ?>;
+var ALL_SYS_USERS = <?= json_encode($all_sys_users ?? []) ?>;
 
 function openMasterUserModal(mode) {
     var modal = document.getElementById('master-user-modal-overlay');
     if (modal) { modal.style.display = 'flex'; }
     setModalMode(mode || 'create');
+    var u = document.getElementById('modal-input-username'); if (u) u.focus();
 }
 function closeMasterUserModal() {
     var modal = document.getElementById('master-user-modal-overlay');
     if (modal) { modal.style.display = 'none'; }
 }
-
 function setModalMode(mode) {
     var btnCreate = document.getElementById('modal-tab-btn-create');
     var btnEdit   = document.getElementById('modal-tab-btn-edit');
@@ -752,109 +626,117 @@ function setModalMode(mode) {
     var passLabel = document.getElementById('modal-label-password');
     var passInput = document.getElementById('modal-input-password');
     var btnSubmit = document.getElementById('modal-btn-submit');
-
-    if (mode === 'edit') {
-        if(btnCreate) { btnCreate.style.background='rgba(30,41,59,0.7)'; btnCreate.style.color='#ffffff'; btnCreate.style.border='1.5px solid rgba(255,255,255,0.15)'; btnCreate.style.boxShadow='none'; }
-        if(btnEdit)   { btnEdit.style.background='linear-gradient(135deg, #f59e0b, #d97706)'; btnEdit.style.color='#000000'; btnEdit.style.border='1.5px solid #fbbf24'; btnEdit.style.boxShadow='0 4px 14px rgba(245,158,11,0.45)'; }
-        if(pickerWrap) pickerWrap.style.display = 'block';
-        if(titleText)  titleText.textContent = '✏ Edit Existing User';
-        if(passLabel)  passLabel.textContent = 'New Password (leave blank = unchanged)';
-        if(passInput) { passInput.value = ''; passInput.placeholder = 'Leave blank to keep current'; }
-        if(btnSubmit)  btnSubmit.textContent = 'Update User →';
-    } else {
-        if(btnCreate) { btnCreate.style.background='linear-gradient(135deg, #f59e0b, #d97706)'; btnCreate.style.color='#000000'; btnCreate.style.border='1.5px solid #fbbf24'; btnCreate.style.boxShadow='0 4px 14px rgba(245,158,11,0.45)'; }
-        if(btnEdit)   { btnEdit.style.background='rgba(30,41,59,0.7)'; btnEdit.style.color='#ffffff'; btnEdit.style.border='1.5px solid rgba(255,255,255,0.15)'; btnEdit.style.boxShadow='none'; }
-        if(pickerWrap) pickerWrap.style.display = 'none';
-        if(editId)     editId.value = '0';
-        if(titleText)  titleText.textContent = '➕ Create New User';
-        if(passLabel)  passLabel.textContent = 'Initial Password';
-        if(passInput) { passInput.value = ''; passInput.placeholder = 'Leave blank to generate one'; }
-        if(btnSubmit)  btnSubmit.textContent = 'Create User →';
-
+    if (!btnCreate) return;
+    var edit = mode === 'edit';
+    btnCreate.classList.toggle('on', !edit); btnCreate.setAttribute('aria-selected', !edit);
+    btnEdit.classList.toggle('on', edit);    btnEdit.setAttribute('aria-selected', edit);
+    pickerWrap.style.display = edit ? 'block' : 'none';
+    titleText.textContent = edit ? 'Edit a user' : 'Create a user';
+    passLabel.textContent = edit ? 'New password (leave blank to keep the current one)' : 'Initial password';
+    passInput.value = '';
+    passInput.placeholder = edit ? 'Leave blank to keep the current one' : 'Leave blank to generate one';
+    btnSubmit.textContent = edit ? 'Update user' : 'Create user';
+    if (!edit) {
+        editId.value = '0';
         document.getElementById('modal-input-username').value = '';
         document.getElementById('modal-input-fullname').value = '';
         document.getElementById('modal-role-select').value = 'clerk';
         document.getElementById('modal-sp-select').value = '0';
     }
 }
-
 function onSelectUserToEdit(uidStr) {
     var uid = parseInt(uidStr || 0);
     if (!uid) return;
     var user = ALL_SYS_USERS.find(function(u){ return parseInt(u.id) === uid; });
     if (!user) return;
-
-    document.getElementById('modal-edit-userid').value   = user.id;
+    document.getElementById('modal-edit-userid').value    = user.id;
     document.getElementById('modal-input-username').value = user.username || '';
     document.getElementById('modal-input-fullname').value = user.full_name || '';
-    document.getElementById('modal-role-select').value   = user.role || 'clerk';
-    document.getElementById('modal-sp-select').value     = user.selling_pointid || 0;
+    document.getElementById('modal-role-select').value    = user.role || 'clerk';
+    document.getElementById('modal-sp-select').value      = user.selling_pointid || 0;
     document.getElementById('modal-input-password').value = '';
 }
-
 function onModalRoleChange(role) {
     var spSelect = document.getElementById('modal-sp-select');
-    if (spSelect && (role === 'master' || role === 'admin')) {
-        spSelect.value = '0';
-    }
+    if (spSelect && (role === 'master' || role === 'admin')) spSelect.value = '0';
 }
-
-// Close modal on Escape key or clicking backdrop
-window.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') closeMasterUserModal();
-});
+window.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeMasterUserModal(); });
 document.addEventListener('click', function(e) {
     var modal = document.getElementById('master-user-modal-overlay');
     if (modal && e.target === modal) closeMasterUserModal();
 });
-
 function selectFloor(id, card) {
-    document.querySelectorAll('.floor-card').forEach(function(c){c.classList.remove('selected');});
+    document.querySelectorAll('.floor-card').forEach(function(c){ c.classList.remove('selected'); c.disabled = true; });
     card.classList.add('selected');
     document.getElementById('chosen-spid').value = id;
-    // Auto-submit after brief visual confirmation
-    setTimeout(function(){
-        document.getElementById('floor-form').submit();
-    }, 300);
+    // brief visual confirmation, then continue
+    setTimeout(function(){ document.getElementById('floor-form').submit(); }, 250);
 }
 </script>
 
 <?php elseif ($step === 'activate_license'): ?>
-<!-- ════════════════════════════════════════════════════ ACTIVATE LICENSE ═══ -->
-<div class="box box-login">
-  <div class="bh" style="background: linear-gradient(135deg, #1a1208, #2a0b0b);">
-    <div class="bh-icon" style="background: #c0392b;">🔑</div>
-    <h1>LICENSE REQUIRED</h1>
-    <p>Activate subscription for <?= htmlspecialchars($target_floor_name) ?></p>
-  </div>
-  <div class="bb">
-    <?php if ($err): ?>
-    <div class="err"><?=htmlspecialchars($err)?></div>
-    <?php endif; ?>
-
-    <p style="font-size:0.8rem; color:#666; margin-bottom:1.2rem; text-align:center; line-height:1.4">
-      The software license for this auction floor has expired or is currently inactive. Please input a valid platform license key to reactivate.
-    </p>
-
-    <form method="POST">
-      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
-      <input type="hidden" name="activate_spid" value="<?= (int)$target_floor_id ?>">
-      <div class="form-group">
-        <label>Platform License Key</label>
-        <input type="text" name="license_key" required placeholder="FL-XXXX-XXXX-XXXX" 
-               style="text-align:center; letter-spacing:0.1em; font-family:monospace" autofocus autocomplete="off">
+    <div class="lg-card">
+      <div class="lg-mark lg-mobile-mark"><span class="dot"><?= $lg_leaf ?></span><span>Flowork</span></div>
+      <div class="lg-head">
+        <h2>License required</h2>
+        <p>Activate the subscription for <strong><?= htmlspecialchars($target_floor_name ?? '') ?></strong>.</p>
       </div>
-      <button type="submit" class="btn" style="background:#3d6b35">Activate License &rarr;</button>
-    </form>
-    
-    <div style="text-align:center; margin-top: 1rem;">
-      <a href="login.php" style="font-size:0.75rem; color:#c8952a; text-decoration:none;">&larr; Back to login</a>
+      <div class="lg-body">
+        <?php if ($err): ?>
+        <div class="alert alert-danger lg-alert" role="alert"><?= $lg_ic('alert') ?><span><?= htmlspecialchars($err) ?></span></div>
+        <?php endif; ?>
+        <div class="alert alert-gold lg-alert"><?= $lg_ic('key') ?><span>This floor's software license has expired or is inactive. Enter a valid license key to reactivate it.</span></div>
+        <form method="POST">
+          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
+          <input type="hidden" name="activate_spid" value="<?= (int)($target_floor_id ?? 0) ?>">
+          <div class="lg-field">
+            <label for="lg-license">License key</label>
+            <div class="lg-input">
+              <?= $lg_ic('key') ?>
+              <input type="text" id="lg-license" name="license_key" class="form-control" required placeholder="FL-XXXX-XXXX-XXXX"
+                     style="letter-spacing:.08em;font-family:ui-monospace,monospace" autofocus autocomplete="off" autocapitalize="characters" spellcheck="false">
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary lg-submit">Activate license</button>
+        </form>
+        <p class="lg-foot"><a href="login.php" class="lg-link">Back to sign in</a></p>
+      </div>
     </div>
-
-    <div class="footer">Flowork &copy; <?=date('Y')?> &middot; Core Africa Group</div>
-  </div>
-</div>
 <?php endif; ?>
+  </main>
+</div>
 
+<script>
+// Sign-in helpers: show/hide password, Caps Lock warning, one submit only
+(function(){
+    var pw = document.getElementById('lg-password'), eye = document.getElementById('lg-eye');
+    if (pw && eye) {
+        eye.addEventListener('click', function(){
+            var show = pw.type === 'password';
+            pw.type = show ? 'text' : 'password';
+            eye.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+            eye.setAttribute('aria-pressed', show ? 'true' : 'false');
+            pw.focus();
+        });
+        var caps = document.getElementById('lg-caps');
+        var check = function(e){ if (e.getModifierState) caps.classList.toggle('on', e.getModifierState('CapsLock')); };
+        pw.addEventListener('keydown', check); pw.addEventListener('keyup', check);
+        pw.addEventListener('blur', function(){ caps.classList.remove('on'); });
+    }
+    var form = document.getElementById('login-form'), btn = document.getElementById('lg-submit');
+    if (form && btn) {
+        form.addEventListener('submit', function(e){
+            var u = document.getElementById('lg-username'), p = document.getElementById('lg-password');
+            if (!u.value.trim()) { e.preventDefault(); u.focus(); return; }
+            if (!p.value)        { e.preventDefault(); p.focus(); return; }
+            if (btn.disabled)    { e.preventDefault(); return; }
+            btn.disabled = true;
+            btn.innerHTML = '<span class="fw-spinner" aria-hidden="true"></span> Signing in…';
+        });
+    }
+    // Coming back with the browser's Back button: re-enable the button
+    window.addEventListener('pageshow', function(){ if (btn) { btn.disabled = false; btn.textContent = 'Sign in'; } });
+})();
+</script>
 </body>
 </html>

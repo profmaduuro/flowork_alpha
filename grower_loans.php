@@ -228,20 +228,20 @@ if(isset($_GET['export'])){
     </form>
   </div>
 </div>
-<div class="table-wrap" style="max-height:440px;overflow-y:auto"><table>
+<div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto"><table>
 <thead><tr><th>Grower</th><th>Type</th><th class="text-right">Amount</th><th class="text-right">Repaid</th><th class="text-right">Outstanding</th><th>Status</th><th></th></tr></thead>
 <tbody>
 <?php foreach($loans as $l): $out=max(0,(float)$l['outstanding']);?>
 <tr>
-  <td><span class="badge badge-gold" style="font-size:.6rem"><?=htmlspecialchars($l['grower_num'])?></span><div style="font-size:.7rem"><?=htmlspecialchars(trim($l['name'].' '.$l['surname']))?></div></td>
-  <td><span class="badge badge-gray" style="font-size:.58rem"><?=strtoupper(str_replace('_',' ',$l['loan_type']))?></span></td>
+  <td><span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($l['grower_num'])?></span><div style="font-size:.7rem"><?=htmlspecialchars(trim($l['name'].' '.$l['surname']))?></div></td>
+  <td><span class="badge badge-gray" style="font-size:.72rem"><?=strtoupper(str_replace('_',' ',$l['loan_type']))?></span></td>
   <td class="td-mono text-right"><?=$l['currency']==='zig'?'ZiG ':'$'?><?=number_format((float)$l['amount'],2)?></td>
   <td class="td-mono text-right text-leaf"><?=$l['currency']==='zig'?'ZiG ':'$'?><?=number_format((float)$l['total_repaid'],2)?></td>
   <td class="td-mono text-right <?=$out>0?'text-gold':''?>"><?=$out>0?('$'.number_format($out,2)):'—'?></td>
-  <td><span class="badge <?=$STATUS_COLORS[$l['status']]?>" style="font-size:.6rem"><?=ucwords(str_replace('_',' ',$l['status']))?></span></td>
+  <td><span class="badge <?=$STATUS_COLORS[$l['status']]?>" style="font-size:.72rem"><?=ucwords(str_replace('_',' ',$l['status']))?></span></td>
   <td style="white-space:nowrap">
-    <a href="?statement=<?=$l['id']?>" target="_blank" class="btn btn-ghost btn-sm" style="font-size:.6rem" title="Statement">📄</a>
-    <button class="btn btn-ghost btn-sm" style="font-size:.6rem" onclick="showRepay(<?=$l['id']?>,'<?=htmlspecialchars(trim($l['grower_num'].' '.trim($l['name'].' '.$l['surname'])),ENT_QUOTES)?>',<?=number_format($out,2,'.','')?>)">+Pay</button>
+    <a href="?statement=<?=$l['id']?>" target="_blank" class="btn btn-ghost btn-sm" style="font-size:.72rem" title="Statement">📄</a>
+    <button class="btn btn-ghost btn-sm" style="font-size:.72rem" onclick="showRepay(<?=$l['id']?>,'<?=htmlspecialchars(trim($l['grower_num'].' '.trim($l['name'].' '.$l['surname'])),ENT_QUOTES)?>',<?=number_format($out,2,'.','')?>)">+Pay</button>
   </td>
 </tr>
 <?php endforeach;?>
@@ -290,7 +290,7 @@ if(isset($_GET['export'])){
 
 <!-- Repayment modal -->
 <div id="repay-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);align-items:center;justify-content:center">
-<div style="background:var(--cream);border-radius:10px;padding:1.5rem;max-width:420px;width:90%;border:1px solid var(--border)">
+<div style="background:var(--surface);border-radius:10px;padding:1.5rem;max-width:420px;width:90%;border:1px solid var(--border)">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
     <h3 id="repay-title" style="font-size:.95rem;margin:0">Record Repayment</h3>
     <button onclick="document.getElementById('repay-modal').style.display='none'" class="btn btn-ghost btn-sm">✕</button>

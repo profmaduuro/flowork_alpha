@@ -65,8 +65,8 @@ include "includes/layout.php";
 <div class="page-header">
   <div class="page-header-left"><h2>Clerk Performance</h2><p>Activity tracking per floor operator and clerk</p></div>
   <form method="GET" style="display:flex;gap:.5rem;align-items:flex-end">
-    <div><label style="font-size:.62rem;display:block">From</label><input type="date" name="from" class="form-control" value="<?=htmlspecialchars((string)$f_date_from)?>" style="font-size:.8rem;padding:.32rem .55rem"></div>
-    <div><label style="font-size:.62rem;display:block">To</label><input type="date" name="to" class="form-control" value="<?=htmlspecialchars((string)$f_date_to)?>" style="font-size:.8rem;padding:.32rem .55rem"></div>
+    <div><label style="font-size:.72rem;display:block">From</label><input type="date" name="from" class="form-control" value="<?=htmlspecialchars((string)$f_date_from)?>" style="font-size:.8rem;padding:.32rem .55rem"></div>
+    <div><label style="font-size:.72rem;display:block">To</label><input type="date" name="to" class="form-control" value="<?=htmlspecialchars((string)$f_date_to)?>" style="font-size:.8rem;padding:.32rem .55rem"></div>
     <button type="submit" class="btn btn-primary btn-sm">Apply</button>
   </form>
 </div>
@@ -79,7 +79,7 @@ include "includes/layout.php";
 <?php foreach($today_perf as $t):?>
 <div style="flex:1;min-width:140px;padding:.85rem 1rem;border-right:1px solid var(--border);text-align:center">
   <div style="font-size:.72rem;font-weight:600;color:var(--gold);margin-bottom:.25rem"><?=htmlspecialchars($t['username'])?></div>
-  <div style="font-size:1.4rem;font-weight:700;font-family:'Bebas Neue',sans-serif"><?=$t['sold']?></div>
+  <div style="font-size:1.19rem;font-weight:700;font-family:'DM Sans',sans-serif"><?=$t['sold']?></div>
   <div style="font-size:.65rem;color:var(--muted)">bales sold</div>
   <div style="font-size:.72rem;color:var(--leaf);margin-top:2px">$<?=number_format((float)$t['usd'],0)?></div>
 </div>

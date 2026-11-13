@@ -116,14 +116,14 @@ body.theme-dark .premium-tab-btn:hover {
     background: rgba(255, 255, 255, 0.04);
 }
 .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
     box-shadow: 0 4px 12px rgba(26, 18, 8, 0.15);
     font-weight: 600;
 }
 body.theme-light .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
 }
 body.theme-dark .premium-tab-btn.active {
     background: var(--gold);
@@ -147,7 +147,7 @@ body.theme-dark .premium-tab-btn.active {
 .scale-console-container {
     max-width: 520px;
     margin: 0 auto;
-    background: #fff;
+    background:var(--surface);
     border: 1px solid var(--border);
     border-radius: 8px;
     box-shadow: 0 12px 40px rgba(26, 18, 8, 0.05);
@@ -164,7 +164,7 @@ body.theme-dark .scale-console-container {
     margin-bottom: .75rem; cursor: pointer;
 }
 .scan-save-toggle input { margin-top: .15rem; accent-color: var(--leaf); }
-.scan-save-toggle strong { color: var(--ink); }
+.scan-save-toggle strong { color:var(--text); }
 .scan-save-status { min-height: 1.6rem; font-size: .82rem; font-weight: 600; margin-bottom: .6rem; }
 .scan-save-status.ok   { color: var(--leaf); }
 .scan-save-status.err  { color: var(--danger, #c0392b); }
@@ -193,7 +193,7 @@ body.theme-dark .scale-console-container {
 .scale-barcode-input:focus {
     border-color: var(--gold) !important;
     box-shadow: 0 0 0 4px rgba(200, 149, 42, 0.15) !important;
-    background: #fff;
+    background:var(--surface);
 }
 
 /* Modern Stat Capsules */
@@ -208,7 +208,7 @@ body.theme-dark .scale-console-container {
     align-items: center;
     justify-content: space-between;
     padding: 0.85rem 1.15rem;
-    background: #fff;
+    background:var(--surface);
     border: 1px solid var(--border);
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(26,18,8,0.02);
@@ -219,7 +219,7 @@ body.theme-dark .scale-console-container {
     box-shadow: 0 4px 12px rgba(26,18,8,0.04);
 }
 body.theme-dark .scale-stat-capsule {
-    background: var(--ink);
+    background:var(--surface-2);
 }
 .scale-stat-lbl {
     font-size: 0.75rem;
@@ -227,17 +227,13 @@ body.theme-dark .scale-stat-capsule {
     color: var(--muted);
 }
 .scale-stat-val {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 1.8rem;
-    line-height: 1;
-    letter-spacing: 0.05em;
-}
+    font-family:'DM Sans',sans-serif;
+    font-size:1.53rem;
+    line-height: 1;font-weight:600}
 
 .workspace-section-title {
-    font-size: 0.68rem;
+    font-size:.78rem;
     font-weight: 600;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
     color: var(--gold);
     margin-bottom: 0.5rem;
     display: flex;
@@ -253,7 +249,7 @@ body.theme-dark .scale-stat-capsule {
 
 /* Table Card Panel */
 .scale-log-container {
-    background: #fff;
+    background:var(--surface);
     border: 1px solid var(--border);
     border-radius: 8px;
     box-shadow: 0 12px 40px rgba(26, 18, 8, 0.05);
@@ -278,7 +274,7 @@ body.theme-dark .scale-log-container {
 }
 
 .scale-table-wrap {
-    max-height: 520px;
+    max-height:calc(100vh - var(--top-h) - 2rem);
     overflow-y: auto;
     border: 1px solid var(--border);
     border-radius: 6px;
@@ -286,7 +282,7 @@ body.theme-dark .scale-log-container {
 }
 .scale-table-wrap table thead th {
     background: var(--cream-d);
-    color: var(--ink);
+    color:var(--text);
     font-weight: 600;
     font-size: 0.65rem;
     position: sticky;
@@ -294,8 +290,8 @@ body.theme-dark .scale-log-container {
     z-index: 2;
 }
 body.theme-dark .scale-table-wrap table thead th {
-    background: var(--ink);
-    color: var(--cream);
+    background:var(--surface-2);
+    color:var(--text-muted);
 }
 </style>
 
@@ -408,7 +404,7 @@ body.theme-dark .scale-table-wrap table thead th {
                 <?php if ($recent_rows): ?>
                 <?php foreach ($recent_rows as $r): ?>
                 <tr>
-                    <td><code style="font-size:0.78rem; color:var(--ink)"><?= htmlspecialchars($r['temp_bacode']) ?></code></td>
+                    <td><code style="font-size:0.78rem; color:var(--text)"><?= htmlspecialchars($r['temp_bacode']) ?></code></td>
                     <td class="td-mono text-right fw-500"><?= number_format($r['mass']) ?></td>
                     <td class="td-muted"><?= htmlspecialchars($r['created_at']) ?></td>
                     <td>

@@ -509,7 +509,7 @@ include "includes/layout.php";
 
 <?php if ($is_admin && !empty($all_sp)): ?>
 <div class="form-group" style="margin:0">
-  <label style="font-size:.62rem">Floor</label>
+  <label style="font-size:.72rem">Floor</label>
   <select name="spid" class="form-control" style="font-size:.8rem;padding:.38rem .55rem" onchange="this.form.submit()">
     <?php foreach ($all_sp as $s): ?>
     <option value="<?=$s['id']?>" <?=$filter_spid==$s['id']?'selected':''?>><?=htmlspecialchars($s['name'])?></option>
@@ -520,7 +520,7 @@ include "includes/layout.php";
 
 <?php if (!empty($all_locs)): ?>
 <div class="form-group" style="margin:0">
-  <label style="font-size:.62rem">Location</label>
+  <label style="font-size:.72rem">Location</label>
   <select name="locid" class="form-control" style="font-size:.8rem;padding:.38rem .55rem" onchange="this.form.submit()">
     <option value="0">All locations</option>
     <?php foreach ($all_locs as $l): ?>
@@ -532,7 +532,7 @@ include "includes/layout.php";
 
 <?php if (!empty($all_buyers)): ?>
 <div class="form-group" style="margin:0">
-  <label style="font-size:.62rem">Buyer</label>
+  <label style="font-size:.72rem">Buyer</label>
   <select name="buyerid" class="form-control" style="font-size:.8rem;padding:.38rem .55rem" onchange="this.form.submit()">
     <option value="0">All buyers</option>
     <?php foreach ($all_buyers as $b): ?>
@@ -543,11 +543,11 @@ include "includes/layout.php";
 <?php endif; ?>
 
 <div class="form-group" style="margin:0">
-  <label style="font-size:.62rem">From</label>
+  <label style="font-size:.72rem">From</label>
   <input type="date" name="from" class="form-control" value="<?=htmlspecialchars((string)$date_from)?>" style="font-size:.8rem;padding:.38rem .55rem">
 </div>
 <div class="form-group" style="margin:0">
-  <label style="font-size:.62rem">To</label>
+  <label style="font-size:.72rem">To</label>
   <input type="date" name="to" class="form-control" value="<?=htmlspecialchars((string)$date_to)?>" style="font-size:.8rem;padding:.38rem .55rem">
 </div>
 
@@ -564,10 +564,9 @@ include "includes/layout.php";
       ⬇ Export <span style="font-size:.65rem;opacity:.6">▾</span>
     </button>
     <div id="exp-menu" style="display:none;position:absolute;top:calc(100% + 4px);right:0;
-         background:var(--cream);border:1px solid var(--border);border-radius:var(--radius);
+         background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
          box-shadow:0 6px 20px rgba(0,0,0,.15);min-width:220px;z-index:999;overflow:hidden">
-      <div style="padding:.4rem .75rem;font-size:.62rem;font-weight:600;letter-spacing:.08em;
-                  text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);
+      <div style="padding:.4rem .75rem;font-size:.78rem;font-weight:600;color:var(--muted);border-bottom:1px solid var(--border);
                   background:var(--cream-d)">CSV Downloads</div>
       <?php
       $ep = 'from='.urlencode($date_from).'&to='.urlencode($date_to).'&spid='.$filter_spid.'&locid='.$filter_loc.'&buyerid='.$filter_bid;
@@ -582,7 +581,7 @@ include "includes/layout.php";
       ];
       foreach ($opts as [$et,$lbl,$desc]):?>
       <a href="?<?=$ep?>&export=csv&etype=<?=$et?>"
-         style="display:block;padding:.5rem .85rem;text-decoration:none;color:var(--ink);
+         style="display:block;padding:.5rem .85rem;text-decoration:none;color:var(--text);
                 font-size:.8rem;border-bottom:1px solid var(--border)"
          onmouseover="this.style.background='var(--cream-d)'"
          onmouseout="this.style.background=''">
@@ -590,11 +589,10 @@ include "includes/layout.php";
         <span style="display:block;font-size:.65rem;color:var(--muted)"><?=$desc?></span>
       </a>
       <?php endforeach;?>
-      <div style="padding:.4rem .75rem;font-size:.62rem;font-weight:600;letter-spacing:.08em;
-                  text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);
+      <div style="padding:.4rem .75rem;font-size:.78rem;font-weight:600;color:var(--muted);border-bottom:1px solid var(--border);
                   background:var(--cream-d)">Print</div>
       <a href="?<?=$ep?>&export=print" target="_blank"
-         style="display:block;padding:.5rem .85rem;text-decoration:none;color:var(--ink);font-size:.8rem"
+         style="display:block;padding:.5rem .85rem;text-decoration:none;color:var(--text);font-size:.8rem"
          onmouseover="this.style.background='var(--cream-d)'"
          onmouseout="this.style.background=''">
         🖨 Print / Save as PDF
@@ -770,7 +768,7 @@ document.addEventListener('click',function(e){
 <?php $loc_total = array_sum(array_column($loc_rows,'gross_usd')) ?: 1;
 foreach ($loc_rows as $l): ?>
 <tr>
-  <td><span style="font-family:'Bebas Neue',sans-serif;font-size:1.05rem;color:var(--gold)"><?=htmlspecialchars($l['code'])?></span></td>
+  <td><span style="font-family:'DM Sans',sans-serif;font-size:0.89rem;color:var(--gold);font-weight:600"><?=htmlspecialchars($l['code'])?></span></td>
   <td style="font-size:.78rem">
     <div><?=htmlspecialchars($l['loc_name'])?></div>
     <?php if($l['subcontractor']):?><div class="td-muted" style="font-size:.68rem"><?=htmlspecialchars($l['subcontractor'])?></div><?php endif;?>
@@ -795,7 +793,7 @@ foreach ($loc_rows as $l): ?>
     <button type="button" onclick="printCard('card-growers', 'Top Growers')" class="btn btn-ghost btn-sm" style="font-size:.65rem;padding:3px 7px">🖨 PDF</button>
   </div>
 </div>
-<div class="table-wrap" style="max-height:400px;overflow-y:auto"><table>
+<div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto"><table>
 <thead><tr>
   <th>#</th><th>Grower</th><th>Prov</th>
   <?php if($has_locs):?><th>Loc</th><?php endif;?>
@@ -811,11 +809,11 @@ foreach ($loc_rows as $l): ?>
 <tr>
   <td class="td-muted" style="font-size:.7rem"><?=$rk?></td>
   <td>
-    <span class="badge badge-gold" style="font-size:.62rem"><?=htmlspecialchars($g['grower_num'])?></span>
+    <span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($g['grower_num'])?></span>
     <div style="font-size:.75rem;margin-top:1px"><?=htmlspecialchars(trim($g['name'].' '.$g['surname']))?></div>
   </td>
   <td class="td-muted" style="font-size:.72rem"><?=htmlspecialchars($g['province']??'—')?></td>
-  <?php if($has_locs):?><td style="font-family:'Bebas Neue',sans-serif;color:var(--gold);font-size:.9rem"><?=htmlspecialchars($g['loc_code']??'—')?></td><?php endif;?>
+  <?php if($has_locs):?><td style="font-family:'DM Sans',sans-serif;color:var(--gold);font-size:0.77rem;font-weight:600"><?=htmlspecialchars($g['loc_code']??'—')?></td><?php endif;?>
   <td class="td-mono text-right"><?=number_format((int)$g['bales'])?></td>
   <td class="td-mono text-right fw-500">$<?=number_format((float)$g['gross_usd'],0)?></td>
   <td class="td-mono text-right">$<?=number_format((float)$g['net_usd'],0)?></td>

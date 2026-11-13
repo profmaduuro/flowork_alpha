@@ -272,7 +272,7 @@ $both_set   = $day_open && $rate_set;
 <div id="panel-history" class="tab-panel" data-tabs="fxrate">
 <div class="card">
 <div class="card-head"><h3>Rate History</h3></div>
-<div class="table-wrap" style="max-height:400px;overflow-y:auto"><table>
+<div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto"><table>
 <thead><tr><th>Date</th><th class="text-right">Rate ZiG/USD</th><th>Source</th><th>Status</th></tr></thead>
 <tbody>
 <?php if(empty($history)):?>
@@ -284,9 +284,9 @@ $both_set   = $day_open && $rate_set;
   <td style="font-size:.72rem;color:var(--muted)"><?=htmlspecialchars($r['source']??'manual')?></td>
   <td>
     <?php if($r['active']):?>
-    <span class="badge badge-green" style="font-size:.58rem">Active</span>
+    <span class="badge badge-green" style="font-size:.72rem">Active</span>
     <?php else:?>
-    <span class="badge badge-gray" style="font-size:.58rem">Old</span>
+    <span class="badge badge-gray" style="font-size:.72rem">Old</span>
     <?php endif;?>
   </td>
 </tr>
@@ -300,7 +300,7 @@ $both_set   = $day_open && $rate_set;
 <div id="panel-log" class="tab-panel" data-tabs="fxrate">
 <div class="card">
 <div class="card-head"><h3>Auto-Fetch Log</h3></div>
-<div class="table-wrap" style="max-height:400px;overflow-y:auto"><table>
+<div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto"><table>
 <thead><tr><th>Date/Time</th><th class="text-right">Rate</th><th>Status</th></tr></thead>
 <tbody>
 <?php if(empty($fetch_log)):?>
@@ -311,7 +311,7 @@ $both_set   = $day_open && $rate_set;
 <tr>
   <td style="font-size:.72rem"><?=date('d M H:i',strtotime($fl['created_at']))?></td>
   <td class="td-mono text-right"><?=$fl['rate_fetched']?number_format((float)$fl['rate_fetched'],4):'—'?></td>
-  <td><span class="badge <?=$fl['status']==='success'?'badge-green':'badge-red'?>" style="font-size:.58rem"><?=strtoupper($fl['status'])?></span></td>
+  <td><span class="badge <?=$fl['status']==='success'?'badge-green':'badge-red'?>" style="font-size:.72rem"><?=strtoupper($fl['status'])?></span></td>
 </tr>
 <?php endforeach; endif;?>
 </tbody>

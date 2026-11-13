@@ -31,18 +31,16 @@ function updatePwaOnlineStatus() {
     if (!pill || !txt) return;
 
     if (navigator.onLine) {
-        pill.style.background = 'rgba(61,107,53,0.12)';
-        pill.style.borderColor = 'rgba(61,107,53,0.25)';
-        pill.style.color = 'var(--leaf)';
+        pill.style.background = '';
+        pill.style.color = '';
         txt.textContent = 'Online';
         
         // Hide offline warnings if they exist on the page
         var warn = document.getElementById('pwa-offline-warning');
         if (warn) warn.style.display = 'none';
     } else {
-        pill.style.background = 'rgba(192,57,43,0.12)';
-        pill.style.borderColor = 'rgba(192,57,43,0.25)';
-        pill.style.color = 'var(--danger)';
+        pill.style.background = 'var(--bad-tint)';
+        pill.style.color = 'var(--bad-text)';
         txt.textContent = 'Offline';
         
         // Show offline warnings if they exist on the page
@@ -63,7 +61,7 @@ window.addEventListener('beforeinstallprompt', function(e) {
     // Stash the event so it can be triggered later.
     deferredPrompt = e;
     // Update UI to notify the user they can install the PWA
-    if (installBtn) installBtn.style.display = 'block';
+    if (installBtn) installBtn.style.display = 'flex';
 });
 
 if (installBtn) {

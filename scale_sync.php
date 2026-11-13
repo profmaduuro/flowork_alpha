@@ -152,14 +152,14 @@ body.theme-dark .premium-tab-btn:hover {
     background: rgba(255, 255, 255, 0.04);
 }
 .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
     box-shadow: 0 4px 12px rgba(26, 18, 8, 0.15);
     font-weight: 600;
 }
 body.theme-light .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
 }
 body.theme-dark .premium-tab-btn.active {
     background: var(--gold);
@@ -228,7 +228,7 @@ body.theme-dark .premium-tab-btn.active {
             <div style="padding:.85rem 1.15rem;border-bottom:1px solid var(--border)" id="q-<?=$p['id']?>">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem">
                 <div style="display:flex;align-items:center;gap:.5rem">
-                  <span style="font-size:1.4rem;font-weight:700;font-family:'Bebas Neue',sans-serif;color:var(--gold)"><?=number_format((float)$p['mass'],2)?> kg</span>
+                  <span style="font-size:1.19rem;font-weight:700;font-family:'DM Sans',sans-serif;color:var(--gold)"><?=number_format((float)$p['mass'],2)?> kg</span>
                   <?php if($p['temp_bacode']):?><span class="badge badge-gray" style="font-size:.65rem;font-family:monospace"><?=htmlspecialchars($p['temp_bacode'])?></span><?php endif;?>
                 </div>
                 <div style="font-size:.68rem;color:var(--muted)"><?=date('H:i:s',strtotime($p['synced_at']))?></div>
@@ -241,7 +241,7 @@ body.theme-dark .premium-tab-btn.active {
                 <input type="hidden" name="action" value="process">
                 <input type="hidden" name="queue_id" value="<?=$p['id']?>">
                 <input type="hidden" name="mass" value="<?=$p['mass']?>">
-                <div style="flex:1"><label style="font-size:.62rem;display:block;color:var(--muted);margin-bottom:2px">TIMB Barcode</label>
+                <div style="flex:1"><label style="font-size:.72rem;display:block;color:var(--muted);margin-bottom:2px">TIMB Barcode</label>
                   <input type="text" name="barcode" class="form-control" value="<?=htmlspecialchars($p['temp_bacode']??'')?>" placeholder="Enter TIMB barcode" required style="font-size:.8rem;padding:.38rem .6rem"></div>
                 <button type="submit" class="btn btn-primary" style="padding:.38rem 1rem">✓ Create Bale</button>
                 <form method="POST" style="display:inline"><input type="hidden" name="action" value="reject"><input type="hidden" name="queue_id" value="<?=$p['id']?>">
@@ -260,7 +260,7 @@ body.theme-dark .premium-tab-btn.active {
 <div id="panel-history" class="sync-tab-panel">
     <div class="card">
         <div class="card-head"><h3>Recent History</h3><span class="badge badge-gray"><?=count($history)?></span></div>
-        <div class="table-wrap" style="max-height:580px;overflow-y:auto"><table>
+        <div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto"><table>
         <thead><tr><th>Time</th><th>Barcode</th><th class="text-right">Mass</th><th>Device</th><th>Status</th></tr></thead>
         <tbody>
         <?php if(empty($history)):?><tr><td colspan="5" class="text-center text-muted" style="padding:2rem">No history yet.</td></tr>
@@ -270,7 +270,7 @@ body.theme-dark .premium-tab-btn.active {
           <td style="font-family:monospace;font-size:.72rem"><?=htmlspecialchars($h['temp_bacode']??'—')?></td>
           <td class="td-mono text-right"><?=number_format((float)$h['mass'],2)?> kg</td>
           <td style="font-size:.7rem;color:var(--muted)"><?=htmlspecialchars($h['device_id'])?></td>
-          <td><span class="badge <?=$sc[$h['status']]??'badge-gray'?>" style="font-size:.58rem"><?=strtoupper($h['status'])?></span></td>
+          <td><span class="badge <?=$sc[$h['status']]??'badge-gray'?>" style="font-size:.72rem"><?=strtoupper($h['status'])?></span></td>
         </tr>
         <?php endforeach;endif;?>
         </tbody>
@@ -285,7 +285,7 @@ body.theme-dark .premium-tab-btn.active {
             <div class="card-head"><h3>Android Integration</h3></div>
             <div class="card-body">
               <div style="font-size:.72rem;color:var(--muted);margin-bottom:.5rem">Configure this URL in your Android scale app:</div>
-              <div style="background:var(--ink);color:var(--gold);padding:.6rem .85rem;border-radius:6px;font-family:monospace;font-size:.7rem;word-break:break-all;margin-bottom:.75rem"><?=htmlspecialchars($api_url)?></div>
+              <div style="background:var(--surface-2);color:var(--text);padding:.6rem .85rem;border-radius:6px;font-family:monospace;font-size:.7rem;word-break:break-all;margin-bottom:.75rem"><?=htmlspecialchars($api_url)?></div>
               <div style="font-size:.7rem;color:var(--muted);margin-bottom:.75rem">POST JSON: <code>{"mass":25.4,"temp_bacode":"ZW001234","tare":0.5,"device_id":"SCALE01","operator":"John"}</code></div>
               <form method="POST">
                 <input type="hidden" name="action" value="save_token">

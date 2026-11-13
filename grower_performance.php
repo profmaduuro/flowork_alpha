@@ -211,7 +211,7 @@ include "includes/layout.php";
 
 <style>
 .gp-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-.gp-rank-medal { display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;font-size:.6rem;font-weight:700;flex-shrink:0; }
+.gp-rank-medal { display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;font-size:.72rem;font-weight:700;flex-shrink:0; }
 .gp-rank-1 { background:linear-gradient(135deg,#f0c27f,#c8952a);color:#1a1208; }
 .gp-rank-2 { background:linear-gradient(135deg,#c0c0c0,#8a8a8a);color:#fff; }
 .gp-rank-3 { background:linear-gradient(135deg,#d4a574,#8B6914);color:#fff; }
@@ -224,7 +224,7 @@ include "includes/layout.php";
 .prof-score {
     display:inline-flex;align-items:center;justify-content:center;
     width:34px;height:34px;border-radius:50%;
-    font-family:'Bebas Neue',sans-serif;font-size:.9rem;font-weight:700;
+    font-family:'DM Sans',sans-serif;font-size:0.77rem;font-weight:700;
     flex-shrink:0;
 }
 .prof-score.high  { background:linear-gradient(135deg,#4caf50,#2e7d32);color:#fff; }
@@ -236,9 +236,9 @@ include "includes/layout.php";
 .grade-mini-seg { height:100%; }
 
 /* Delta pill */
-.delta-pill { display:inline-flex;align-items:center;gap:2px;padding:1px 5px;border-radius:10px;font-size:.6rem;font-weight:600; }
-.delta-up   { background:#e8f5e9;color:#2e7d32; }
-.delta-dn   { background:#ffebee;color:#c62828; }
+.delta-pill { display:inline-flex;align-items:center;gap:2px;padding:1px 5px;border-radius:10px;font-size:.72rem;font-weight:600; }
+.delta-up   { background:var(--surface-2);color:var(--ok-text); }
+.delta-dn   { background:var(--surface-2);color:var(--bad-text); }
 .delta-neu  { background:var(--cream-d);color:var(--muted); }
 
 /* Top/Bottom tables */
@@ -313,7 +313,7 @@ include "includes/layout.php";
           <td style="font-weight:600;color:var(--muted);font-size:.72rem"><?=$i+1?></td>
           <td>
             <div style="font-weight:500;font-size:.78rem"><?=htmlspecialchars($r['grower_name'])?></div>
-            <div style="font-size:.6rem;color:var(--muted)"><?=htmlspecialchars($r['grower_num'])?></div>
+            <div style="font-size:.72rem;color:var(--muted)"><?=htmlspecialchars($r['grower_num'])?></div>
           </td>
           <td class="text-right"><span class="prof-score <?=$cls?>"><?=$sc?></span></td>
           <td class="td-mono text-right" style="font-size:.78rem">$<?=number_format($r['net_upkg'],2)?></td>
@@ -345,7 +345,7 @@ include "includes/layout.php";
           <td style="font-weight:600;color:var(--muted);font-size:.72rem"><?=$i+1?></td>
           <td>
             <div style="font-weight:500;font-size:.78rem"><?=htmlspecialchars($r['grower_name'])?></div>
-            <div style="font-size:.6rem;color:var(--muted)"><?=htmlspecialchars($r['grower_num'])?></div>
+            <div style="font-size:.72rem;color:var(--muted)"><?=htmlspecialchars($r['grower_num'])?></div>
           </td>
           <td class="text-right"><span class="prof-score <?=$cls?>"><?=$sc?></span></td>
           <td class="td-mono text-right" style="font-size:.78rem">$<?=number_format($r['net_upkg'],2)?></td>
@@ -371,7 +371,7 @@ include "includes/layout.php";
       <h3>🏆 Grower Rankings</h3>
       <span class="badge badge-gold"><?=count($rankings)?> growers</span>
     </div>
-    <div class="table-wrap" style="max-height:560px;overflow-y:auto">
+    <div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto">
       <table>
         <thead><tr>
           <th>#</th>
@@ -408,7 +408,7 @@ include "includes/layout.php";
           <td><span class="gp-rank-medal <?=$medal?>"><?=$i+1?></span></td>
           <td>
             <div style="font-weight:500;font-size:.78rem"><?=htmlspecialchars($r['grower_name'])?></div>
-            <div style="font-size:.62rem;color:var(--muted)"><?=htmlspecialchars($r['grower_num'])?></div>
+            <div style="font-size:.72rem;color:var(--muted)"><?=htmlspecialchars($r['grower_num'])?></div>
           </td>
           <td class="text-right"><span class="prof-score <?=$cls?>" style="width:28px;height:28px;font-size:.75rem"><?=$sc?></span></td>
           <td class="td-mono text-right"><?=number_format((int)$r['total_bales'])?></td>
@@ -426,7 +426,7 @@ include "includes/layout.php";
               <?php endforeach; ?>
             </div>
             <?php else: ?>
-            <span style="font-size:.6rem;color:var(--muted)">—</span>
+            <span style="font-size:.72rem;color:var(--muted)">—</span>
             <?php endif; ?>
           </td>
           <td class="text-right"><?=$delta_html?></td>
@@ -461,24 +461,24 @@ include "includes/layout.php";
         <?php if($sel_enriched): ?>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;text-align:center">
           <div>
-            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.6rem;line-height:1;color:var(--gold)"><?=$sel_enriched['prof_score']?></div>
-            <div style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">Profit Score</div>
+            <div style="font-family:'DM Sans',sans-serif;font-size:1.36rem;line-height:1;color:var(--gold);font-weight:600"><?=$sel_enriched['prof_score']?></div>
+            <div style="font-size:.78rem;color:var(--muted);">Profit Score</div>
           </div>
           <div>
-            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.6rem;line-height:1">$<?=number_format($sel_enriched['net_upkg'],2)?></div>
-            <div style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">Net $/kg</div>
+            <div style="font-family:'DM Sans',sans-serif;font-size:1.36rem;line-height:1;font-weight:600">$<?=number_format($sel_enriched['net_upkg'],2)?></div>
+            <div style="font-size:.78rem;color:var(--muted);">Net $/kg</div>
           </div>
           <div>
-            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.6rem;line-height:1;color:<?=$sel_enriched['rej_rate']>0.05?'var(--danger)':'var(--leaf)'?>"><?=number_format($sel_enriched['rej_rate']*100,1)?>%</div>
-            <div style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">Rejection</div>
+            <div style="font-family:'DM Sans',sans-serif;font-size:1.36rem;line-height:1;color:<?=$sel_enriched['rej_rate']>0.05?'var(--danger)':'var(--leaf)'?>;font-weight:600"><?=number_format($sel_enriched['rej_rate']*100,1)?>%</div>
+            <div style="font-size:.78rem;color:var(--muted);">Rejection</div>
           </div>
           <div>
             <?php if($sel_enriched['delta_upkg']!==null): $d=$sel_enriched['delta_upkg']; ?>
-            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.6rem;line-height:1;color:<?=$d>=0?'var(--leaf)':'var(--danger)'?>"><?=$d>=0?'+':''?><?=number_format($d,2)?></div>
-            <div style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">YoY $/kg</div>
+            <div style="font-family:'DM Sans',sans-serif;font-size:1.36rem;line-height:1;color:<?=$d>=0?'var(--leaf)':'var(--danger)'?>;font-weight:600"><?=$d>=0?'+':''?><?=number_format($d,2)?></div>
+            <div style="font-size:.78rem;color:var(--muted);">YoY $/kg</div>
             <?php else: ?>
-            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.6rem;line-height:1;color:var(--muted)">—</div>
-            <div style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">YoY $/kg</div>
+            <div style="font-family:'DM Sans',sans-serif;font-size:1.36rem;line-height:1;color:var(--muted);font-weight:600">—</div>
+            <div style="font-size:.78rem;color:var(--muted);">YoY $/kg</div>
             <?php endif; ?>
           </div>
         </div>

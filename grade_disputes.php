@@ -163,14 +163,14 @@ body.theme-dark .premium-tab-btn:hover {
     background: rgba(255, 255, 255, 0.04);
 }
 .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
     box-shadow: 0 4px 12px rgba(26, 18, 8, 0.15);
     font-weight: 600;
 }
 body.theme-light .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
 }
 body.theme-dark .premium-tab-btn.active {
     background: var(--gold);
@@ -239,7 +239,7 @@ body.theme-dark .premium-tab-btn.active {
     <!-- Disputes List Card -->
     <div class="card">
         <div class="card-head"><h3>Disputes</h3><span class="badge badge-gray"><?=count($disputes)?></span></div>
-        <div style="max-height:580px;overflow-y:auto">
+        <div style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto">
         <?php if(empty($disputes)):?>
         <div class="card-body text-center text-muted" style="padding:2.5rem">No disputes found.</div>
         <?php else: foreach($disputes as $d): ?>
@@ -247,11 +247,11 @@ body.theme-dark .premium-tab-btn.active {
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;flex-wrap:wrap;gap:.35rem">
             <div style="display:flex;align-items:center;gap:.5rem">
               <span style="font-size:.72rem;color:var(--muted)">#<?=$d['id']?></span>
-              <span class="badge badge-gold" style="font-size:.6rem"><?=htmlspecialchars($d['grower_num'])?></span>
+              <span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($d['grower_num'])?></span>
               <span style="font-size:.78rem;font-weight:500"><?=htmlspecialchars(trim($d['name'].' '.$d['surname']))?></span>
-              <span class="badge badge-gray" style="font-size:.58rem;font-family:monospace"><?=htmlspecialchars($d['timb_bc'])?></span>
+              <span class="badge badge-gray" style="font-size:.72rem;font-family:monospace"><?=htmlspecialchars($d['timb_bc'])?></span>
             </div>
-            <span class="badge <?=$STATUS_COLORS[$d['status']]?>" style="font-size:.62rem"><?=strtoupper(str_replace('_',' ',$d['status']))?></span>
+            <span class="badge <?=$STATUS_COLORS[$d['status']]?>" style="font-size:.72rem"><?=strtoupper(str_replace('_',' ',$d['status']))?></span>
           </div>
           <div style="font-size:.75rem;color:var(--muted);margin-bottom:.5rem;display:flex;gap:1rem;flex-wrap:wrap">
             <span>Original: <strong><?=htmlspecialchars($d['original_grade'])?></strong> @ $<?=number_format((float)$d['original_price'],4)?>/kg</span>
@@ -270,7 +270,7 @@ body.theme-dark .premium-tab-btn.active {
           <?php if(in_array($d['status'],['open','under_review'])): ?>
           <details style="margin-top:.5rem">
             <summary class="btn btn-ghost btn-sm" style="cursor:pointer;display:inline-block;font-size:.72rem">Review / Resolve</summary>
-            <form method="POST" style="margin-top:.75rem;background:#fff;padding:.75rem;border-radius:6px;border:1px solid var(--border)">
+            <form method="POST" style="margin-top:.75rem;background:var(--surface);padding:.75rem;border-radius:6px;border:1px solid var(--border)">
               <input type="hidden" name="action" value="review">
               <input type="hidden" name="dispute_id" value="<?=$d['id']?>">
               <div class="form-row cols-2" style="margin-bottom:.5rem">

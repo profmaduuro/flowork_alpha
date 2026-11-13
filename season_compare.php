@@ -12,10 +12,10 @@ $spid        = (int)($_SESSION['selling_pointid'] ?? 0);
 function safe($c,$s){$r=$c->query($s);return($r&&$r!==true)?$r->fetch_all(MYSQLI_ASSOC):[];}
 function safeVal($c,$s,$k=''){$r=$c->query($s);$row=($r&&$r!==true)?($r->fetch_assoc()??[]):[];return $k?($row[$k]??0):$row;}
 function pct($a,$b){return $b>0?round(($a-$b)/$b*100,1):($a>0?100:0);}
-function arrow($v){return $v>0?'<span style="color:#4caf50">▲ '.$v.'%</span>':($v<0?'<span style="color:#e53935">▼ '.abs($v).'%</span>':'<span style="color:var(--muted)">— 0%</span>');}
+function arrow($v){return $v>0?'<span style="color:var(--ok-text)">▲ '.$v.'%</span>':($v<0?'<span style="color:var(--bad-text)">▼ '.abs($v).'%</span>':'<span style="color:var(--muted)">— 0%</span>');}
 function arrowBig($v){
-    if($v>0) return '<span style="color:#4caf50;font-size:1.1rem;font-weight:700">▲ '.abs($v).'%</span>';
-    if($v<0) return '<span style="color:#e53935;font-size:1.1rem;font-weight:700">▼ '.abs($v).'%</span>';
+    if($v>0) return '<span style="color:var(--ok-text);font-size:1.1rem;font-weight:700">▲ '.abs($v).'%</span>';
+    if($v<0) return '<span style="color:var(--bad-text);font-size:1.1rem;font-weight:700">▼ '.abs($v).'%</span>';
     return '<span style="color:var(--muted);font-size:.9rem">— 0%</span>';
 }
 
@@ -211,7 +211,7 @@ include "includes/layout.php";
     border-radius:var(--radius);
     overflow:hidden;
     margin-bottom:1.5rem;
-    background:#fff;
+    background:var(--surface);
 }
 .sc-kpi-header {
     display:grid;
@@ -221,7 +221,7 @@ include "includes/layout.php";
 }
 .sc-kpi-header > div {
     padding:.6rem 1rem;
-    font-size:.62rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);
+    font-size:.78rem;font-weight:600;color:var(--muted);
     border-right:1px solid var(--border);
 }
 .sc-kpi-header > div:last-child { border-right:none; }
@@ -239,11 +239,9 @@ include "includes/layout.php";
     font-size:.72rem;font-weight:500;color:var(--muted);
 }
 .sc-kpi-val-a {
-    font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:var(--gold);letter-spacing:.04em;line-height:1;
-}
+    font-family:'DM Sans',sans-serif;font-size:1.27rem;color:var(--gold);line-height:1;font-weight:600}
 .sc-kpi-val-b {
-    font-family:'Bebas Neue',sans-serif;font-size:1.25rem;color:var(--muted);letter-spacing:.04em;line-height:1;
-}
+    font-family:'DM Sans',sans-serif;font-size:1.06rem;color:var(--muted);line-height:1;font-weight:600}
 .sc-kpi-delta { justify-content:center;flex-direction:column;gap:2px;text-align:center; }
 
 /* Grade mix bar */
@@ -267,7 +265,7 @@ include "includes/layout.php";
   <div style="display:flex;gap:.5rem;align-items:flex-end">
     <form method="GET" style="display:flex;gap:.5rem;align-items:flex-end">
       <div>
-        <label style="font-size:.62rem;display:block">Season A</label>
+        <label style="font-size:.72rem;display:block">Season A</label>
         <select name="yr_a" class="form-control" style="font-size:.8rem;padding:.35rem .55rem">
           <?php foreach($years as $y):?>
           <option value="<?=$y['yr']?>" <?=$yr_a==$y['yr']?'selected':''?>><?=$y['yr']?></option>
@@ -276,7 +274,7 @@ include "includes/layout.php";
       </div>
       <span style="padding-bottom:.4rem;color:var(--muted)">vs</span>
       <div>
-        <label style="font-size:.62rem;display:block">Season B</label>
+        <label style="font-size:.72rem;display:block">Season B</label>
         <select name="yr_b" class="form-control" style="font-size:.8rem;padding:.35rem .55rem">
           <?php foreach($years as $y):?>
           <option value="<?=$y['yr']?>" <?=$yr_b==$y['yr']?'selected':''?>><?=$y['yr']?></option>
@@ -335,10 +333,10 @@ endif;?>
     <table style="width:100%;border-collapse:collapse;font-size:.82rem">
       <thead>
         <tr style="background:var(--cream-d);border-bottom:2px solid var(--gold)">
-          <th style="padding:.65rem 1rem;text-align:left;font-size:.62rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">Metric</th>
-          <th style="padding:.65rem 1rem;text-align:right;font-size:.62rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--gold)"><?=$yr_a?></th>
-          <th style="padding:.65rem 1rem;text-align:center;font-size:.62rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">Δ Change</th>
-          <th style="padding:.65rem 1rem;text-align:right;font-size:.62rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)"><?=$yr_b?></th>
+          <th style="padding:.65rem 1rem;text-align:left;font-size:.78rem;font-weight:600;color:var(--muted)">Metric</th>
+          <th style="padding:.65rem 1rem;text-align:right;font-size:.78rem;font-weight:600;color:var(--gold)"><?=$yr_a?></th>
+          <th style="padding:.65rem 1rem;text-align:center;font-size:.78rem;font-weight:600;color:var(--muted)">Δ Change</th>
+          <th style="padding:.65rem 1rem;text-align:right;font-size:.78rem;font-weight:600;color:var(--muted)"><?=$yr_b?></th>
         </tr>
       </thead>
       <tbody>
@@ -356,13 +354,13 @@ endif;?>
       foreach($kpi_rows as $ki => $m):
           $p = pct($m[1],$m[2]);
           $dp = ($m[3]==='$') ? 2 : 0;
-          $rowbg = $ki%2===0 ? '' : 'background:#fafaf8';
+          $rowbg = $ki%2===0 ? '' : 'background:var(--surface-2)';
       ?>
       <tr style="border-bottom:1px solid var(--border);<?=$rowbg?>">
         <td style="padding:.7rem 1rem;font-weight:500;font-size:.78rem"><?=$m[0]?></td>
-        <td style="padding:.7rem 1rem;text-align:right;font-family:'Bebas Neue',sans-serif;font-size:1.35rem;color:var(--gold);letter-spacing:.04em;line-height:1"><?=$m[3].number_format($m[1],$dp).$m[4]?></td>
+        <td style="padding:.7rem 1rem;text-align:right;font-family:'DM Sans',sans-serif;font-size:1.15rem;color:var(--gold);line-height:1;font-weight:600"><?=$m[3].number_format($m[1],$dp).$m[4]?></td>
         <td style="padding:.7rem 1rem;text-align:center"><?=arrowBig($p)?></td>
-        <td style="padding:.7rem 1rem;text-align:right;font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--muted);letter-spacing:.04em;line-height:1"><?=$m[3].number_format($m[2],$dp).$m[4]?></td>
+        <td style="padding:.7rem 1rem;text-align:right;font-family:'DM Sans',sans-serif;font-size:0.94rem;color:var(--muted);line-height:1;font-weight:600"><?=$m[3].number_format($m[2],$dp).$m[4]?></td>
       </tr>
       <?php endforeach; ?>
       </tbody>
@@ -378,23 +376,23 @@ endif;?>
   <div class="card-body">
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;text-align:center">
       <div>
-        <div style="font-family:'Bebas Neue',sans-serif;font-size:2.2rem;color:var(--gold);line-height:1"><?=(int)($sa['growers']??0)?></div>
-        <div style="font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-top:.2rem"><?=$yr_a?> Total</div>
+        <div style="font-family:'DM Sans',sans-serif;font-size:1.87rem;color:var(--gold);line-height:1;font-weight:600"><?=(int)($sa['growers']??0)?></div>
+        <div style="font-size:.78rem;color:var(--muted);margin-top:.2rem"><?=$yr_a?> Total</div>
       </div>
       <div>
-        <div style="font-family:'Bebas Neue',sans-serif;font-size:2.2rem;color:#4caf50;line-height:1">+<?=$new_growers?></div>
-        <div style="font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-top:.2rem">New Growers</div>
-        <div style="font-size:.62rem;color:#4caf50;margin-top:.2rem">In <?=$yr_a?>, not <?=$yr_b?></div>
+        <div style="font-family:'DM Sans',sans-serif;font-size:1.87rem;color:var(--ok-text);line-height:1;font-weight:600">+<?=$new_growers?></div>
+        <div style="font-size:.78rem;color:var(--muted);margin-top:.2rem">New Growers</div>
+        <div style="font-size:.72rem;color:var(--ok-text);margin-top:.2rem">In <?=$yr_a?>, not <?=$yr_b?></div>
       </div>
       <div>
-        <div style="font-family:'Bebas Neue',sans-serif;font-size:2.2rem;color:var(--leaf);line-height:1"><?=$retained_growers?></div>
-        <div style="font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-top:.2rem">Retained</div>
-        <div style="font-size:.62rem;color:var(--muted);margin-top:.2rem">Both seasons</div>
+        <div style="font-family:'DM Sans',sans-serif;font-size:1.87rem;color:var(--leaf);line-height:1;font-weight:600"><?=$retained_growers?></div>
+        <div style="font-size:.78rem;color:var(--muted);margin-top:.2rem">Retained</div>
+        <div style="font-size:.72rem;color:var(--muted);margin-top:.2rem">Both seasons</div>
       </div>
       <div>
-        <div style="font-family:'Bebas Neue',sans-serif;font-size:2.2rem;color:#e53935;line-height:1"><?=$lost_growers?></div>
-        <div style="font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-top:.2rem">Not Returned</div>
-        <div style="font-size:.62rem;color:#e53935;margin-top:.2rem">In <?=$yr_b?>, not <?=$yr_a?></div>
+        <div style="font-family:'DM Sans',sans-serif;font-size:1.87rem;color:var(--bad-text);line-height:1;font-weight:600"><?=$lost_growers?></div>
+        <div style="font-size:.78rem;color:var(--muted);margin-top:.2rem">Not Returned</div>
+        <div style="font-size:.72rem;color:var(--bad-text);margin-top:.2rem">In <?=$yr_b?>, not <?=$yr_a?></div>
       </div>
     </div>
   </div>
@@ -456,7 +454,7 @@ endif;?>
     ?>
     <tr>
       <td>
-        <span class="badge badge-gold" style="font-size:.6rem"><?=htmlspecialchars($gr)?></span>
+        <span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($gr)?></span>
       </td>
       <td class="td-mono text-right"><?=$ba > 0 ? number_format($ba) : '—'?></td>
       <td class="td-mono text-right">
@@ -477,9 +475,9 @@ endif;?>
       </td>
       <td class="text-right">
         <?php if($mix_d > 0): ?>
-        <span style="color:#4caf50;font-weight:600;font-size:.75rem">+<?=$mix_d?>pp</span>
+        <span style="color:var(--ok-text);font-weight:600;font-size:.75rem">+<?=$mix_d?>pp</span>
         <?php elseif($mix_d < 0): ?>
-        <span style="color:#e53935;font-weight:600;font-size:.75rem"><?=$mix_d?>pp</span>
+        <span style="color:var(--bad-text);font-weight:600;font-size:.75rem"><?=$mix_d?>pp</span>
         <?php else: ?>
         <span style="color:var(--muted);font-size:.72rem">—</span>
         <?php endif; ?>
@@ -511,7 +509,7 @@ endif;?>
         $ua=(float)($gb_a_full[$gr]??0); $ub=(float)($gb_b_full[$gr]??0); $p=pct($ua,$ub);
     ?>
     <tr>
-      <td><span class="badge badge-gold" style="font-size:.6rem"><?=htmlspecialchars($gr)?></span></td>
+      <td><span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($gr)?></span></td>
       <td class="td-mono text-right"><?=number_format((int)($gb_bales_a_full[$gr]??0))?></td>
       <td class="td-mono text-right fw-500">$<?=number_format($ua,0)?></td>
       <td class="td-mono text-right" style="color:var(--muted)">$<?=number_format($ub,0)?></td>

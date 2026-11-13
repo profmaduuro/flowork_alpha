@@ -4,7 +4,9 @@ session_start();
 require_once "includes/auth.php";
 require_once "includes/conn.php";
 require_once "includes/audit.php";
+require_once "includes/stoporder_schema.php";
 require_login();
+flowork_ensure_stoporder_amount_cols($conn);
 
 $page_title  = "Creditor Management";
 $active_page = "creditor_portal";
@@ -167,19 +169,122 @@ if (isset($_GET['ajax'])) {
 $creditors = [];
 // TIMB creditor schedule is a global registry — show all
 // User-created creditors are filtered by spid
-$cred_where = "1=1";
 $so_spid_cond = $spid > 0 ? "AND iso.selling_pointid=$spid" : "";
+
+// The register holds ~16k creditors: rendering them all made a 14 MB page that
+// took seconds to open and scroll. The server now sends one page of rows;
+// search and the status filter run here, over the whole register.
+// Rows per page: 25 / 50 / 100 / 200 (default 50)
+$cred_per  = in_array((int)($_GET['pp'] ?? 0), [25, 50, 100, 200], true) ? (int)$_GET['pp'] : 50;
+$cred_q    = trim((string)($_GET['cq'] ?? ''));
+$cred_st   = in_array($_GET['cst'] ?? '', ['active', 'suspended', 'closed'], true) ? $_GET['cst'] : '';
+$cred_page = max(1, (int)($_GET['cp'] ?? 1));
+$cred_where = "1=1";
+if ($cred_q !== '') {
+    $like = "'%" . addcslashes($conn->real_escape_string($cred_q), '%_') . "%'";
+    $cred_where .= " AND (gc.creditor_no LIKE $like OR gc.name LIKE $like OR gc.creditor_name LIKE $like
+                      OR gc.creditor_type LIKE $like OR gc.business_type LIKE $like)";
+}
+if ($cred_st !== '') $cred_where .= " AND gc.status='$cred_st'";
+
+$_ct = $conn->query("SELECT COUNT(*) n, SUM(status='active') a, SUM(status='suspended') s FROM grower_creditors");
+$_ctr = ($_ct && $_ct !== true) ? $_ct->fetch_assoc() : [];
+$cred_total      = (int)($_ctr['n'] ?? 0);
+$total_active    = (int)($_ctr['a'] ?? 0);
+$total_suspended = (int)($_ctr['s'] ?? 0);
+$_cf = $conn->query("SELECT COUNT(*) n FROM grower_creditors gc WHERE $cred_where");
+$cred_found = ($_cf && $_cf !== true) ? (int)$_cf->fetch_assoc()['n'] : 0;
+$cred_pages = max(1, (int)ceil($cred_found / $cred_per));
+$cred_page  = min($cred_page, $cred_pages);
+$cred_off   = ($cred_page - 1) * $cred_per;
+
 $cq = $conn->query("
     SELECT gc.*,
            COALESCE(NULLIF(gc.name,''), gc.creditor_name) display_name,
-           COUNT(DISTINCT iso.id) so_count
+           (SELECT COUNT(*) FROM internal_stop_order iso
+             WHERE iso.creditor_number=gc.creditor_no $so_spid_cond) so_count
     FROM grower_creditors gc
-    LEFT JOIN internal_stop_order iso ON iso.creditor_number=gc.creditor_no $so_spid_cond
     WHERE $cred_where
-    GROUP BY gc.id
-    ORDER BY COALESCE(NULLIF(gc.name,''), gc.creditor_name) ASC
+    ORDER BY COALESCE(NULLIF(gc.name,''), gc.creditor_name) ASC, gc.id
+    LIMIT $cred_per OFFSET $cred_off
 ");
 if ($cq && $cq !== true) $creditors = $cq->fetch_all(MYSQLI_ASSOC);
+/** Link to another page of a list, keeping every other filter on the URL. */
+function cp_page_url(string $param, int $p): string {
+    $q = $_GET; $q[$param] = $p; unset($q['ajax']);
+    return 'creditor_portal.php?' . http_build_query($q);
+}
+/**
+ * Page bar: "Showing a-b of n", rows per page, First / Prev / numbers / Next / Last.
+ * $pp = [page param, size param, [GET keys the size form keeps], noun]
+ */
+function cp_pager(array $pp, int $page, int $pages, int $off, int $shown, int $found, int $per, bool $filtered, string $where): string {
+    [$pageParam, $sizeParam, $keep, $noun] = $pp;
+    $h = '<nav class="cp-pager cp-pager-' . $where . '" aria-label="' . ucfirst($noun) . ' pages (' . $where . ')">';
+    $h .= '<span class="cp-pager-info">' . ($found
+        ? 'Showing <strong>' . number_format($off + 1) . '–' . number_format($off + $shown) . '</strong> of <strong>' . number_format($found) . '</strong>' . ($filtered ? ' matching' : '')
+        : 'No ' . $noun) . '</span>';
+    $h .= '<form method="GET" class="cp-pager-size">';
+    foreach ($keep as $k) if (isset($_GET[$k]) && $_GET[$k] !== '') $h .= '<input type="hidden" name="' . $k . '" value="' . htmlspecialchars((string)$_GET[$k]) . '">';
+    $h .= '<label>Rows <select name="' . $sizeParam . '" class="form-control" onchange="this.form.submit()">';
+    foreach ([25, 50, 100, 200] as $n) $h .= '<option value="' . $n . '"' . ($n === $per ? ' selected' : '') . '>' . $n . '</option>';
+    $h .= '</select></label></form>';
+    if ($pages > 1) {
+        $btn = function ($p, $label, $aria, $cur = false, $dis = false) use ($pageParam) {
+            if ($dis) return '<span class="cp-pg is-dis" aria-hidden="true">' . $label . '</span>';
+            return '<a class="cp-pg' . ($cur ? ' is-cur' : '') . '" href="' . htmlspecialchars(cp_page_url($pageParam, $p)) . '" aria-label="' . $aria . '"' . ($cur ? ' aria-current="page"' : '') . '>' . $label . '</a>';
+        };
+        $h .= '<span class="cp-pager-pages">';
+        $h .= $btn(1, '«', 'First page', false, $page <= 1);
+        $h .= $btn($page - 1, '‹', 'Previous page', false, $page <= 1);
+        $win = [1, $pages];
+        for ($i = $page - 2; $i <= $page + 2; $i++) if ($i >= 1 && $i <= $pages) $win[] = $i;
+        $win = array_values(array_unique($win)); sort($win);
+        $prev = 0;
+        foreach ($win as $p) {
+            if ($prev && $p > $prev + 1) $h .= '<span class="cp-pg-gap" aria-hidden="true">…</span>';
+            $h .= $btn($p, number_format($p), 'Page ' . $p, $p === $page);
+            $prev = $p;
+        }
+        $h .= $btn($page + 1, '›', 'Next page', false, $page >= $pages);
+        $h .= $btn($pages, '»', 'Last page', false, $page >= $pages);
+        $h .= '</span>';
+    }
+    return $h . '</nav>';
+}
+function cred_pager(int $page, int $pages, int $off, int $shown, int $found, int $per, bool $filtered, string $where): string {
+    return cp_pager(['cp', 'pp', ['cq', 'cst', 'tab'], 'creditors'], $page, $pages, $off, $shown, $found, $per, $filtered, $where);
+}
+
+// ── Stop orders: paged on the server too (search over all of them) ──────────
+$so_per  = in_array((int)($_GET['spp'] ?? 0), [25, 50, 100, 200], true) ? (int)$_GET['spp'] : 50;
+$so_q    = trim((string)($_GET['sq'] ?? ''));
+$so_page = max(1, (int)($_GET['sop'] ?? 1));
+$so_from = "FROM internal_stop_order iso
+    LEFT JOIN internal_stop_order_amount isoa ON isoa.internal_stop_orderid=iso.id AND isoa.active=1
+    LEFT JOIN growers g ON g.id=isoa.growerid
+    LEFT JOIN grower_creditors gc ON gc.creditor_no=iso.creditor_number AND gc.selling_pointid=$spid";
+$so_base  = "($spid=0 OR iso.selling_pointid=$spid)";
+$so_where = $so_base;
+if ($so_q !== '') {
+    $l = "'%" . addcslashes($conn->real_escape_string($so_q), '%_') . "%'";
+    $so_where .= " AND (iso.creditor_number LIKE $l OR iso.description LIKE $l OR gc.name LIKE $l OR gc.creditor_name LIKE $l
+                     OR g.grower_num LIKE $l OR g.name LIKE $l OR g.surname LIKE $l OR isoa.reference LIKE $l)";
+}
+$_st = $conn->query("SELECT COUNT(*) n, COALESCE(SUM(isoa.amount),0) amt $so_from WHERE $so_base");
+$_str = ($_st && $_st !== true) ? $_st->fetch_assoc() : [];
+$total_so     = (int)($_str['n'] ?? 0);
+$total_so_amt = (float)($_str['amt'] ?? 0);
+if ($so_where === $so_base) {
+    $so_found = $total_so; $so_found_amt = $total_so_amt;
+} else {
+    $_sf = $conn->query("SELECT COUNT(*) n, COALESCE(SUM(isoa.amount),0) amt $so_from WHERE $so_where");
+    $_sfr = ($_sf && $_sf !== true) ? $_sf->fetch_assoc() : [];
+    $so_found = (int)($_sfr['n'] ?? 0); $so_found_amt = (float)($_sfr['amt'] ?? 0);
+}
+$so_pages = max(1, (int)ceil($so_found / $so_per));
+$so_page  = min($so_page, $so_pages);
+$so_off   = ($so_page - 1) * $so_per;
 
 $stoporders = [];
 $sq = $conn->query("
@@ -195,24 +300,20 @@ $sq = $conn->query("
            COALESCE(g.name,'') g_name,
            COALESCE(g.surname,'') g_surname,
            COALESCE(gc.name, gc.creditor_name,'') cred_name
-    FROM internal_stop_order iso
-    LEFT JOIN internal_stop_order_amount isoa ON isoa.internal_stop_orderid=iso.id AND isoa.active=1
-    LEFT JOIN growers g ON g.id=isoa.growerid
-    LEFT JOIN grower_creditors gc ON gc.creditor_no=iso.creditor_number AND gc.selling_pointid=$spid
-    WHERE ($spid=0 OR iso.selling_pointid=$spid)
+    $so_from
+    WHERE $so_where
     ORDER BY iso.id DESC
-    LIMIT 500
+    LIMIT $so_per OFFSET $so_off
 ");
 if ($sq && $sq !== true) $stoporders = $sq->fetch_all(MYSQLI_ASSOC);
+function so_pager(int $page, int $pages, int $off, int $shown, int $found, int $per, bool $filtered, string $where): string {
+    return cp_pager(['sop', 'spp', ['sq', 'tab'], 'stop orders'], $page, $pages, $off, $shown, $found, $per, $filtered, $where);
+}
 
 $growers = [];
 $gq = $conn->query("SELECT id,grower_num,name,surname FROM growers WHERE ($spid=0 OR selling_pointid=$spid) ORDER BY grower_num LIMIT 1000");
 if ($gq && $gq !== true) $growers = $gq->fetch_all(MYSQLI_ASSOC);
 
-$total_active    = count(array_filter($creditors, fn($c) => $c['status']==='active'));
-$total_suspended = count(array_filter($creditors, fn($c) => $c['status']==='suspended'));
-$total_so        = count($stoporders);
-$total_so_amt    = array_sum(array_column($stoporders,'amount'));
 
 include "includes/layout.php";
 ?>
@@ -221,31 +322,46 @@ include "includes/layout.php";
 
 /* ── KPI strip ── */
 .cp-kpi{display:flex;gap:.55rem;flex-wrap:wrap;margin-bottom:1.1rem}
-.cp-kc{flex:1;min-width:110px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:.55rem .85rem}
-.cp-kl{font-size:.57rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.cp-kc{flex:1;min-width:110px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:.55rem .85rem}
+.cp-kl{font-size:.78rem;color:var(--muted);}
 .cp-kv{font-size:1.1rem;font-weight:700;color:var(--gold);line-height:1.2;margin-top:.1rem}
 .cp-kv.g{color:var(--leaf)}.cp-kv.w{color:var(--text-strong)}.cp-kv.r{color:var(--danger)}
 
+/* ── Page bar ── */
+.cp-pager{display:flex;align-items:center;gap:.5rem 1rem;flex-wrap:wrap;padding:.55rem 1rem;font-size:.78rem;color:var(--text-muted);background:var(--surface-2)}
+.cp-pager-top{border-bottom:1px solid var(--line)}
+.cp-pager-bottom{border-top:1px solid var(--line)}
+.cp-pager-info strong{color:var(--text);font-weight:600}
+.cp-pager-size{margin:0}
+.cp-pager-size label{display:flex;align-items:center;gap:.4rem}
+.cp-pager-size select{width:auto;min-height:30px;padding:.15rem 1.8rem .15rem .55rem}
+.cp-pager-pages{display:flex;align-items:center;gap:3px;margin-left:auto;flex-wrap:wrap}
+.cp-pg{display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:30px;padding:0 .5rem;border-radius:var(--radius);border:1px solid var(--line);background:var(--surface);color:var(--text);text-decoration:none;font-variant-numeric:tabular-nums}
+.cp-pg:hover{background:var(--surface-3)}
+.cp-pg.is-cur{background:var(--primary-bg);color:var(--primary-text);border-color:transparent;font-weight:600}
+.cp-pg.is-dis{opacity:.4}
+.cp-pg-gap{padding:0 .2rem}
+
 /* ── Tables ── */
-.cp-tbl thead th{position:sticky;top:0;background:var(--ink);color:var(--cream);font-size:.63rem;padding:.42rem .7rem;white-space:nowrap;z-index:2}
+.cp-tbl thead th{position:sticky;top:0;background:var(--surface-2);color:var(--text-muted);font-size:.72rem;padding:.42rem .7rem;white-space:nowrap;z-index:2}
 .cp-tbl tbody tr{cursor:pointer;transition:background .1s}
 .cp-tbl tbody tr:hover td{background:rgba(200,149,42,.08)!important}
 .cp-tbl tbody td{font-size:.73rem;padding:.42rem .7rem;white-space:nowrap}
 
 /* ── Modal ── */
 #cp-modal{display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.55);overflow-y:auto;padding:2rem 1rem}
-#cp-box{background:var(--cream);border-radius:10px;max-width:680px;margin:0 auto;box-shadow:0 8px 40px rgba(0,0,0,.3);overflow:hidden}
-.cp-mh{background:var(--ink);color:var(--cream);padding:.85rem 1.25rem;display:flex;align-items:center;gap:.75rem}
+#cp-box{background:var(--surface);border-radius:10px;max-width:680px;margin:0 auto;box-shadow:0 8px 40px rgba(0,0,0,.3);overflow:hidden}
+.cp-mh{background:var(--surface-2);color:var(--text);padding:.85rem 1.25rem;display:flex;align-items:center;gap:.75rem}
 .cp-mb{padding:1.25rem}
-.cp-mf{padding:.75rem 1.25rem;border-top:2px solid var(--border);background:#f8f5ef;display:flex;gap:.65rem;align-items:center;justify-content:flex-end;flex-wrap:wrap}
-.cp-sect{font-size:.6rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:.85rem 0 .4rem}
+.cp-mf{padding:.75rem 1.25rem;border-top:2px solid var(--border);background:var(--surface-2);display:flex;gap:.65rem;align-items:center;justify-content:flex-end;flex-wrap:wrap}
+.cp-sect{font-size:.78rem;font-weight:600;color:var(--muted);margin:.85rem 0 .4rem}
 .cp-sect:first-child{margin-top:0}
 </style>
 
 <div class="page-header">
   <div class="page-header-left">
     <h2>Creditor Management</h2>
-    <p><?=count($creditors)?> creditors &nbsp;&middot;&nbsp; <?=$total_so?> stop orders</p>
+    <p><?=number_format($cred_total)?> creditors &nbsp;&middot;&nbsp; <?=$total_so?> stop orders</p>
   </div>
   <div style="display:flex;gap:.45rem;flex-wrap:wrap">
     <a href="file_manager_uploads.php" class="btn btn-ghost btn-sm">&#8679; Import CSV</a>
@@ -258,7 +374,7 @@ include "includes/layout.php";
 
 <!-- KPIs -->
 <div class="cp-kpi">
-  <div class="cp-kc"><div class="cp-kl">Total Creditors</div><div class="cp-kv w"><?=count($creditors)?></div></div>
+  <div class="cp-kc"><div class="cp-kl">Total Creditors</div><div class="cp-kv w"><?=number_format($cred_total)?></div></div>
   <div class="cp-kc"><div class="cp-kl">Active</div><div class="cp-kv g"><?=$total_active?></div></div>
   <div class="cp-kc"><div class="cp-kl">Suspended</div><div class="cp-kv r"><?=$total_suspended?></div></div>
   <div class="cp-kc"><div class="cp-kl">Stop Orders</div><div class="cp-kv"><?=$total_so?></div></div>
@@ -267,8 +383,8 @@ include "includes/layout.php";
 
 <!-- Tabs -->
 <div class="premium-tabs-nav" data-tabs="creditor">
-  <button type="button" class="premium-tab-btn active" data-tab="creditors">&#127970; Creditors <span class="badge badge-gray" style="font-size:.6rem;margin-left:.25rem"><?=count($creditors)?></span></button>
-  <button type="button" class="premium-tab-btn" data-tab="stoporders">&#128721; Stop Orders <span class="badge badge-gray" style="font-size:.6rem;margin-left:.25rem"><?=$total_so?></span></button>
+  <button type="button" class="premium-tab-btn active" data-tab="creditors">&#127970; Creditors <span class="badge badge-gray" style="font-size:.72rem;margin-left:.25rem"><?=number_format($cred_total)?></span></button>
+  <button type="button" class="premium-tab-btn" data-tab="stoporders">&#128721; Stop Orders <span class="badge badge-gray" style="font-size:.72rem;margin-left:.25rem"><?=$total_so?></span></button>
 </div>
 
 <!-- ── TAB 1: CREDITORS ── -->
@@ -276,21 +392,27 @@ include "includes/layout.php";
   <div class="card">
     <div class="card-head" style="flex-wrap:wrap;gap:.5rem">
       <h3 style="margin:0">Creditor Register</h3>
-      <div style="display:flex;gap:.45rem;flex:1;justify-content:flex-end;flex-wrap:wrap">
-        <input type="text" id="cred-srch" class="form-control" placeholder="Search name, number, type..."
-               style="max-width:240px;font-size:.8rem" oninput="filterCreds()">
-        <select id="cred-status-filter" class="form-control" style="max-width:130px;font-size:.8rem" onchange="filterCreds()">
+      <form method="GET" id="cred-filter" style="display:flex;gap:.45rem;flex:1;justify-content:flex-end;flex-wrap:wrap;margin:0">
+        <input type="hidden" name="pp" value="<?=$cred_per?>">
+        <input type="search" name="cq" id="cred-srch" class="form-control" placeholder="Search name, number, type…"
+               value="<?=htmlspecialchars($cred_q)?>" style="max-width:240px" aria-label="Search creditors" autocomplete="off">
+        <select name="cst" id="cred-status-filter" class="form-control" style="max-width:150px" onchange="this.form.submit()" aria-label="Status">
           <option value="">All statuses</option>
-          <option value="active">Active</option>
-          <option value="suspended">Suspended</option>
-          <option value="closed">Closed</option>
+          <?php foreach(['active'=>'Active','suspended'=>'Suspended','closed'=>'Closed'] as $sv=>$sl):?>
+          <option value="<?=$sv?>" <?=$cred_st===$sv?'selected':''?>><?=$sl?></option>
+          <?php endforeach;?>
         </select>
-      </div>
+      </form>
     </div>
-    <div style="overflow-x:auto;max-height:520px;overflow-y:auto">
+    <?= (cred_pager($cred_page, $cred_pages, $cred_off, count($creditors), $cred_found, $cred_per, ($cred_q!==''||$cred_st!==''), 'top')) ?>
+    <div style="overflow-x:auto">
     <?php if(empty($creditors)):?>
     <div class="text-center text-muted" style="padding:3rem">
+      <?php if($cred_q!=='' || $cred_st!==''):?>
+      No creditors match this search. <a href="creditor_portal.php" style="color:var(--accent-text)">Clear the search</a>
+      <?php else:?>
       No creditors found. <a href="file_manager_uploads.php" style="color:var(--gold)">Upload a creditor CSV</a> or click <strong>+ Register Creditor</strong> above.
+      <?php endif;?>
     </div>
     <?php else:?>
     <table class="cp-tbl" id="cred-tbl">
@@ -302,9 +424,8 @@ include "includes/layout.php";
     <tbody>
     <?php foreach($creditors as $c):
       $dn = htmlspecialchars($c['display_name'] ?: $c['creditor_name']);
-      $sr = strtolower($c['creditor_no'].' '.$c['display_name'].' '.$c['creditor_name'].' '.$c['creditor_type'].' '.$c['business_type']);
     ?>
-    <tr data-id="<?=$c['id']?>" data-s="<?=htmlspecialchars($sr,ENT_QUOTES)?>" data-status="<?=$c['status']?>"
+    <tr data-id="<?=$c['id']?>" data-status="<?=$c['status']?>"
         onclick="openCreditorModal(<?=$c['id']?>)" style="<?=$c['status']!=='active'?'opacity:.6':''?>">
       <td class="td-mono" style="font-weight:600;color:var(--gold)"><?=htmlspecialchars($c['creditor_no'])?></td>
       <td style="font-weight:500"><?=$dn?></td>
@@ -315,19 +436,17 @@ include "includes/layout.php";
       <td style="font-family:monospace;font-size:.7rem"><?=htmlspecialchars($c['account_num']??'')?></td>
       <td style="font-size:.7rem;color:var(--muted);max-width:140px;overflow:hidden;text-overflow:ellipsis"><?=htmlspecialchars($c['email']??'')?></td>
       <td class="text-right">
-        <?php if($c['so_count']>0):?><span class="badge badge-blue" style="font-size:.6rem"><?=(int)$c['so_count']?></span>
+        <?php if($c['so_count']>0):?><span class="badge badge-blue" style="font-size:.72rem"><?=(int)$c['so_count']?></span>
         <?php else:?><span style="color:var(--muted)">—</span><?php endif;?>
       </td>
-      <td><span class="badge <?=$c['status']==='active'?'badge-green':($c['status']==='suspended'?'badge-gold':'badge-red')?>" style="font-size:.6rem"><?=ucfirst($c['status'])?></span></td>
+      <td><span class="badge <?=$c['status']==='active'?'badge-green':($c['status']==='suspended'?'badge-gold':'badge-red')?>" style="font-size:.72rem"><?=ucfirst($c['status'])?></span></td>
     </tr>
     <?php endforeach;?>
     </tbody>
     </table>
     <?php endif;?>
     </div>
-    <div style="padding:.45rem 1rem;font-size:.68rem;color:var(--muted);border-top:1px solid var(--border)">
-      <span id="cred-cnt"><?=count($creditors)?></span> creditor(s)
-    </div>
+    <?= (cred_pager($cred_page, $cred_pages, $cred_off, count($creditors), $cred_found, $cred_per, ($cred_q!==''||$cred_st!==''), 'bottom')) ?>
   </div>
 </div>
 
@@ -337,15 +456,24 @@ include "includes/layout.php";
     <div class="card-head" style="flex-wrap:wrap;gap:.5rem">
       <h3 style="margin:0">Stop Orders</h3>
       <div style="display:flex;gap:.45rem;flex:1;justify-content:flex-end;flex-wrap:wrap">
-        <input type="text" id="so-srch" class="form-control" placeholder="Search creditor, grower, ref..."
-               style="max-width:240px;font-size:.8rem" oninput="filterSOs()">
-        <button class="btn btn-primary btn-sm" onclick="openSOModal(0)">+ New Stop Order</button>
+        <form method="GET" id="so-filter" style="margin:0">
+          <input type="hidden" name="tab" value="stoporders">
+          <input type="hidden" name="spp" value="<?=$so_per?>">
+          <input type="search" name="sq" id="so-srch" class="form-control" placeholder="Search creditor, grower, ref…"
+                 value="<?=htmlspecialchars($so_q)?>" style="max-width:240px" aria-label="Search stop orders" autocomplete="off">
+        </form>
+        <button type="button" class="btn btn-primary btn-sm" onclick="openSOModal(0)">+ New Stop Order</button>
       </div>
     </div>
-    <div style="overflow-x:auto;max-height:520px;overflow-y:auto">
+    <?= so_pager($so_page, $so_pages, $so_off, count($stoporders), $so_found, $so_per, $so_q!=='', 'top') ?>
+    <div style="overflow-x:auto">
     <?php if(empty($stoporders)):?>
     <div class="text-center text-muted" style="padding:3rem">
+      <?php if($so_q!==''):?>
+      No stop orders match this search. <a href="creditor_portal.php?tab=stoporders" style="color:var(--accent-text)">Clear the search</a>
+      <?php else:?>
       No stop orders found. Click <strong>+ New Stop Order</strong> or import from the TIMB stop order file.
+      <?php endif;?>
     </div>
     <?php else:?>
     <table class="cp-tbl" id="so-tbl">
@@ -355,10 +483,8 @@ include "includes/layout.php";
       <th>Reference</th><th>Sell Date</th><th>Status</th>
     </tr></thead>
     <tbody>
-    <?php foreach($stoporders as $so):
-      $sr = strtolower($so['creditor_number'].' '.$so['cred_name'].' '.$so['description'].' '.$so['grower_num'].' '.$so['reference']);
-    ?>
-    <tr data-id="<?=$so['id']?>" data-s="<?=htmlspecialchars($sr,ENT_QUOTES)?>"
+    <?php foreach($stoporders as $so):?>
+    <tr data-id="<?=$so['id']?>"
         onclick="openSOModal(<?=$so['id']?>)"
         style="<?=$so['processed']?'opacity:.55':''?>">
       <td class="td-mono" style="color:var(--muted);font-size:.68rem"><?=$so['id']?></td>
@@ -376,9 +502,9 @@ include "includes/layout.php";
       <td style="font-size:.7rem"><?=$so['sell_date']?></td>
       <td>
         <?php if($so['processed']):?>
-        <span class="badge badge-green" style="font-size:.6rem">Processed</span>
+        <span class="badge badge-green" style="font-size:.72rem">Processed</span>
         <?php else:?>
-        <span class="badge badge-gold" style="font-size:.6rem">Pending</span>
+        <span class="badge badge-gold" style="font-size:.72rem">Pending</span>
         <?php endif;?>
       </td>
     </tr>
@@ -387,9 +513,9 @@ include "includes/layout.php";
     </table>
     <?php endif;?>
     </div>
-    <div style="padding:.45rem 1rem;font-size:.68rem;color:var(--muted);border-top:1px solid var(--border)">
-      <span id="so-cnt"><?=$total_so?></span> stop order(s) &nbsp;&middot;&nbsp;
-      Total: <strong>$<?=number_format($total_so_amt,2)?></strong>
+    <?= so_pager($so_page, $so_pages, $so_off, count($stoporders), $so_found, $so_per, $so_q!=='', 'bottom') ?>
+    <div style="padding:.45rem 1rem;font-size:.78rem;color:var(--muted);border-top:1px solid var(--border)">
+      Total<?=$so_q!==''?' of matching':''?> stop orders: <strong style="color:var(--text)">$<?=number_format($so_found_amt,2)?></strong>
     </div>
   </div>
 </div>
@@ -401,7 +527,7 @@ include "includes/layout.php";
 <div id="cp-box">
   <div class="cp-mh">
     <div style="flex:1">
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--gold);letter-spacing:.08em" id="cp-m-title">Register Creditor</div>
+      <div style="font-family:'DM Sans',sans-serif;font-size:0.94rem;color:var(--gold);font-weight:600" id="cp-m-title">Register Creditor</div>
       <div style="font-size:.68rem;color:rgba(245,240,232,.45)" id="cp-m-sub"></div>
     </div>
     <button onclick="closeModal()" style="background:none;border:none;color:rgba(245,240,232,.45);font-size:1.3rem;cursor:pointer;line-height:1">&times;</button>
@@ -420,28 +546,30 @@ var GROWERS = <?= json_encode(array_map(fn($g) => [
     'name'=>$g['name'].' '.$g['surname']
 ], $growers)) ?>;
 
-/* ── Creditor filter ── */
-function filterCreds(){
-    var q   = document.getElementById('cred-srch').value.trim().toLowerCase();
-    var st  = document.getElementById('cred-status-filter').value;
-    var rows= document.querySelectorAll('#cred-tbl tbody tr'), vis=0;
-    rows.forEach(function(r){
-        var ok = (!q||(r.dataset.s||'').includes(q)) && (!st||r.dataset.status===st);
-        r.style.display=ok?'':'none'; if(ok)vis++;
+/* ── Creditor search: runs on the server over the whole register.
+   Typing waits for a pause, then reloads the list (page 1). ── */
+(function(){
+    var inp = document.getElementById('cred-srch');
+    if (!inp) return;
+    var t;
+    inp.addEventListener('input', function(){
+        clearTimeout(t);
+        t = setTimeout(function(){ document.getElementById('cred-filter').submit(); }, 450);
     });
-    document.getElementById('cred-cnt').textContent=vis;
-}
+    // keep the cursor at the end of the search box after a search reload
+    if (inp.value) { inp.focus(); var v = inp.value; inp.value = ''; inp.value = v; }
+})();
 
-/* ── SO filter ── */
-function filterSOs(){
-    var q   = document.getElementById('so-srch').value.trim().toLowerCase();
-    var rows= document.querySelectorAll('#so-tbl tbody tr'), vis=0;
-    rows.forEach(function(r){
-        var ok = !q||(r.dataset.s||'').includes(q);
-        r.style.display=ok?'':'none'; if(ok)vis++;
+/* ── Stop order search: runs on the server; waits for a pause in typing ── */
+(function(){
+    var inp = document.getElementById('so-srch');
+    if (!inp) return;
+    var t;
+    inp.addEventListener('input', function(){
+        clearTimeout(t);
+        t = setTimeout(function(){ document.getElementById('so-filter').submit(); }, 450);
     });
-    document.getElementById('so-cnt').textContent=vis;
-}
+})();
 
 /* ── Modal helpers ── */
 function closeModal(){

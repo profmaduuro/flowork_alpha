@@ -166,7 +166,7 @@ include "includes/layout.php";
 <div class="alert alert-gold">
   <strong>Simulation mode.</strong> No Stop Order credentials are configured, so fetches return generated prices
   across your local grade catalogue rather than anything from TIMB. Stored rows are marked
-  <span class="badge badge-gold" style="font-size:.58rem">simulated</span> and can be replaced by re-fetching.
+  <span class="badge badge-gold" style="font-size:.72rem">simulated</span> and can be replaced by re-fetching.
   Set credentials under <a href="timb_growermaster.php?tab=settings">TIMB settings</a> to go live.
 </div>
 <?php endif;?>
@@ -231,7 +231,7 @@ include "includes/layout.php";
       </div>
     </div>
   <?php endif;?>
-  <div class="table-wrap" style="max-height:600px;overflow-y:auto"><table>
+  <div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto"><table>
     <thead><tr>
       <th>Grade</th><th class="text-right">TIMB price</th><th class="text-right">US$/kg</th>
       <th class="text-right">Prev. season</th><th class="text-right">Δ vs season</th>
@@ -312,7 +312,7 @@ include "includes/layout.php";
   <?php if(!$seasonal):?>
     <div class="card-body text-center text-muted">Not fetched yet.</div>
   <?php else:?>
-  <div class="table-wrap" style="max-height:600px;overflow-y:auto"><table>
+  <div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto"><table>
     <thead><tr><th>Grade</th><th class="text-right">TIMB price</th><th class="text-right">US$/kg</th></tr></thead>
     <tbody>
     <?php foreach($seasonal as $row):?>
@@ -335,7 +335,7 @@ include "includes/layout.php";
   <?php if(!$dates):?>
     <div class="card-body text-center text-muted">No daily matrices stored yet.</div>
   <?php else:?>
-  <div class="table-wrap" style="max-height:560px;overflow-y:auto"><table>
+  <div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto"><table>
     <thead><tr><th>Sale date</th><th class="text-right">Grades</th><th>Fetched</th><th></th></tr></thead>
     <tbody>
     <?php foreach($dates as $d):?>

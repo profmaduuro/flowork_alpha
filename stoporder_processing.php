@@ -417,18 +417,18 @@ include "includes/layout.php";
   <div class="card">
     <div class="card-head">
       <h3>🔑 Encryption Keys</h3>
-      <?php if($keys):?><span class="badge badge-green" style="font-size:.58rem">✓ Configured</span><?php else:?><span class="badge badge-red" style="font-size:.58rem">Not set</span><?php endif;?>
+      <?php if($keys):?><span class="badge badge-green" style="font-size:.72rem">✓ Configured</span><?php else:?><span class="badge badge-red" style="font-size:.72rem">Not set</span><?php endif;?>
     </div>
     <div class="card-body" style="padding:1rem">
       <form method="POST">
         <input type="hidden" name="action" value="save_keys">
         <div class="form-row cols-2" style="margin-bottom:.8rem">
           <div class="form-group" style="margin-bottom:0">
-            <label style="font-size:.6rem">System Key (AES-256 key)</label>
+            <label style="font-size:.72rem">System Key (AES-256 key)</label>
             <input type="text" name="system_key" class="form-control" style="padding:.4rem .6rem;font-size:.78rem;font-family:monospace" value="<?=htmlspecialchars($keys['system_key']??'')?>" placeholder="256-bit key" required>
           </div>
           <div class="form-group" style="margin-bottom:0">
-            <label style="font-size:.6rem">Initialization Vector (IV)</label>
+            <label style="font-size:.72rem">Initialization Vector (IV)</label>
             <input type="text" name="vector" class="form-control" style="padding:.4rem .6rem;font-size:.78rem;font-family:monospace" value="<?=htmlspecialchars($keys['vector']??'')?>" placeholder="IV" required>
           </div>
         </div>
@@ -439,10 +439,10 @@ include "includes/layout.php";
 
   <!-- KPIs -->
   <div class="sop-kpi-grid">
-    <div class="kpi-card" style="padding:.85rem;margin-bottom:0"><div class="kpi-label" style="font-size:.58rem;margin-bottom:.3rem">Active Stop Orders</div><div class="kpi-value text-gold" style="font-size:1.6rem"><?=number_format($active_count)?></div></div>
-    <div class="kpi-card" style="padding:.85rem;margin-bottom:0"><div class="kpi-label" style="font-size:.58rem;margin-bottom:.3rem">Total Active USD</div><div class="kpi-value" style="font-size:1.6rem">$<?=number_format($total_active_usd,2)?></div></div>
-    <div class="kpi-card" style="padding:.85rem;margin-bottom:0;--kpi-color:var(--danger)"><div class="kpi-label" style="font-size:.58rem;margin-bottom:.3rem">Today's Matches</div><div class="kpi-value" style="font-size:1.6rem;color:<?=$today_match_count>0?'var(--danger)':'var(--leaf)'?>"><?=$today_match_count?></div><div class="kpi-sub" style="font-size:.62rem;margin-top:.15rem">$<?=number_format($today_match_usd,2)?></div></div>
-    <div class="kpi-card" style="padding:.85rem;margin-bottom:0"><div class="kpi-label" style="font-size:.58rem;margin-bottom:.3rem">Processed</div><div class="kpi-value text-leaf" style="font-size:1.6rem"><?=number_format($processed_count)?></div></div>
+    <div class="kpi-card" style="padding:.85rem;margin-bottom:0"><div class="kpi-label" style="font-size:.72rem;margin-bottom:.3rem">Active Stop Orders</div><div class="kpi-value text-gold" style="font-size:1.6rem"><?=number_format($active_count)?></div></div>
+    <div class="kpi-card" style="padding:.85rem;margin-bottom:0"><div class="kpi-label" style="font-size:.72rem;margin-bottom:.3rem">Total Active USD</div><div class="kpi-value" style="font-size:1.6rem">$<?=number_format($total_active_usd,2)?></div></div>
+    <div class="kpi-card" style="padding:.85rem;margin-bottom:0;--kpi-color:var(--danger)"><div class="kpi-label" style="font-size:.72rem;margin-bottom:.3rem">Today's Matches</div><div class="kpi-value" style="font-size:1.6rem;color:<?=$today_match_count>0?'var(--danger)':'var(--leaf)'?>"><?=$today_match_count?></div><div class="kpi-sub" style="font-size:.72rem;margin-top:.15rem">$<?=number_format($today_match_usd,2)?></div></div>
+    <div class="kpi-card" style="padding:.85rem;margin-bottom:0"><div class="kpi-label" style="font-size:.72rem;margin-bottom:.3rem">Processed</div><div class="kpi-value text-leaf" style="font-size:1.6rem"><?=number_format($processed_count)?></div></div>
   </div>
 
 </div>
@@ -460,7 +460,7 @@ include "includes/layout.php";
   <div style="padding:.5rem 1rem;background:rgba(192,57,43,.05);border-bottom:1px solid var(--border);font-size:.75rem;color:var(--muted)">
     These stop orders match growers who are <strong>selling today</strong>. They will be automatically deducted from the grower's net payout during balancing.
   </div>
-  <div class="table-wrap" style="max-height:400px;overflow-y:auto"><table>
+  <div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto"><table>
   <thead><tr>
     <th>Priority</th><th>Grower</th><th>Creditor #</th><th>Ref</th>
     <th class="text-right">Amount USD</th><th class="text-right">Amount ZiG</th>
@@ -475,7 +475,7 @@ include "includes/layout.php";
   <tr>
     <td><span class="badge badge-blue"><?=(int)$tm['priority']?></span></td>
     <td>
-      <span class="badge badge-gold" style="font-size:.6rem"><?=htmlspecialchars($tm['grower_num'])?></span>
+      <span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($tm['grower_num'])?></span>
       <div style="font-size:.68rem"><?=htmlspecialchars($tm['grower_name'])?></div>
     </td>
     <td style="font-family:monospace;font-size:.72rem">
@@ -533,7 +533,7 @@ include "includes/layout.php";
       </div>
     </div>
   </div>
-  <div class="table-wrap" style="max-height:600px;overflow-y:auto"><table>
+  <div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto"><table>
   <thead><tr>
     <th>Grower</th><th>Creditor #</th><th>Ref</th>
     <th class="text-right">Amount 1</th><th class="text-right">Amount 2</th>
@@ -547,7 +547,7 @@ include "includes/layout.php";
   <?php else: foreach($sos as $so):?>
   <tr>
     <td>
-      <span class="badge badge-gold" style="font-size:.6rem"><?=htmlspecialchars($so['grower_num'])?></span>
+      <span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($so['grower_num'])?></span>
       <div style="font-size:.68rem"><?=htmlspecialchars(trim($so['name'].' '.$so['surname']))?></div>
     </td>
     <td style="font-family:monospace;font-size:.72rem">
@@ -562,11 +562,11 @@ include "includes/layout.php";
     <td style="font-size:.72rem"><?=$so['formatted_sos_date']?date('d M Y',strtotime($so['formatted_sos_date'])):'—'?></td>
     <td>
       <?php if($so['processed']):?>
-        <span class="badge badge-green" style="font-size:.58rem">Processed</span>
+        <span class="badge badge-green" style="font-size:.72rem">Processed</span>
       <?php elseif($so['active']):?>
-        <span class="badge badge-gold" style="font-size:.58rem">Active</span>
+        <span class="badge badge-gold" style="font-size:.72rem">Active</span>
       <?php else:?>
-        <span class="badge badge-gray" style="font-size:.58rem">Inactive</span>
+        <span class="badge badge-gray" style="font-size:.72rem">Inactive</span>
       <?php endif;?>
     </td>
     <td>
@@ -574,7 +574,7 @@ include "includes/layout.php";
       <form method="POST" style="display:inline">
         <input type="hidden" name="action" value="deactivate">
         <input type="hidden" name="so_id" value="<?=$so['id']?>">
-        <button class="btn btn-ghost btn-sm" style="font-size:.62rem;color:var(--danger)">✕</button>
+        <button class="btn btn-ghost btn-sm" style="font-size:.72rem;color:var(--danger)">✕</button>
       </form>
       <?php endif;?>
     </td>

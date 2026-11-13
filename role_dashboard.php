@@ -44,16 +44,16 @@ include "includes/layout.php";
 <style>
 .rd-hero { background:linear-gradient(135deg,<?=$role_color?>12,<?=$role_color?>05);border:1px solid <?=$role_color?>25;border-radius:var(--radius);padding:1.5rem;margin-bottom:1.5rem;position:relative;overflow:hidden; }
 .rd-hero::after { content:'';position:absolute;top:-20px;right:-20px;width:120px;height:120px;border-radius:50%;background:<?=$role_color?>08; }
-.rd-hero-greeting { font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:.04em;color:var(--ink); }
-.rd-hero-role { display:inline-flex;padding:3px 10px;border-radius:999px;font-size:.6rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;background:<?=$role_color?>15;color:<?=$role_color?>; }
+.rd-hero-greeting { font-family:'DM Sans',sans-serif;font-size:1.53rem;color:var(--text);font-weight:600}
+.rd-hero-role { display:inline-flex;padding:3px 10px;border-radius:999px;font-size:.78rem;font-weight:600;background:<?=$role_color?>15;color:<?=$role_color?>; }
 .rd-widget-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:.75rem;margin-bottom:1.5rem; }
-.rd-widget { background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:1rem;text-align:center;transition:all .2s; }
+.rd-widget { background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;text-align:center;transition:all .2s; }
 body.theme-dark .rd-widget { background:var(--ink-soft); }
 .rd-widget:hover { transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.06); }
 .rd-widget-icon { font-size:1.5rem;margin-bottom:.35rem; }
-.rd-widget-val { font-family:'Bebas Neue',sans-serif;font-size:2rem;line-height:1; }
-.rd-widget-lbl { font-size:.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;font-weight:500;margin-top:.2rem; }
-.rd-shortcut { display:flex;align-items:center;gap:.65rem;padding:.65rem .85rem;border-bottom:1px solid var(--border);text-decoration:none;color:var(--ink);transition:all .15s; }
+.rd-widget-val { font-family:'DM Sans',sans-serif;font-size:1.7rem;line-height:1;font-weight:600}
+.rd-widget-lbl { font-size:.78rem;color:var(--muted);font-weight:500;margin-top:.2rem; }
+.rd-shortcut { display:flex;align-items:center;gap:.65rem;padding:.65rem .85rem;border-bottom:1px solid var(--border);text-decoration:none;color:var(--text);transition:all .15s; }
 .rd-shortcut:hover { background:var(--gold-bg);padding-left:1rem; }
 .rd-shortcut-icon { width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1rem;background:var(--cream-d);flex-shrink:0; }
 .rd-shortcut-text { font-size:.82rem;font-weight:500; }
@@ -164,9 +164,9 @@ body.theme-dark .rd-widget { background:var(--ink-soft); }
         <div style="font-size:.9rem">📦</div>
         <div style="flex:1">
           <div style="font-size:.78rem;font-weight:500"><?=htmlspecialchars($rs['barcode'])?></div>
-          <div style="font-size:.62rem;color:var(--muted)"><?=number_format((float)$rs['mass'],1)?>kg · <?=date('H:i',strtotime($rs['created_at']))?></div>
+          <div style="font-size:.72rem;color:var(--muted)"><?=number_format((float)$rs['mass'],1)?>kg · <?=date('H:i',strtotime($rs['created_at']))?></div>
         </div>
-        <div style="font-family:'Bebas Neue',sans-serif;font-size:1rem;color:var(--gold)">$<?=number_format((float)$rs['price'],2)?></div>
+        <div style="font-family:'DM Sans',sans-serif;font-size:0.85rem;color:var(--gold);font-weight:600">$<?=number_format((float)$rs['price'],2)?></div>
       </div>
       <?php endforeach; ?>
       <?php else: ?>

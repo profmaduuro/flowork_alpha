@@ -13,6 +13,7 @@ session_start();
 require_once "includes/auth.php";
 require_once "includes/conn.php";
 require_once "includes/timb_ws.php";
+require_once "includes/pager.php";
 require_once "audit.php";
 require_login();
 
@@ -218,30 +219,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$nums) {
             $err = "Enter at least one grower number, or upload a CSV/Excel file containing them.";
         } else {
-            // TIMB is queried by URL, so keep the batch to a sane size; larger
-            // sets belong in the Full Database Pull tab.
-            $cap = 100; $capped = false;
-            if (count($nums) > $cap) { $nums = array_slice($nums, 0, $cap); $capped = true; }
-
-            $res = timb_ws_growermaster($conn, $nums, ['spid'=>$spid, 'userid'=>$userid]);
-            $last_call = $res;
-            if ($res['ok']) {
+            // TIMB is queried by URL, so ask for at most 100 numbers per request
+            // and send as many requests as the list needs: every number on the
+            // list is fetched. Results are shown a page at a time below.
+            @set_time_limit(0);
+            $batch_size = 100;
+            $batches    = array_chunk($nums, $batch_size);
+            $by_num = []; $requested = []; $simulated = false; $batch_errs = [];
+            foreach ($batches as $bi => $batch) {
+                $res = timb_ws_growermaster($conn, $batch, ['spid'=>$spid, 'userid'=>$userid]);
+                $last_call = $res;
+                if ($res['ok']) {
+                    foreach ($res['growers'] as $g) $by_num[$g['grower_num']] = $g;
+                    $requested = array_merge($requested, $res['requested']);
+                    if (!empty($res['simulated'])) $simulated = true;
+                } else {
+                    $batch_errs[] = (count($batches) > 1 ? 'request ' . ($bi + 1) . ' of ' . count($batches) . ': ' : '') . $res['error'];
+                }
+            }
+            if ($by_num || !$batch_errs) {
                 $results = [];
-                foreach ($res['growers'] as $g) {
+                foreach ($by_num as $g) {
                     $g['diff'] = timb_ws_diff_local($conn, $spid, $g);
                     $results[] = $g;
                 }
                 $_SESSION['timb_gm_results']   = $results;
-                $_SESSION['timb_gm_simulated'] = !empty($res['simulated']);
+                $_SESSION['timb_gm_simulated'] = $simulated;
 
-                $missing = array_diff($res['requested'], array_column($res['growers'], 'grower_num'));
-                $msg = "✓ TIMB returned " . count($res['growers']) . " of " . count($res['requested']) . " requested grower(s)"
-                     . (!empty($res['simulated']) ? " (simulated — no live credentials configured)" : "") . ".";
+                $missing = array_diff($requested, array_keys($by_num));
+                $msg = "✓ TIMB returned " . count($results) . " of " . count($requested) . " requested grower(s)"
+                     . (count($batches) > 1 ? " (" . count($batches) . " requests of up to $batch_size)" : "")
+                     . ($simulated ? " (simulated — no live credentials configured)" : "") . ".";
                 if ($from_file) $msg .= " Included $from_file number(s) from the uploaded file.";
-                if ($missing)   $msg .= " Not found at TIMB: " . implode(', ', $missing) . ".";
-                if ($capped)    $msg .= " Note: only the first $cap were queried — use the Full Database Pull for larger sets.";
+                if ($missing) {
+                    $shown_missing = array_slice($missing, 0, 50);
+                    $msg .= " Not found at TIMB: " . implode(', ', $shown_missing) . (count($missing) > 50 ? ' … and ' . (count($missing) - 50) . ' more' : '') . ".";
+                }
+                if ($batch_errs) $err = "✕ Some requests failed (" . implode('; ', $batch_errs) . "). Run the lookup again for the numbers that are missing.";
             } else {
-                $err = "✕ " . $res['error'];
+                $err = "✕ " . implode('; ', $batch_errs);
                 $results = [];
                 unset($_SESSION['timb_gm_results']);
             }
@@ -251,9 +267,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     /* Import the selected lookup results ------------------------------ */
     if ($action === 'import') {
         $picked  = array_map('strval', (array)($_POST['nums'] ?? []));
-        $to_save = array_values(array_filter($results, function ($g) use ($picked) {
-            return in_array($g['grower_num'], $picked, true);
-        }));
+        $to_save = !empty($_POST['import_all']) ? array_values($results)
+                 : array_values(array_filter($results, function ($g) use ($picked) {
+                       return in_array($g['grower_num'], $picked, true);
+                   }));
 
         if (!$to_save) {
             $err = "Select at least one grower to import.";
@@ -367,6 +384,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 if (!empty($_GET['saved']))    $msg = "✓ TIMB web service settings saved.";
 if (!empty($_GET['noexport'])) $err = "Nothing to export yet — run a lookup or open a registry with records first.";
 
+/* ── One service-log entry's raw request/response, loaded on demand ────── */
+if (isset($_GET['raw_log'])) {
+    header('Content-Type: application/json');
+    $lid = (int)$_GET['raw_log'];
+    $lq = $conn->query("SELECT url, request_params, response_body FROM timb_service_log
+                        WHERE id=$lid AND selling_pointid=$spid AND service LIKE 'growermaster%' LIMIT 1");
+    $lr = ($lq && $lq !== true) ? $lq->fetch_assoc() : null;
+    echo json_encode($lr ? ['ok' => true, 'url' => (string)$lr['url'], 'request' => (string)$lr['request_params'],
+                            'response' => (string)$lr['response_body']]
+                         : ['ok' => false, 'error' => 'Log entry not found on this floor.']);
+    exit;
+}
+
 /* ── Page data ─────────────────────────────────────────────────────────── */
 
 $cred_booking   = timb_ws_credentials($conn, 'booking');
@@ -379,15 +409,27 @@ if ($search !== '') {
     $s = $conn->real_escape_string($search);
     $where .= " AND (r.grower_num LIKE '%$s%' OR r.name LIKE '%$s%' OR r.surname LIKE '%$s%' OR r.national_id LIKE '%$s%')";
 }
+$reg_per = fw_per_page('rpp', 50);
+$_rf = $conn->query("SELECT COUNT(*) n FROM timb_grower_registry r $where");
+$reg_found = ($_rf && $_rf !== true) ? (int)$_rf->fetch_assoc()['n'] : 0;
+[$reg_page, $reg_pages, $reg_off] = fw_page_window($reg_found, $reg_per, 'rp');
 $reg_q = $conn->query("SELECT r.*, (SELECT g.id FROM growers g WHERE g.grower_num=r.grower_num AND g.selling_pointid=r.selling_pointid LIMIT 1) AS local_id
-                       FROM timb_grower_registry r $where ORDER BY r.last_synced DESC, r.grower_num LIMIT 300");
+                       FROM timb_grower_registry r $where ORDER BY r.last_synced DESC, r.grower_num
+                       LIMIT $reg_per OFFSET $reg_off");
 $registry = ($reg_q && $reg_q !== true) ? $reg_q->fetch_all(MYSQLI_ASSOC) : [];
+$reg_pager = function ($where_) use ($reg_page, $reg_pages, $reg_off, $registry, $reg_found, $reg_per, $search) {
+    return fw_pager(['page'=>$reg_page, 'pages'=>$reg_pages, 'offset'=>$reg_off, 'shown'=>count($registry), 'found'=>$reg_found,
+                     'per'=>$reg_per, 'page_param'=>'rp', 'size_param'=>'rpp', 'keep'=>['tab', 'q'], 'noun'=>'growers',
+                     'filtered'=>$search !== '', 'where'=>$where_]);
+};
 
 $rc = $conn->query("SELECT COUNT(*) n, SUM(source LIKE 'growermaster%') ws, SUM(obligations_fulfilled='NO') unmet
                     FROM timb_grower_registry WHERE selling_pointid=$spid");
 $reg_counts = ($rc && $rc !== true) ? $rc->fetch_assoc() : ['n'=>0,'ws'=>0,'unmet'=>0];
 
-$log_q = $conn->query("SELECT l.*, u.username FROM timb_service_log l
+$log_q = $conn->query("SELECT l.id, l.created_at, l.service, l.simulated, l.ok, l.error_message, l.http_code,
+                              l.rows_returned, l.duration_ms, l.attempts, u.username
+                       FROM timb_service_log l
                        LEFT JOIN users u ON u.id=l.userid
                        WHERE l.selling_pointid=$spid AND l.service LIKE 'growermaster%'
                        ORDER BY l.id DESC LIMIT 40");
@@ -409,10 +451,10 @@ if ($find !== '') {
     $sources = [
         'registry' => "SELECT grower_num,name,surname,national_id,farm_name,area,province,obligations_fulfilled
                        FROM timb_grower_registry WHERE selling_pointid=$spid AND $cond
-                       ORDER BY surname,name LIMIT 100",
+                       ORDER BY surname,name",
         'local'    => "SELECT grower_num,name,surname,national_id,farm_name,area,province,'' AS obligations_fulfilled
                        FROM growers WHERE selling_pointid=$spid AND $cond
-                       ORDER BY surname,name LIMIT 100",
+                       ORDER BY surname,name",
     ];
     $by = [];
     foreach ($sources as $src => $sql) {
@@ -435,6 +477,24 @@ if ($find !== '') {
         return strcmp($a['surname'] . $a['name'], $b['surname'] . $b['name']);
     });
 }
+$find_per = fw_per_page('fpp', 50);
+[$find_page, $find_pages, $find_off] = fw_page_window(count($find_results), $find_per, 'fp');
+$find_shown = array_slice($find_results, $find_off, $find_per);
+$find_pager = function ($where_) use ($find_page, $find_pages, $find_off, $find_shown, $find_results, $find_per) {
+    return fw_pager(['page'=>$find_page, 'pages'=>$find_pages, 'offset'=>$find_off, 'shown'=>count($find_shown), 'found'=>count($find_results),
+                     'per'=>$find_per, 'page_param'=>'fp', 'size_param'=>'fpp', 'keep'=>['tab', 'find'], 'noun'=>'matches',
+                     'filtered'=>true, 'where'=>$where_]);
+};
+
+// Lookup results (kept in the session) are shown a page at a time too
+$lk_per = fw_per_page('lpp', 50);
+[$lk_page, $lk_pages, $lk_off] = fw_page_window(count($results), $lk_per, 'lp');
+$results_shown = array_slice($results, $lk_off, $lk_per);
+$lk_pager = function ($where_) use ($lk_page, $lk_pages, $lk_off, $results_shown, $results, $lk_per) {
+    return fw_pager(['page'=>$lk_page, 'pages'=>$lk_pages, 'offset'=>$lk_off, 'shown'=>count($results_shown), 'found'=>count($results),
+                     'per'=>$lk_per, 'page_param'=>'lp', 'size_param'=>'lpp', 'keep'=>['tab'], 'noun'=>'growers',
+                     'filtered'=>false, 'where'=>$where_]);
+};
 
 include "includes/layout.php";
 ?>
@@ -504,12 +564,13 @@ include "includes/layout.php";
         No local grower matches “<?=htmlspecialchars($find)?>”. If they are new, look them up by grower number below.
       </div>
     <?php else:?>
-      <div class="table-wrap" style="border-top:1px solid var(--border);max-height:420px;overflow-y:auto"><table>
+      <?= $find_pager('top') ?>
+      <div class="table-wrap"><table>
         <thead><tr>
           <th>Grower no.</th><th>Name</th><th>National ID</th><th>Farm / Area</th><th>Found in</th><th></th>
         </tr></thead>
         <tbody>
-        <?php foreach($find_results as $g):
+        <?php foreach($find_shown as $g):
               $gn = trim((string)$g['grower_num']); ?>
           <tr>
             <td class="td-mono"><strong><?=htmlspecialchars($gn !== '' ? $gn : '—')?></strong></td>
@@ -519,8 +580,8 @@ include "includes/layout.php";
               <?php if($g['area']):?><br><span style="font-size:.65rem;color:var(--muted)"><?=htmlspecialchars($g['area'])?></span><?php endif;?>
             </td>
             <td style="font-size:.68rem">
-              <?php if(!empty($g['sources']['registry'])):?><span class="badge badge-blue" style="font-size:.58rem">TIMB registry</span><?php endif;?>
-              <?php if(!empty($g['sources']['local'])):?><span class="badge badge-gray" style="font-size:.58rem">Local record</span><?php endif;?>
+              <?php if(!empty($g['sources']['registry'])):?><span class="badge badge-blue" style="font-size:.72rem">TIMB registry</span><?php endif;?>
+              <?php if(!empty($g['sources']['local'])):?><span class="badge badge-gray" style="font-size:.72rem">Local record</span><?php endif;?>
             </td>
             <td class="text-right">
               <?php if($gn !== ''):?>
@@ -531,16 +592,14 @@ include "includes/layout.php";
                   <button class="btn btn-gold btn-sm" <?=$can_use?'':'disabled'?>>Look up at TIMB</button>
                 </form>
               <?php else:?>
-                <span class="badge badge-gold" style="font-size:.58rem">no grower number</span>
+                <span class="badge badge-gold" style="font-size:.72rem">no grower number</span>
               <?php endif;?>
             </td>
           </tr>
         <?php endforeach;?>
         </tbody>
       </table></div>
-      <div class="card-body" style="border-top:1px solid var(--border);padding-top:.6rem">
-        <span class="badge badge-gray"><?=count($find_results)?> match(es)</span>
-      </div>
+      <?= $find_pager('bottom') ?>
     <?php endif;?>
   <?php endif;?>
 </div>
@@ -584,14 +643,15 @@ include "includes/layout.php";
       <a href="?export=lookup_xlsx" class="btn btn-ghost btn-sm">⭳ Excel</a>
     </div>
   </div>
+  <?= $lk_pager('top') ?>
   <div class="table-wrap"><table>
     <thead><tr>
-      <th style="width:30px"><input type="checkbox" onclick="document.querySelectorAll('.gm-pick').forEach(c=>c.checked=this.checked)" checked></th>
+      <th style="width:30px"><input type="checkbox" aria-label="Tick every grower on this page" onclick="document.querySelectorAll('.gm-pick').forEach(c=>c.checked=this.checked)" checked></th>
       <th>Grower no.</th><th>Name</th><th>National ID</th><th>Farm / Area</th>
       <th>Province</th><th class="text-right">Ha</th><th>Contractor</th><th>Obligations</th><th>Local record</th>
     </tr></thead>
     <tbody>
-    <?php foreach($results as $g):
+    <?php foreach($results_shown as $g):
         $d = $g['diff'] ?? ['local'=>null,'diffs'=>[]];
         $unmet = ($g['obligations_fulfilled'] === 'NO');
     ?>
@@ -647,7 +707,13 @@ include "includes/layout.php";
     <p style="font-size:.72rem;color:var(--muted);margin-bottom:.75rem">
       The TIMB registry is always updated. Fields TIMB returns blank never overwrite what you already hold.
     </p>
-    <button class="btn btn-gold" <?=$can_use?'':'disabled'?>>Import selected</button>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+      <button class="btn btn-gold" <?=$can_use?'':'disabled'?>>Import ticked<?=$lk_pages>1?' on this page':''?></button>
+      <?php if($lk_pages>1):?>
+      <button class="btn btn-primary" name="import_all" value="1" <?=$can_use?'':'disabled'?>
+              onclick="return confirm('Import all <?=count($results)?> growers from this lookup, on every page?')">Import all <?=number_format(count($results))?></button>
+      <?php endif;?>
+    </div>
   </div>
 </div>
 </form>
@@ -733,7 +799,8 @@ include "includes/layout.php";
       Registry is empty. Run a lookup or a full database pull.
     </div>
   <?php else:?>
-  <div class="table-wrap" style="max-height:560px;overflow-y:auto"><table>
+  <?= $reg_pager('top') ?>
+  <div class="table-wrap"><table>
     <thead><tr>
       <th>Grower no.</th><th>Name</th><th>National ID</th><th>Farm / Area</th><th>Province</th>
       <th class="text-right">Ha</th><th>Barn</th><th>Obligations</th><th>Source</th><th>Synced</th><th>Local</th>
@@ -755,13 +822,14 @@ include "includes/layout.php";
           <?php elseif($ob==='NO'):?><span class="badge badge-red">NOT FULFILLED</span>
           <?php else:?><span class="badge badge-green">Fulfilled</span><?php endif;?>
         </td>
-        <td><span class="badge <?= strpos((string)$r['source'],'growermaster')===0 ? 'badge-blue' : 'badge-gray' ?>" style="font-size:.6rem"><?=htmlspecialchars((string)$r['source'])?></span></td>
+        <td><span class="badge <?= strpos((string)$r['source'],'growermaster')===0 ? 'badge-blue' : 'badge-gray' ?>" style="font-size:.72rem"><?=htmlspecialchars((string)$r['source'])?></span></td>
         <td style="font-size:.68rem;color:var(--muted)"><?=htmlspecialchars(date('d M H:i', strtotime($r['last_synced'])))?></td>
         <td><?= $r['local_id'] ? '<span class="badge badge-green">✓</span>' : '<span class="badge badge-gold">—</span>' ?></td>
       </tr>
     <?php endforeach;?>
     </tbody>
   </table></div>
+  <?= $reg_pager('bottom') ?>
   <?php endif;?>
 </div>
 </div><!-- /panel-registry -->
@@ -790,15 +858,15 @@ include "includes/layout.php";
         <td class="td-mono text-right" style="font-size:.72rem"><?=(int)$l['rows_returned']?></td>
         <td class="td-mono text-right" style="font-size:.72rem"><?=(int)$l['duration_ms']?>ms<?= (int)$l['attempts']>1 ? ' ·'.(int)$l['attempts'].'×' : '' ?></td>
         <td style="font-size:.7rem;color:var(--muted)"><?=htmlspecialchars((string)($l['username'] ?? ''))?></td>
-        <td><button type="button" class="btn btn-ghost btn-sm" style="font-size:.65rem"
-                    onclick="var d=document.getElementById('gmlog<?=(int)$l['id']?>');d.hidden=!d.hidden">raw</button></td>
+        <td><button type="button" class="btn btn-ghost btn-sm" aria-expanded="false" aria-controls="gmlog<?=(int)$l['id']?>"
+                    onclick="gmRaw(<?=(int)$l['id']?>, this)">raw</button></td>
       </tr>
       <tr id="gmlog<?=(int)$l['id']?>" hidden>
-        <td colspan="8" style="background:var(--cream-d);padding:.75rem">
-          <div style="font-size:.68rem;color:var(--muted);margin-bottom:.25rem">REQUEST — <?=htmlspecialchars((string)$l['url'])?></div>
-          <pre style="font-size:.68rem;white-space:pre-wrap;word-break:break-all;margin:0 0 .6rem"><?=htmlspecialchars((string)$l['request_params'])?></pre>
-          <div style="font-size:.68rem;color:var(--muted);margin-bottom:.25rem">RESPONSE</div>
-          <pre style="font-size:.68rem;white-space:pre-wrap;word-break:break-all;max-height:280px;overflow:auto;margin:0"><?=htmlspecialchars((string)$l['response_body'])?></pre>
+        <td colspan="8" style="background:var(--surface-2);padding:.75rem">
+          <div style="font-size:.78rem;color:var(--muted);margin-bottom:.25rem">Request — <span class="gm-raw-url"></span></div>
+          <pre class="gm-raw-req" style="font-size:.75rem;white-space:pre-wrap;word-break:break-all;margin:0 0 .6rem">Loading…</pre>
+          <div style="font-size:.78rem;color:var(--muted);margin-bottom:.25rem">Response</div>
+          <pre class="gm-raw-res" style="font-size:.75rem;white-space:pre-wrap;word-break:break-all;max-height:280px;overflow:auto;margin:0"></pre>
         </td>
       </tr>
     <?php endforeach;?>
@@ -807,6 +875,27 @@ include "includes/layout.php";
   <?php endif;?>
 </div>
 </div><!-- /panel-log -->
+<script>
+/* Raw request/response for a service-log entry: fetched the first time it is opened */
+function gmRaw(id, btn) {
+    var row = document.getElementById('gmlog' + id);
+    row.hidden = !row.hidden;
+    btn.setAttribute('aria-expanded', row.hidden ? 'false' : 'true');
+    if (row.hidden || row.dataset.loaded) return;
+    row.dataset.loaded = '1';
+    fetch('timb_growermaster.php?raw_log=' + id, {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+            row.querySelector('.gm-raw-url').textContent = d.ok ? d.url : '';
+            row.querySelector('.gm-raw-req').textContent = d.ok ? (d.request || '(none)') : (d.error || 'Could not load.');
+            row.querySelector('.gm-raw-res').textContent = d.ok ? (d.response || '(empty)') : '';
+        })
+        .catch(function () {
+            row.dataset.loaded = '';
+            row.querySelector('.gm-raw-req').textContent = 'Could not load this entry. Open it again to retry.';
+        });
+}
+</script>
 
 <!-- ══ Settings ════════════════════════════════════════════════════════ -->
 <?php if($can_admin):?>
@@ -820,7 +909,7 @@ include "includes/layout.php";
 
       <div class="form-row">
         <div class="form-group">
-          <label>Base URL <span class="badge badge-blue" style="font-size:.58rem">booking &amp; grower master</span></label>
+          <label>Base URL <span class="badge badge-blue" style="font-size:.72rem">booking &amp; grower master</span></label>
           <input type="text" name="timb_base_url" class="form-control"
                  value="<?=htmlspecialchars(timb_ws_setting($conn,'timb_base_url',TIMB_WS_DEFAULT_BASE))?>">
           <small style="color:var(--muted);font-size:.72rem">Service paths are appended, e.g. <code>/growermasterWebservices</code>.</small>
@@ -834,7 +923,7 @@ include "includes/layout.php";
 
       <div class="form-row">
         <div class="form-group">
-          <label>Stop Order base URL <span class="badge badge-gray" style="font-size:.58rem">optional</span></label>
+          <label>Stop Order base URL <span class="badge badge-gray" style="font-size:.72rem">optional</span></label>
           <input type="text" name="timb_stoporder_base_url" class="form-control" placeholder="leave blank to use the Base URL above"
                  value="<?=htmlspecialchars(timb_ws_setting($conn,'timb_stoporder_base_url',''))?>">
           <small style="color:var(--muted);font-size:.72rem">
@@ -875,7 +964,7 @@ include "includes/layout.php";
           </small>
         </div>
         <div class="form-group">
-          <label>Grade download path <span class="badge badge-gray" style="font-size:.58rem">optional</span></label>
+          <label>Grade download path <span class="badge badge-gray" style="font-size:.72rem">optional</span></label>
           <input type="text" name="timb_grades_path" class="form-control" placeholder="/gradesWebservices"
                  value="<?=htmlspecialchars(timb_ws_setting($conn,'timb_grades_path',''))?>">
           <small style="color:var(--muted);font-size:.72rem">
@@ -1001,7 +1090,7 @@ include "includes/layout.php";
       <tr>
         <td style="font-size:.78rem"><?=htmlspecialchars($s['label'])?></td>
         <td class="td-mono" style="font-size:.7rem;color:var(--muted)"><?=htmlspecialchars($s['path'])?></td>
-        <td><span class="badge <?= $s['cred']==='booking'?'badge-blue':'badge-gray' ?>" style="font-size:.6rem"><?=htmlspecialchars($s['cred'])?></span></td>
+        <td><span class="badge <?= $s['cred']==='booking'?'badge-blue':'badge-gray' ?>" style="font-size:.72rem"><?=htmlspecialchars($s['cred'])?></span></td>
         <td><?= $s['ready'] ? '<span class="badge badge-green">Implemented</span>' : '<span class="badge badge-gray">Not yet wired</span>' ?></td>
       </tr>
     <?php endforeach;?>

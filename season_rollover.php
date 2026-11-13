@@ -192,14 +192,14 @@ body.theme-dark .premium-tab-btn:hover {
     background: rgba(255, 255, 255, 0.04);
 }
 .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
     box-shadow: 0 4px 12px rgba(26, 18, 8, 0.15);
     font-weight: 600;
 }
 body.theme-light .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
 }
 body.theme-dark .premium-tab-btn.active {
     background: var(--gold);
@@ -287,7 +287,7 @@ body.theme-dark .premium-tab-btn.active {
                   <td style="font-weight:500"><?=htmlspecialchars($s['name'])?></td>
                   <td class="td-mono"><?=$s['year_start']?></td>
                   <td class="td-mono text-right"><?=number_format((int)$s['grower_count'])?></td>
-                  <td><span class="badge <?=$sc[$s['status']]?>" style="font-size:.62rem"><?=ucfirst($s['status'])?></span></td>
+                  <td><span class="badge <?=$sc[$s['status']]?>" style="font-size:.72rem"><?=ucfirst($s['status'])?></span></td>
                   <td style="white-space:nowrap">
                     <?php if($s['status']==='upcoming'):?>
                     <form method="POST" style="display:inline">

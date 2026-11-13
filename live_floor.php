@@ -179,10 +179,9 @@ include "includes/layout.php";
 .live-kpi{background:var(--cream-d);border:1px solid var(--border);border-radius:var(--radius);
   padding:.85rem 1rem;text-align:center;transition:transform .15s}
 .live-kpi:hover{transform:translateY(-2px)}
-.live-kpi .lk-val{font-size:1.8rem;font-weight:700;font-family:'Bebas Neue',sans-serif;
-  letter-spacing:.04em;color:var(--gold);line-height:1.1}
-.live-kpi .lk-lbl{font-size:.65rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
-  color:var(--muted);margin-top:3px}
+.live-kpi .lk-val{font-size:1.53rem;font-weight:700;font-family:'DM Sans',sans-serif;
+  color:var(--gold);line-height:1.1}
+.live-kpi .lk-lbl{font-size:.78rem;font-weight:600;color:var(--muted);margin-top:3px}
 .live-kpi .lk-sub{font-size:.7rem;color:var(--muted);margin-top:1px}
 .pulse{animation:pulse-dot 1.8s infinite}
 @keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.35}}
@@ -282,9 +281,9 @@ include "includes/layout.php";
   <div class="card">
   <div class="card-head">
     <h3>Recent Sales</h3>
-    <span class="badge badge-green pulse" style="font-size:.62rem">● LIVE</span>
+    <span class="badge badge-green pulse" style="font-size:.72rem">● LIVE</span>
   </div>
-  <div id="sales-feed" style="max-height:420px;overflow-y:auto">
+  <div id="sales-feed" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto">
     <div class="text-center text-muted" style="padding:2rem">Loading...</div>
   </div>
   </div>
@@ -415,7 +414,7 @@ function refresh() {
                     var p = parseFloat(r.price); if(p>10) p/=100;
                     return '<div class="feed-row">' +
                         '<span style="font-size:.65rem;color:var(--muted);width:52px;flex-shrink:0">' + r.sold_at + '</span>' +
-                        '<span class="badge badge-gold" style="font-size:.58rem;flex-shrink:0">' + r.grower_num + '</span>' +
+                        '<span class="badge badge-gold" style="font-size:.72rem;flex-shrink:0">' + r.grower_num + '</span>' +
                         '<span style="flex:1;font-size:.75rem">' + r.name + ' ' + r.surname + '</span>' +
                         '<span style="font-size:.72rem;color:var(--muted)">' + (r.grade||'') + '</span>' +
                         '<span style="font-size:.72rem">' + parseFloat(r.mass).toFixed(1) + ' kg</span>' +
@@ -472,7 +471,7 @@ function renderMultiFloorMatrix(floors, totals) {
                     '<strong style="font-size:.95rem;color:var(--gold-l)">' + fl.name + '</strong>' +
                     '<div style="font-size:.65rem;color:var(--muted)">' + (fl.floor_code || 'FL#'+fl.id) + '</div>' +
                 '</div>' +
-                '<span class="badge badge-gold" style="font-size:.6rem">● ACTIVE</span>' +
+                '<span class="badge badge-gold" style="font-size:.72rem">● ACTIVE</span>' +
             '</div>' +
             '<div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:.75rem;font-size:.78rem">' +
                 '<div><span style="font-size:.65rem;color:var(--muted);display:block">BALES WEIGHED</span><strong style="font-size:1.1rem">' + total.toLocaleString('en') + '</strong></div>' +

@@ -35,396 +35,23 @@ if (!empty($_POST['toggle_theme'])) {
 <link rel="apple-touch-icon" href="icon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300&display=swap" rel="stylesheet">
-<style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --ink:#1a1208;--ink-soft:#2d2418;--gold:#c8952a;--gold-l:#e8b84b;--gold-bg:#fdf6e8;
-  --cream:#f5f0e8;--cream-d:#ede6d6;--leaf:#3d6b35;--leaf-l:#edf4ec;
-  --muted:#7a6e5f;--border:rgba(26,18,8,0.1);
-  --sidebar-w:224px;--top-h:54px;
-  --danger:#c0392b;--danger-bg:#fdf2f2;--info:#1a6b9a;--info-bg:#eef5fb;
-  --radius:4px;
-  /* Emphasised body text. Use this instead of --ink for text on a card/page
-     surface: --ink is also the dark chrome background, so it cannot flip. */
-  --text-strong:#1a1208;
-}
-body.theme-light{
-  --ink:#1a1208;--ink-soft:#f0ebe0;--gold:#a07020;--gold-l:#b8841e;--gold-bg:#fdf6e8;
-  --cream:#ffffff;--cream-d:#f5f0e8;--leaf:#2d5226;--leaf-l:#edf4ec;
-  --muted:#5a5040;--border:rgba(26,18,8,0.12);
-  --danger:#c0392b;--danger-bg:#fdf2f2;--info:#1a6b9a;--info-bg:#eef5fb;
-  background:#f5f0e8;color:#1a1208;
-}
-body.theme-light .topbar{background:#2d2010;border-bottom-color:#a07020}
-body.theme-light .sidebar{background:#2d2010;border-right-color:rgba(160,112,32,0.2)}
-body.theme-light .card{background:#fff;border-color:rgba(26,18,8,0.1)}
-body.theme-light .table-wrap table thead{background:#f5f0e8}
-/* ── DARK THEME ───────────────────────────────────────────────────────────
-   --ink and --cream are overloaded (chrome background AND light text), so they
-   are deliberately NOT flipped here — the surfaces are overridden per rule
-   instead. --muted / --border / --cream-d are single-purpose and safe to flip. */
-body.theme-dark{
-  --cream-d:#221c15;
-  --muted:#a89d8d;
-  --border:rgba(245,240,232,0.13);
-  /* Accent colours are overwhelmingly used as TEXT (leaf 152 text vs 22 decorative
-     backgrounds, danger 149 vs 10), so they are lightened for contrast on dark
-     surfaces; the few background users are pinned below. */
-  --leaf:#7fc97f;
-  --danger:#e8705f;
-  --info:#7fc3ef;
-  --text-strong:#efe9dd;
-  background:#15120e;color:#efe9dd;
-}
-body.theme-dark .btn-danger:hover{background:#c0392b;color:#fff}
-/* a grey count badge sitting inside the gold active tab needs dark-on-gold */
-body.theme-dark .premium-tab-btn.active .badge-gray{background:rgba(21,18,14,.22);color:#15120e;border-color:rgba(21,18,14,.28)}
-body.theme-dark .card{background:#1f1a14;border-color:rgba(245,240,232,0.10)}
-body.theme-dark .kpi-card{background:#1f1a14;border-color:rgba(245,240,232,0.10)}
-body.theme-dark .kpi-card:hover{box-shadow:0 3px 14px rgba(0,0,0,0.45)}
-body.theme-dark .kpi-value{color:#efe9dd}
-body.theme-dark thead th{background:#191510;color:#a89d8d}
-body.theme-dark tbody tr:hover{background:rgba(245,240,232,0.05)}
-body.theme-dark .form-control{background:#15120e;color:#efe9dd}
-body.theme-dark .form-control:focus{background:#1c1712}
-body.theme-dark .btn-ghost{color:#ded6c8}
-body.theme-dark .btn-primary{background:var(--gold);color:#15120e}
-body.theme-dark .btn-primary:hover{background:var(--gold-l);color:#15120e}
-body.theme-dark .badge-gray{background:rgba(245,240,232,0.08);color:#bdb3a3}
-body.theme-dark .badge-gold{background:rgba(200,149,42,0.16);color:#e8b84b;border-color:rgba(200,149,42,0.42)}
-body.theme-dark .badge-green{background:rgba(61,107,53,0.22);color:#93d189;border-color:rgba(61,107,53,0.5)}
-body.theme-dark .badge-red{background:rgba(192,57,43,0.18);color:#f0a79d;border-color:rgba(192,57,43,0.5)}
-body.theme-dark .badge-blue{background:rgba(26,107,154,0.20);color:#8ec7ec;border-color:rgba(26,107,154,0.5)}
-body.theme-dark .alert-success{background:rgba(61,107,53,0.18);color:#93d189}
-body.theme-dark .alert-danger{background:rgba(192,57,43,0.16);color:#f0a79d}
-body.theme-dark .alert-info{background:rgba(26,107,154,0.18);color:#8ec7ec}
-body.theme-dark .alert-gold{background:rgba(200,149,42,0.14);color:#e8b84b}
-body.theme-dark .btn-danger{background:rgba(192,57,43,0.18);color:#f0a79d;border-color:rgba(192,57,43,0.5)}
-body.theme-dark .text-muted{color:#a89d8d}
-html,body{height:100%}
-body{font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:var(--cream);color:var(--ink);font-size:14px;line-height:1.5}
-/* TOPBAR */
-.topbar{position:fixed;top:0;left:0;right:0;height:var(--top-h);background:var(--ink);display:flex;align-items:center;padding:0 1.25rem;gap:1rem;z-index:100;border-bottom:2px solid var(--gold)}
-.topbar-logo{font-family:'Bebas Neue',sans-serif;font-size:1.35rem;color:var(--cream);letter-spacing:0.12em;display:flex;align-items:center;gap:7px;text-decoration:none;flex-shrink:0}
-.topbar-logo .dot{width:7px;height:7px;background:var(--gold);border-radius:50%;display:inline-block}
-.topbar-season{background:rgba(200,149,42,0.15);border:1px solid rgba(200,149,42,0.3);color:var(--gold-l);font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;padding:3px 10px;border-radius:2px}
-.topbar-spacer{flex:1}
-.topbar-floor{font-size:0.72rem;color:rgba(245,240,232,0.45);letter-spacing:0.05em}
-.topbar-user{display:flex;align-items:center;gap:8px;color:var(--cream);font-size:0.8rem}
-.topbar-avatar{width:26px;height:26px;background:var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.62rem;font-weight:500;color:var(--ink);text-transform:uppercase;flex-shrink:0}
-.topbar-logout{color:rgba(245,240,232,0.4);text-decoration:none;font-size:0.72rem;padding:3px 8px;border:1px solid rgba(245,240,232,0.1);border-radius:2px;transition:all 0.15s}
-.topbar-logout:hover{color:var(--cream);border-color:rgba(245,240,232,0.3)}
-/* SIDEBAR */
-.sidebar{position:fixed;top:var(--top-h);left:0;bottom:0;width:var(--sidebar-w);background:var(--ink-soft);overflow-y:auto;z-index:90;border-right:1px solid rgba(200,149,42,0.12);transition:width .22s ease}
-/* Collapsed sidebar */
-body.sb-collapsed .sidebar{width:48px;overflow:visible}
-body.sb-collapsed .sidebar::-webkit-scrollbar{width:0}
-body.sb-collapsed .nav-toggle-label,
-body.sb-collapsed .nav-toggle-arrow,
-body.sb-collapsed .nav-item span,
-body.sb-collapsed .nav-children{display:none!important}
-body.sb-collapsed .nav-item{padding:.52rem 0;justify-content:center;border-left:none}
-body.sb-collapsed .nav-item svg{width:18px;height:18px;opacity:.7;margin:0}
-body.sb-collapsed .nav-item:hover svg{opacity:1}
-body.sb-collapsed .nav-item.active svg{opacity:1}
-body.sb-collapsed .nav-item:hover::after{content:attr(data-label);position:absolute;left:54px;background:var(--ink);color:var(--cream);font-size:.72rem;padding:.3rem .65rem;border-radius:6px;white-space:nowrap;z-index:999;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,.3)}
-body.sb-collapsed .nav-item{position:relative}
-body.sb-collapsed .nav-group{border:none}
-body.sb-collapsed .main{margin-left:48px;transition:margin-left .22s ease}
-body.sb-collapsed .topbar-brand{display:none}
-.sidebar::-webkit-scrollbar{width:3px}
-.sidebar::-webkit-scrollbar-thumb{background:rgba(200,149,42,0.2);border-radius:2px}
-.nav-group{border-bottom:1px solid rgba(200,149,42,0.07)}
-.nav-group:last-child{border-bottom:none}
-.nav-toggle{display:flex;align-items:center;justify-content:space-between;padding:0.72rem 1.1rem 0.52rem;cursor:pointer;user-select:none;list-style:none;color:rgba(245,240,232,0.28);font-size:0.6rem;font-weight:500;letter-spacing:0.18em;text-transform:uppercase;transition:color 0.13s}
-.nav-toggle:hover{color:rgba(245,240,232,0.5)}
-.nav-toggle.has-active{color:var(--gold)!important}
-.nav-toggle-arrow{width:10px;height:10px;flex-shrink:0;transition:transform 0.18s;opacity:0.5}
-.nav-group.open .nav-toggle-arrow{transform:rotate(90deg)}
-.nav-children{max-height:0;overflow:hidden;transition:max-height .25s ease;padding-bottom:0}
-.nav-group.open .nav-children{max-height:600px;padding-bottom:0.2rem}
-.nav-item{display:flex;align-items:center;gap:9px;padding:0.48rem 1.1rem 0.48rem 1.35rem;color:rgba(245,240,232,0.5);text-decoration:none;font-size:0.78rem;transition:all 0.13s;border-left:2px solid transparent}
-.nav-item:hover{background:rgba(200,149,42,0.07);color:rgba(245,240,232,0.82);border-left-color:rgba(200,149,42,0.28)}
-.nav-item.active{background:rgba(200,149,42,0.12);color:var(--gold-l);border-left-color:var(--gold);font-weight:500}
-.nav-item svg{width:14px;height:14px;opacity:0.6;flex-shrink:0}
-.nav-item.active svg{opacity:1}
-/* MAIN */
-.main{position:relative;margin-top:var(--top-h);margin-left:var(--sidebar-w);padding:1.75rem;min-height:calc(100vh - var(--top-h))}
-/* PAGE HEADER */
-.page-header{margin-bottom:1.75rem;display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;flex-wrap:wrap}
-.page-header-left h2{font-family:'Bebas Neue',sans-serif;font-size:1.75rem;letter-spacing:0.08em;line-height:1}
-.page-header-left p{font-size:0.8rem;color:var(--muted);margin-top:0.25rem}
-/* CARDS */
-.card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
-.card-head{padding:0.85rem 1.15rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:0.75rem}
-.card-head h3{font-size:0.72rem;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted)}
-.card-body{padding:1.15rem}
-/* TABS — shared segmented/capsule tab strip (see includes/flowork.js) */
-.premium-tabs-nav{display:inline-flex;padding:4px;background:var(--cream-d);border-radius:8px;margin-bottom:1.5rem;gap:2px;border:1px solid var(--border);max-width:100%;overflow-x:auto;scrollbar-width:none}
-.premium-tabs-nav::-webkit-scrollbar{display:none}
-body.theme-dark .premium-tabs-nav{background:rgba(26,18,8,0.3)}
-.premium-tab-btn{padding:0.6rem 1.2rem;background:transparent;border:none;border-radius:6px;font-family:inherit;font-size:0.82rem;font-weight:500;color:var(--muted);cursor:pointer;transition:all 0.2s cubic-bezier(0.4,0,0.2,1);display:flex;align-items:center;gap:0.5rem;user-select:none;white-space:nowrap;flex-shrink:0}
-.premium-tab-btn:hover{color:var(--ink);background:rgba(26,18,8,0.04)}
-body.theme-dark .premium-tab-btn:hover{color:var(--cream);background:rgba(255,255,255,0.04)}
-.premium-tab-btn.active{background:var(--ink);color:var(--gold-l);box-shadow:0 4px 12px rgba(26,18,8,0.15);font-weight:600}
-body.theme-light .premium-tab-btn.active{background:var(--ink);color:var(--gold-l)}
-body.theme-dark .premium-tab-btn.active{background:var(--gold);color:var(--ink);box-shadow:0 4px 12px rgba(200,149,42,0.2)}
-/* Inactive panels are parked off-screen rather than display:none so they keep a
-   real width — a chart built inside a zero-width panel gets stuck at 0x0. */
-.tab-panel{position:absolute;left:-99999px;top:0;width:100%;visibility:hidden;pointer-events:none}
-.tab-panel.active{position:static;width:auto;visibility:visible;pointer-events:auto;animation:tabFadeIn 0.25s ease-in-out}
-@keyframes tabFadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-/* KPI */
-.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:0.9rem;margin-bottom:1.75rem}
-.kpi-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem;position:relative;overflow:hidden;transition:box-shadow 0.13s}
-.kpi-card:hover{box-shadow:0 3px 12px rgba(0,0,0,0.05)}
-.kpi-card::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;background:var(--kpi-color,var(--gold))}
-.kpi-label{font-size:0.65rem;font-weight:500;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);margin-bottom:0.5rem}
-.kpi-value{font-family:'Bebas Neue',sans-serif;font-size:2.1rem;letter-spacing:0.04em;color:var(--ink);line-height:1}
-.kpi-value.sm{font-size:1.5rem}
-.kpi-sub{font-size:0.7rem;color:var(--muted);margin-top:0.3rem}
-/* TABLES */
-.table-wrap{overflow-x:auto}
-table{width:100%;border-collapse:collapse;font-size:0.8rem}
-thead th{font-size:0.62rem;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);padding:0.6rem 0.9rem;text-align:left;border-bottom:1px solid var(--border);background:var(--cream);white-space:nowrap}
-tbody tr{border-bottom:1px solid var(--border);transition:background 0.1s}
-tbody tr:last-child{border-bottom:none}
-tbody tr:hover{background:#faf8f5}
-tbody td{padding:0.6rem 0.9rem;vertical-align:middle}
-.td-muted{color:var(--muted)}
-.td-mono{font-variant-numeric:tabular-nums}
-/* BADGES */
-.badge{display:inline-flex;align-items:center;padding:2px 7px;border-radius:2px;font-size:0.65rem;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;white-space:nowrap}
-.badge-gold{background:var(--gold-bg);color:#92650e;border:1px solid #e8c96a}
-.badge-green{background:var(--leaf-l);color:#2a5223;border:1px solid #9bcb94}
-.badge-red{background:var(--danger-bg);color:var(--danger);border:1px solid #f5b8b2}
-.badge-gray{background:var(--cream);color:var(--muted);border:1px solid var(--border)}
-.badge-blue{background:var(--info-bg);color:var(--info);border:1px solid #aacde6}
-/* BUTTONS */
-.btn{display:inline-flex;align-items:center;gap:5px;padding:0.48rem 0.9rem;border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:0.78rem;font-weight:500;cursor:pointer;transition:all 0.13s;border:none;text-decoration:none;white-space:nowrap}
-.btn-primary{background:var(--ink);color:var(--gold-l)}
-.btn-primary:hover{background:var(--gold);color:var(--ink)}
-.btn-gold{background:var(--gold);color:var(--ink)}
-.btn-gold:hover{background:var(--gold-l)}
-.btn-ghost{background:transparent;color:var(--ink);border:1px solid var(--border)}
-.btn-ghost:hover{border-color:var(--gold);color:var(--gold)}
-.btn-danger{background:var(--danger-bg);color:var(--danger);border:1px solid #f5b8b2}
-.btn-danger:hover{background:var(--danger);color:#fff}
-.btn-sm{padding:0.28rem 0.65rem;font-size:0.72rem}
-/* FORMS */
-.form-row{display:grid;gap:0.9rem;margin-bottom:0.9rem}
-.form-row.cols-2{grid-template-columns:1fr 1fr}
-.form-row.cols-3{grid-template-columns:1fr 1fr 1fr}
-.form-group{margin-bottom:0.9rem}
-.form-group label{display:block;font-size:0.65rem;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:0.35rem}
-.form-control{width:100%;padding:0.52rem 0.8rem;border:1.5px solid var(--border);border-radius:var(--radius);background:var(--cream);color:var(--ink);font-family:'DM Sans',sans-serif;font-size:0.82rem;outline:none;transition:border-color 0.13s,background 0.13s;-webkit-appearance:none}
-.form-control:focus{border-color:var(--gold);background:#fff}
-select.form-control{cursor:pointer}
-/* ALERTS */
-.alert{padding:0.7rem 0.95rem;border-radius:var(--radius);font-size:0.8rem;margin-bottom:0.9rem;border-left:3px solid transparent}
-.alert-success{background:var(--leaf-l);border-color:var(--leaf);color:#2a5223}
-.alert-danger{background:var(--danger-bg);border-color:var(--danger);color:var(--danger)}
-.alert-info{background:var(--info-bg);border-color:var(--info);color:var(--info)}
-.alert-gold{background:var(--gold-bg);border-color:var(--gold);color:#7a5010}
-/* UTILS */
-.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1.35rem}
-.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.35rem}
-.mt-1{margin-top:0.5rem}.mt-2{margin-top:1rem}.mt-3{margin-top:1.5rem}
-.mb-2{margin-bottom:1rem}.mb-3{margin-bottom:1.5rem}
-.text-right{text-align:right}.text-center{text-align:center}
-.text-muted{color:var(--muted)}.text-gold{color:var(--gold)}.text-leaf{color:var(--leaf)}.text-danger{color:var(--danger)}
-.fw-500{font-weight:500}.flex{display:flex}.flex-center{display:flex;align-items:center}
-.flex-between{display:flex;align-items:center;justify-content:space-between}
-.gap-2{gap:0.75rem}
-/* ── RESPONSIVE ────────────────────────────────────────────────────────── */
-/* Tablet: 600–900px */
-@media(max-width:900px){
-  :root{--sidebar-w:200px;--top-h:52px}
-  #sb-desktop-toggle{display:none!important}
-  #sb-mobile-toggle{display:flex!important}
-  .ham-btn{display:flex!important}
-  .sidebar{display:none;z-index:200}
-  .sidebar.open{display:block}
-  .main{margin-left:0;padding:1.25rem}
-  .kpi-grid{grid-template-columns:repeat(2,1fr)}
-  .grid-2,.grid-3{grid-template-columns:1fr}
-  .form-row.cols-3{grid-template-columns:1fr 1fr}
-  .page-header{flex-direction:column;align-items:flex-start;gap:0.75rem}
-  .topbar-user span{display:none}
-  .topbar-season{display:none}
-}
-/* Mobile: ≤600px */
-@media(max-width:600px){
-  :root{--top-h:50px}
-  .main{padding:0.85rem}
-  .kpi-grid{grid-template-columns:1fr 1fr}
-  .kpi-value{font-size:1.65rem}
-  .form-row.cols-2,.form-row.cols-3{grid-template-columns:1fr}
-  thead th{padding:0.45rem 0.6rem;font-size:0.58rem}
-  tbody td{padding:0.45rem 0.6rem;font-size:0.75rem}
-  .btn{padding:0.5rem 0.75rem;font-size:0.75rem}
-  .card-head{flex-wrap:wrap;gap:0.5rem}
-  .card-head h3{font-size:0.68rem}
-  .premium-tabs-nav{display:flex;width:100%;-webkit-overflow-scrolling:touch}
-  .premium-tab-btn{padding:0.5rem 0.75rem;font-size:0.75rem}
-  .table-wrap{-webkit-overflow-scrolling:touch}
-  .topbar{padding:0 0.85rem;gap:0.5rem}
-  .topbar-floor{display:none}
-  .ham-btn{display:flex!important}
-  .sidebar-close{display:block!important}
-  .sidebar{position:fixed;top:0;bottom:0;padding-top:48px}
-  .topbar-logout{padding:2px 6px;font-size:0.65rem}
-}
-/* Tiny: ≤400px */
-@media(max-width:400px){
-  .kpi-grid{grid-template-columns:1fr}
-  .kpi-card{padding:0.85rem}
-}
-
-/* ═══════════════════════════════════════════════════════
-   FLOWORK UX — Progress overlay, Toasts, Spinner
-   ═══════════════════════════════════════════════════════ */
-
-/* ── Keyframes ───────────────────────────────────────────── */
-@keyframes fw-spin  { to { transform: rotate(360deg) } }
-@keyframes fw-ring  { to { transform: rotate(360deg) } }
-@keyframes fw-dot   { 0%,80%,100%{transform:scale(.45);opacity:.25} 40%{transform:scale(1);opacity:1} }
-@keyframes fw-pop   { 0%{transform:scale(0)} 65%{transform:scale(1.18)} 100%{transform:scale(1)} }
-@keyframes fw-check { 0%{stroke-dashoffset:30} 100%{stroke-dashoffset:0} }
-@keyframes fw-slide { from{transform:translateX(110%);opacity:0} to{transform:translateX(0);opacity:1} }
-
-/* ── Top progress bar ────────────────────────────────────── */
-#fw-bar {
-  position:fixed; top:0; left:0; height:3px; width:0%;
-  z-index:99999; pointer-events:none; opacity:0;
-  background:linear-gradient(90deg,#c8952a,#e8b84b,#3d6b35);
-  border-radius:0 3px 3px 0;
-}
-
-/* ── Full-screen overlay ─────────────────────────────────── */
-#fw-overlay {
-  position:fixed; inset:0; z-index:99990;
-  display:flex; align-items:center; justify-content:center;
-  background:rgba(0,0,0,0); opacity:0; pointer-events:none;
-  transition:background .22s ease, opacity .22s ease;
-}
-#fw-overlay.fw-on {
-  background:rgba(10,7,3,.58); opacity:1; pointer-events:all;
-}
-
-/* ── Spinner card ────────────────────────────────────────── */
-#fw-overlay .fw-card {
-  background:#1c130a;
-  border:1px solid rgba(200,149,42,.35);
-  border-radius:14px;
-  padding:32px 44px;
-  display:flex; flex-direction:column; align-items:center; gap:16px;
-  box-shadow:0 20px 60px rgba(0,0,0,.65);
-  transform:scale(.8) translateY(20px);
-  transition:transform .28s cubic-bezier(.34,1.56,.64,1);
-}
-#fw-overlay.fw-on .fw-card { transform:scale(1) translateY(0); }
-
-/* ── Ring ────────────────────────────────────────────────── */
-.fw-card .fw-ring-svg {
-  width:58px; height:58px;
-  animation:fw-ring .72s linear infinite;
-  display:block;
-}
-.fw-ring-bg  { stroke:rgba(200,149,42,.15); fill:none; stroke-width:4; }
-.fw-ring-arc { stroke:#c8952a; fill:none; stroke-width:4;
-               stroke-linecap:round; stroke-dasharray:92 40; }
-
-/* ── Bouncing dots ───────────────────────────────────────── */
-.fw-card .fw-dots { display:flex; gap:8px; }
-.fw-card .fw-dots b {
-  display:block; width:8px; height:8px; border-radius:50%;
-  background:#c8952a; animation:fw-dot 1.05s ease infinite;
-}
-.fw-card .fw-dots b:nth-child(2) { animation-delay:.17s; }
-.fw-card .fw-dots b:nth-child(3) { animation-delay:.34s; }
-
-/* ── Label ───────────────────────────────────────────────── */
-.fw-card .fw-lbl {
-  color:#e8b84b; font-size:13px; font-weight:500;
-  font-family:'DM Sans',sans-serif; letter-spacing:.05em;
-}
-
-/* ── Toast wrapper ───────────────────────────────────────── */
-#fw-toasts {
-  position:fixed; bottom:20px; right:20px; z-index:99995;
-  display:flex; flex-direction:column; gap:10px;
-  align-items:flex-end; pointer-events:none;
-}
-
-/* ── Toast base ──────────────────────────────────────────── */
-.fw-toast {
-  display:flex; align-items:flex-start; gap:12px;
-  min-width:290px; max-width:420px;
-  padding:14px 16px; border-radius:10px;
-  font-family:'DM Sans',sans-serif; font-size:13px;
-  pointer-events:all; cursor:default;
-  box-shadow:0 8px 30px rgba(0,0,0,.35), 0 2px 8px rgba(0,0,0,.18);
-  border-left:5px solid transparent;
-  animation:fw-slide .32s cubic-bezier(.4,0,.2,1) both;
-}
-
-/* light theme */
-body.theme-light .fw-toast-success { background:#edf7ed; border-color:#3d6b35; color:#1a3318; }
-body.theme-light .fw-toast-error   { background:#fdf2f2; border-color:#c03a2b; color:#4a1010; }
-body.theme-light .fw-toast-warning { background:#fef9ec; border-color:#c8952a; color:#4a3000; }
-body.theme-light .fw-toast-info    { background:#edf4fb; border-color:#1a6b9a; color:#082040; }
-
-/* dark theme */
-body.theme-dark  .fw-toast-success { background:#122012; border-color:#4caf50; color:#c0f0c0; }
-body.theme-dark  .fw-toast-error   { background:#220e0e; border-color:#e53935; color:#f0c0c0; }
-body.theme-dark  .fw-toast-warning { background:#1e1800; border-color:#e8b84b; color:#f0dfa0; }
-body.theme-dark  .fw-toast-info    { background:#0a1828; border-color:#42a5f5; color:#c0dcf5; }
-
-/* ── Toast icon circle ───────────────────────────────────── */
-.fw-toast .fw-ico {
-  width:26px; height:26px; border-radius:50%; flex-shrink:0;
-  display:flex; align-items:center; justify-content:center;
-  margin-top:1px; animation:fw-pop .35s cubic-bezier(.4,0,.2,1) both;
-}
-body.theme-light .fw-toast-success .fw-ico { background:#3d6b35; }
-body.theme-light .fw-toast-error   .fw-ico { background:#c03a2b; }
-body.theme-light .fw-toast-warning .fw-ico { background:#c8952a; }
-body.theme-light .fw-toast-info    .fw-ico { background:#1a6b9a; }
-body.theme-dark  .fw-toast-success .fw-ico { background:#388e3c; }
-body.theme-dark  .fw-toast-error   .fw-ico { background:#d32f2f; }
-body.theme-dark  .fw-toast-warning .fw-ico { background:#b8860b; }
-body.theme-dark  .fw-toast-info    .fw-ico { background:#1565c0; }
-
-.fw-toast .fw-ico svg { width:14px; height:14px; stroke:#fff; stroke-width:2.8;
-  fill:none; stroke-linecap:round; stroke-linejoin:round; overflow:visible; }
-.fw-check-path { stroke-dasharray:30; stroke-dashoffset:30;
-  animation:fw-check .38s ease .1s forwards; }
-
-/* ── Toast text ──────────────────────────────────────────── */
-.fw-toast .fw-t-body { flex:1; min-width:0; }
-.fw-toast .fw-t-type { font-size:10.5px; font-weight:700; letter-spacing:.08em;
-  text-transform:uppercase; opacity:.65; margin-bottom:3px; }
-.fw-toast .fw-t-msg  { font-size:13px; line-height:1.5; word-break:break-word; }
-
-/* ── Toast close btn ─────────────────────────────────────── */
-.fw-toast .fw-t-x {
-  background:none; border:none; cursor:pointer; font-size:15px;
-  opacity:.35; padding:0; line-height:1; flex-shrink:0;
-  color:inherit; transition:opacity .15s; margin-top:-1px;
-}
-.fw-toast .fw-t-x:hover { opacity:.85; }
-
-/* ── Spinner (button) ────────────────────────────────────── */
-.fw-spinner {
-  display:inline-block; width:13px; height:13px;
-  border:2px solid rgba(255,255,255,.3); border-top-color:#fff;
-  border-radius:50%; animation:fw-spin .65s linear infinite;
-  vertical-align:middle;
-}
-
-</style>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="<?= APP_BASE ?>/includes/layout.css?v=9">
+<!-- When the pointer rests on a sidebar link, the browser renders that page in
+     the background (prerender), so the click shows it at once instead of
+     loading it. Only sidebar links: other links can run GET actions behind a
+     confirm() and must not be fetched early. Logout, export/download and
+     new-tab links are left out. The browser keeps at most a couple at a time. -->
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[
+  {"selector_matches":".sidebar a.nav-item, a.topbar-logo"},
+  {"not":{"selector_matches":"[target=_blank]"}},
+  {"not":{"href_matches":"*logout*"}},
+  {"not":{"href_matches":"*export*"}},
+  {"not":{"href_matches":"*download*"}},
+  {"not":{"href_matches":"*dl=1*"}}
+]},"eagerness":"moderate"}]}
+</script>
 <script>
 // Polyfill to handle DOMContentLoaded and load listeners during dynamic page swaps
 (function() {
@@ -449,7 +76,8 @@ function setTheme(t){
     document.cookie='flowork_theme='+t+';path=/;max-age=31536000';
     var btn = document.getElementById('theme-toggle-btn');
     if (btn) {
-        btn.innerHTML = (t === 'dark') ? '☀ Light' : '☾ Dark';
+        var lbl = (t === 'dark') ? 'Switch to light mode' : 'Switch to dark mode';
+        btn.setAttribute('aria-label', lbl); btn.title = lbl;
     }
     if(window.fw) fw.toast('Switched to '+(t==='dark'?'Dark':'Light')+' mode','info');
 }
@@ -488,8 +116,7 @@ document.addEventListener('DOMContentLoaded',function(){
   }catch(e){}
   // Add data-label tooltips to nav items for collapsed mode
   document.querySelectorAll('.nav-item').forEach(function(a){
-    var span = a.querySelector('span');
-    if(span) a.setAttribute('data-label', span.textContent.trim());
+    a.setAttribute('data-label', a.textContent.replace(/\s+/g,' ').trim());
   });
   // Determine which group to open:
   // 1) Group with the active page always wins
@@ -529,7 +156,7 @@ document.addEventListener('DOMContentLoaded',function(){
 <script src="<?= APP_BASE ?>/includes/pay_ui.js?v=4"></script>
 <?php endif; ?>
 <script>window.APP_BASE = '<?= APP_BASE ?>';</script>
-<script src="<?= APP_BASE ?>/includes/flowork.js?v=8"></script>
+<script src="<?= APP_BASE ?>/includes/flowork.js?v=10"></script>
 <script>
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('<?= APP_BASE ?>/sw.js').catch(() => {});
@@ -540,34 +167,28 @@ if ('serviceWorker' in navigator) {
 <!-- TOPBAR -->
 <div class="topbar">
   <!-- Desktop: collapse/expand sidebar -->
-  <button id="sb-desktop-toggle" onclick="toggleSidebarDesktop()" aria-label="Toggle sidebar"
-          style="background:none;border:none;cursor:pointer;padding:4px;color:var(--cream);flex-shrink:0;display:flex;align-items:center;justify-content:center">
-    <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-      <line x1="2" y1="5" x2="20" y2="5"/><line x1="2" y1="11" x2="20" y2="11"/><line x1="2" y1="17" x2="20" y2="17"/>
-    </svg>
+  <button type="button" class="tb-burger" id="sb-desktop-toggle" onclick="toggleSidebarDesktop()" aria-label="Collapse or expand the menu" title="Collapse menu">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
   </button>
   <!-- Mobile: open drawer -->
-  <button class="ham-btn" id="sb-mobile-toggle" onclick="toggleSidebar()" aria-label="Menu"
-          style="display:none;background:none;border:none;cursor:pointer;padding:4px;color:var(--cream);flex-shrink:0">
-    <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-      <line x1="2" y1="5" x2="20" y2="5"/><line x1="2" y1="11" x2="20" y2="11"/><line x1="2" y1="17" x2="20" y2="17"/>
-    </svg>
+  <button type="button" class="tb-burger ham-btn" id="sb-mobile-toggle" onclick="toggleSidebar()" aria-label="Open menu" style="display:none">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
   </button>
-  <a href="dashboard.php" class="topbar-logo"><span class="dot"></span> Flowork</a>
+  <a href="dashboard.php" class="topbar-logo"><span class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="#E2B04A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 20A7 7 0 0 1 4 13c0-5 4-9 16-9 0 12-4 16-9 16z"/><path d="M4 20c4-4 7-6 11-8"/></svg></span>Flowork</a>
   <?php if (!empty($_SESSION['season_name'])): ?>
   <span class="topbar-season"><?= htmlspecialchars($_SESSION['season_name']) ?></span>
   <?php endif; ?>
   <div class="topbar-spacer"></div>
   <?php if (is_master_user()): ?>
-  <!-- Master User Indicator Badge -->
-  <div style="display:inline-flex; align-items:center; gap:5px; background:linear-gradient(135deg, rgba(200,149,42,0.25), rgba(241,196,15,0.15)); border:1px solid var(--gold); padding:3px 10px; border-radius:12px; font-size:0.7rem; font-weight:700; color:var(--gold-l); letter-spacing:0.04em; margin-right:6px" title="Logged in as Master User — Unrestricted Multi-Floor View">
-    <span style="font-size:0.85rem">👑</span> MASTER USER
-  </div>
+  <span class="tb-chip gold tb-hide-md" title="Logged in as Master User — unrestricted multi-floor view">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/></svg>
+    Master user
+  </span>
   <?php elseif (is_dedicated_user()): ?>
-  <!-- Dedicated User Floor Pill -->
-  <div style="display:inline-flex; align-items:center; gap:5px; background:rgba(255,255,255,0.08); border:1px solid rgba(245,240,232,0.15); padding:3px 10px; border-radius:12px; font-size:0.7rem; color:var(--cream); margin-right:6px" title="Dedicated to this auction floor">
-    <span style="font-size:0.75rem">🔒</span> Floor: <?= htmlspecialchars($_SESSION['selling_point_name'] ?? '') ?>
-  </div>
+  <span class="tb-chip tb-hide-md" title="Dedicated to this auction floor">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+    Floor: <?= htmlspecialchars($_SESSION['selling_point_name'] ?? '') ?>
+  </span>
   <?php endif; ?>
 
   <!-- Floor switcher -->
@@ -576,12 +197,9 @@ if ('serviceWorker' in navigator) {
   $cur_spid   = (int)($_SESSION['selling_pointid'] ?? 0);
   if (count($accessible) > 1 && is_master_user()):
   ?>
-  <form method="POST" action="switch_floor.php" style="display:flex;align-items:center;gap:6px">
+  <form method="POST" action="switch_floor.php" class="tb-hide-sm" style="display:flex;align-items:center;margin:0">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
-    <span style="font-size:0.65rem;color:rgba(245,240,232,0.35);letter-spacing:0.1em;text-transform:uppercase">Floor</span>
-    <select name="selling_pointid" onchange="this.form.submit()"
-            style="background:rgba(200,149,42,0.12);border:1px solid rgba(200,149,42,0.3);color:var(--gold-l);
-                   font-size:0.72rem;padding:3px 6px;border-radius:2px;cursor:pointer;font-family:inherit;outline:none">
+    <select name="selling_pointid" onchange="this.form.submit()" class="tb-select" aria-label="Floor">
       <?php foreach ($accessible as $fl): ?>
       <option value="<?= $fl['id'] ?>" <?= $fl['id']==$cur_spid?'selected':'' ?>>
         <?= htmlspecialchars($fl['name']) ?>
@@ -592,43 +210,32 @@ if ('serviceWorker' in navigator) {
   <?php else: ?>
   <span class="topbar-floor"><?= htmlspecialchars($_SESSION['selling_point_name'] ?? '') ?></span>
   <?php endif; ?>
-  <div class="topbar-user">
-    <div class="topbar-avatar"><?= strtoupper(substr($_SESSION['username'] ?? 'U', 0, 2)) ?></div>
-    <?= htmlspecialchars($_SESSION['username'] ?? '') ?>
-  </div>
+
   <!-- PWA Connection Status Pill -->
-  <div id="pwa-status-pill" style="display:inline-flex; align-items:center; gap:6px; font-size:0.7rem; font-weight:500; background:rgba(61,107,53,0.12); border:1px solid rgba(61,107,53,0.25); color:var(--leaf); padding:3px 8px; border-radius:12px; margin-right:4px; letter-spacing:0.04em">
-    <span style="width:6px; height:6px; background:currentColor; border-radius:50%; display:inline-block"></span>
-    <span id="pwa-status-text">Online</span>
-  </div>
-  
+  <span id="pwa-status-pill" class="tb-chip ok tb-hide-sm"><span class="dotc"></span><span id="pwa-status-text">Online</span></span>
+
   <!-- Offline Sync Queue Badge -->
-  <div id="pwa-sync-queue-badge" style="display:none; align-items:center; gap:6px; font-size:0.7rem; font-weight:600; background:rgba(200,149,42,0.12); border:1px solid rgba(200,149,42,0.25); color:var(--gold-l); padding:3px 8px; border-radius:12px; margin-right:4px; letter-spacing:0.04em; cursor:pointer" onclick="triggerManualSync()" title="Click to force auto-sync">
-    <span style="display:inline-flex;align-items:center;gap:3px">
-      <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" style="display:inline-block;width:10px;height:10px;flex-shrink:0;vertical-align:middle"><polygon points="9 1 2 9 7 9 6 15 14 6 8 6"/></svg> Queue:
-    </span>
-    <span id="pwa-sync-queue-count">0</span>
-  </div>
+  <button type="button" id="pwa-sync-queue-badge" class="tb-btn" style="display:none" onclick="triggerManualSync()" title="Click to force auto-sync">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
+    Queue: <span id="pwa-sync-queue-count">0</span>
+  </button>
 
   <!-- Command Palette Button -->
-  <button type="button" onclick="toggleCommandPalette()" title="Open search/palette (Ctrl+K)"
-          style="background:rgba(200,149,42,0.12);border:1px solid rgba(200,149,42,0.25);
-                 color:var(--gold-l);font-size:0.72rem;padding:3px 8px;border-radius:2px;
-                 cursor:pointer;font-family:inherit;letter-spacing:0.06em;display:inline-flex;align-items:center;gap:4px;margin-right:4px">
-    <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="display:inline-block;width:11px;height:11px;flex-shrink:0;vertical-align:middle"><circle cx="7" cy="7" r="5.5"/><line x1="11" y1="11" x2="15" y2="15"/></svg> Search <kbd style="font-size:0.55rem;background:rgba(255,255,255,0.15);padding:1px 3px;border-radius:2px;border:1px solid rgba(255,255,255,0.2)">Ctrl+K</kbd>
+  <button type="button" class="tb-btn tb-hide-sm" onclick="toggleCommandPalette()" title="Open search (Ctrl+K)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    Search <kbd>Ctrl K</kbd>
   </button>
 
-  <button type="button" id="theme-toggle-btn" onclick="setTheme('toggle')" title="Toggle light/dark"
-          style="background:rgba(200,149,42,0.12);border:1px solid rgba(200,149,42,0.25);
-                 color:var(--gold-l);font-size:0.72rem;padding:3px 8px;border-radius:2px;
-                 cursor:pointer;font-family:inherit;letter-spacing:0.06em;display:inline-flex;align-items:center;gap:4px">
-    <?= $theme==='dark' ? '☀ Light' : '☾ Dark' ?>
+  <button type="button" id="theme-toggle-btn" class="tb-btn tb-icon" onclick="setTheme('toggle')"
+          aria-label="<?= $theme==='dark' ? 'Switch to light mode' : 'Switch to dark mode' ?>" title="<?= $theme==='dark' ? 'Switch to light mode' : 'Switch to dark mode' ?>">
+    <svg class="theme-ico-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+    <svg class="theme-ico-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
   </button>
   <!-- SSE Real-time Notification Bell -->
-  <div style="position:relative; display:inline-flex; align-items:center; cursor:pointer; margin-right:4px; padding:3px 8px; border:1px solid rgba(245,240,232,0.1); border-radius:2px" title="Real-time Notifications" onclick="resetBellCount()">
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="display:inline-block;width:14px;height:14px;flex-shrink:0;vertical-align:middle;color:var(--gold-l)"><path d="M8 1a3.5 3.5 0 0 0-3.5 3.5V8L3 11.5h10L11.5 8V4.5A3.5 3.5 0 0 0 8 1zM5.5 13a2.5 2.5 0 0 0 5 0h-5z"/></svg>
-    <span id="navbar-bell-badge" style="display:none; background:var(--gold); color:var(--ink); font-size:.65rem; font-weight:700; padding:1px 5px; border-radius:10px; align-items:center; justify-content:center; line-height:1; margin-left:3px">0</span>
-  </div>
+  <button type="button" class="tb-btn tb-icon" title="Real-time notifications" aria-label="Notifications" onclick="resetBellCount()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+    <span id="navbar-bell-badge" class="tb-badge">0</span>
+  </button>
   <script>
   function resetBellCount() {
     var badge = document.getElementById('navbar-bell-badge');
@@ -638,17 +245,18 @@ if ('serviceWorker' in navigator) {
     }
   }
   </script>
+  <div class="topbar-user">
+    <div class="topbar-avatar" aria-hidden="true"><?= strtoupper(substr($_SESSION['username'] ?? 'U', 0, 2)) ?></div>
+    <span class="tb-name"><?= htmlspecialchars($_SESSION['username'] ?? '') ?></span>
+  </div>
   <a href="logout.php" class="topbar-logout">Sign out</a>
 </div>
 <!-- SIDEBAR -->
 <div id="nav-overlay" onclick="toggleSidebar()"
      style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:195"></div>
 <div class="sidebar" id="sidebar">
-  <button onclick="toggleSidebar()"
-          style="display:none;position:absolute;top:10px;right:10px;background:none;border:none;
-                 cursor:pointer;color:rgba(245,240,232,0.5);padding:4px;line-height:1"
-          class="sidebar-close" aria-label="Close">
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+  <button type="button" onclick="toggleSidebar()" class="sidebar-close" aria-label="Close menu">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
       <line x1="3" y1="3" x2="15" y2="15"/><line x1="15" y1="3" x2="3" y2="15"/>
     </svg>
   </button>
@@ -785,7 +393,7 @@ if ('serviceWorker' in navigator) {
   <?php 
   $show_sale_processing = has_right('floor') || has_right('accounts') || has_right('balance');
   if ($show_sale_processing):
-      $grp_sale = in_array($active_page,['floor','selling','selling2','sales','balance','buyers','void_controls','re_offer','grade_disputes','buyer_management','live_feed','quality_control']); 
+      $grp_sale = in_array($active_page,['floor','selling','selling2','sales','balance','bale_import','buyers','void_controls','re_offer','grade_disputes','buyer_management','live_feed','quality_control']); 
   ?>
   <div class="nav-group" data-group="sale_processing">
     <div class="nav-toggle <?= $grp_sale ? 'has-active' : '' ?>" onclick="toggleNavGroup(this)">
@@ -827,6 +435,10 @@ if ('serviceWorker' in navigator) {
   <a href="balance.php" class="nav-item <?= $active_page==='balance'?'active':'' ?>">
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1L1 5v6l7 4 7-4V5L8 1z"/></svg>
     Sale Balancing
+  </a>
+  <a href="bale_import.php" class="nav-item <?= $active_page==='bale_import'?'active':'' ?>">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2h7l3 3v9H3z"/><path d="M8 7v5M6 10l2 2 2-2"/></svg>
+    Bale File Import
   </a>
   <?php endif; ?>
   <?php if (has_right('floor')): ?>
@@ -1321,8 +933,8 @@ if ('serviceWorker' in navigator) {
     </div>
   </div>
   <!-- PWA Install Button -->
-  <button id="pwa-install-btn" style="display:none; width:calc(100% - 24px); margin:12px; padding:10px 14px; background:rgba(200,149,42,0.15); border:1px dashed var(--gold); color:var(--gold-l); font-size:0.75rem; font-weight:600; border-radius:4px; cursor:pointer; text-align:center; transition:background 0.2s, color 0.2s; outline:none; font-family:inherit">
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:11px;height:11px;display:inline-block;vertical-align:middle;margin-right:4px"><path d="M8 2v10M4 8l4 4 4-4M2 14h12"/></svg> Install Flowork App
+  <button type="button" id="pwa-install-btn" style="display:none">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M8 2v10M4 8l4 4 4-4M2 14h12"/></svg> Install Flowork app
   </button>
 </div>
 
@@ -1335,11 +947,23 @@ if ('serviceWorker' in navigator) {
   var lastIdKey = 'fw_sse_last_id';
   var lastSeenId = localStorage.getItem(lastIdKey) || 0;
   
-  // Create EventSource connection
-  var sseUrl = '<?= APP_BASE ?>/sse.php?last_id=' + lastSeenId;
-  var source = new EventSource(sseUrl);
-  
-  source.onmessage = function(event) {
+  // Create EventSource connection. Hidden tabs close it so background tabs
+  // don't keep calling the server; it reopens when the tab is shown again.
+  var source = null;
+  function openStream() {
+    if (source) return;
+    var sseUrl = '<?= APP_BASE ?>/sse.php?last_id=' + (localStorage.getItem(lastIdKey) || lastSeenId);
+    source = new EventSource(sseUrl);
+    source.onmessage = onStreamMessage;
+  }
+  function closeStream() {
+    if (source) { source.close(); source = null; }
+  }
+  document.addEventListener('visibilitychange', function() {
+    if (document.hidden) closeStream(); else openStream();
+  });
+
+  function onStreamMessage(event) {
     try {
       var data = JSON.parse(event.data);
       if (data && data.id) {
@@ -1368,8 +992,9 @@ if ('serviceWorker' in navigator) {
         }
       }
     } catch(err) {}
-  };
-  
+  }
+  if (!document.hidden) openStream();
+
   function playAlertChime() {
     try {
       var ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1390,13 +1015,13 @@ if ('serviceWorker' in navigator) {
 </script>
 
 <!-- ══ KEYBOARD SHORTCUT HELP OVERLAY ══ -->
-<div id="kb-overlay" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.65);align-items:center;justify-content:center;backdrop-filter:blur(4px)">
-  <div style="background:#1c130a;border:1px solid rgba(200,149,42,.35);border-radius:14px;padding:2rem;max-width:580px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,.7)">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem">
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:1.5rem;letter-spacing:.1em;color:var(--gold-l)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:16px;height:16px;display:inline-block;vertical-align:middle;margin-right:6px;color:var(--gold-l)"><rect x="1" y="3" width="14" height="10" rx="1.5"/><path d="M4 6h1M7 6h1M10 6h1M11 6h1M4 9h1M11 9h1M6 9h4"/></svg> KEYBOARD SHORTCUTS</div>
-      <button onclick="document.getElementById('kb-overlay').style.display='none'" style="background:none;border:1px solid rgba(245,240,232,.15);color:rgba(245,240,232,.5);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:.8rem">ESC / Close</button>
+<div id="kb-overlay" role="dialog" aria-modal="true" aria-labelledby="kb-title">
+  <div class="kb-panel">
+    <div class="kb-head">
+      <h2 id="kb-title">Keyboard shortcuts</h2>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('kb-overlay').style.display='none'">Close</button>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
+    <div class="kb-grid">
       <?php
       $shortcuts = [
         ['?','Show this help'],
@@ -1414,13 +1039,10 @@ if ('serviceWorker' in navigator) {
       ];
       foreach($shortcuts as $s):
       ?>
-      <div style="display:flex;align-items:center;gap:.75rem;padding:.45rem .65rem;border-radius:6px;background:rgba(200,149,42,.06);border:1px solid rgba(200,149,42,.1)">
-        <kbd style="background:rgba(200,149,42,.2);color:var(--gold-l);border:1px solid rgba(200,149,42,.3);border-radius:4px;padding:2px 7px;font-family:monospace;font-size:.72rem;white-space:nowrap;flex-shrink:0"><?=htmlspecialchars($s[0])?></kbd>
-        <span style="font-size:.75rem;color:rgba(245,240,232,.65)"><?=htmlspecialchars($s[1])?></span>
-      </div>
+      <div class="kb-row"><kbd><?=htmlspecialchars($s[0])?></kbd><span><?=htmlspecialchars($s[1])?></span></div>
       <?php endforeach; ?>
     </div>
-    <div style="margin-top:1.25rem;font-size:.65rem;color:rgba(245,240,232,.25);text-align:center">Press <kbd style="background:rgba(200,149,42,.15);color:var(--gold);border:1px solid rgba(200,149,42,.25);border-radius:3px;padding:1px 5px;font-family:monospace">?</kbd> anytime to toggle this panel</div>
+    <div class="kb-foot">Press <kbd>?</kbd> anytime to open or close this panel</div>
   </div>
 </div>
 <script>
@@ -1438,6 +1060,17 @@ if ('serviceWorker' in navigator) {
     if(gMode && navMap[key]){ window.location.href=window.APP_BASE+'/'+navMap[key]; gMode=false; return; }
   });
   kbOv.addEventListener('click', function(e){ if(e.target===this) this.style.display='none'; });
+})();
+</script>
+<script>
+// Keep the sidebar's scroll position from page to page.
+(function(){
+  var sb = document.getElementById('sidebar');
+  if (!sb) return;
+  try { var y = sessionStorage.getItem('fw_sb_scroll'); if (y) sb.scrollTop = +y; } catch(e){}
+  window.addEventListener('pagehide', function(){
+    try { sessionStorage.setItem('fw_sb_scroll', sb.scrollTop); } catch(e){}
+  });
 })();
 </script>
 

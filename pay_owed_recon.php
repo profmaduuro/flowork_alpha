@@ -236,15 +236,15 @@ include "includes/layout.php";
 ?>
 <style>
 .rc-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.75rem;margin-bottom:1.25rem}
-.rc-kpi{background:var(--card,#fff);border:1px solid var(--border);border-radius:10px;padding:.9rem 1rem}
-.rc-kpi .l{font-size:.6rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
-.rc-kpi .v{font-family:'Bebas Neue',sans-serif;font-size:1.7rem;line-height:1.1;font-variant-numeric:tabular-nums}
+.rc-kpi{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:.9rem 1rem}
+.rc-kpi .l{font-size:.78rem;font-weight:600;color:var(--muted)}
+.rc-kpi .v{font-family:'DM Sans',sans-serif;font-size:1.44rem;line-height:1.1;font-variant-numeric:tabular-nums;font-weight:600}
 .rc-kpi .s{font-size:.7rem;color:var(--muted)}
 .rc-filters{display:flex;flex-wrap:wrap;gap:.5rem;align-items:flex-end;margin-bottom:1rem}
-.rc-filters label{display:block;font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.rc-filters label{display:block;font-size:.78rem;color:var(--muted)}
 .rc-tabs{display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.9rem}
-.rc-tabs a{font-size:.72rem;padding:.3rem .65rem;border:1px solid var(--border);border-radius:999px;text-decoration:none;color:var(--ink)}
-.rc-tabs a.on{background:var(--ink);color:var(--paper,#fff);border-color:var(--ink)}
+.rc-tabs a{font-size:.72rem;padding:.3rem .65rem;border:1px solid var(--border);border-radius:999px;text-decoration:none;color:var(--text)}
+.rc-tabs a.on{background:var(--primary-bg);color:var(--primary-text);border-color:var(--primary-bg)}
 .rc-num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .rc-var-pos{color:var(--danger);font-weight:600}
 .rc-var-neg{color:var(--gold-d,#9a6b12);font-weight:600}
@@ -334,14 +334,14 @@ include "includes/layout.php";
             <div style="font-size:.72rem;color:var(--muted)"><?= htmlspecialchars($r['grower']) ?></div></td>
         <td class="rc-num"><?= (int)$r['sheets'] ?>
           <?php if ((int)$r['sheets_without_net'] > 0): ?>
-            <div style="font-size:.62rem;color:var(--danger)"><?= (int)$r['sheets_without_net'] ?> without net</div>
+            <div style="font-size:.72rem;color:var(--danger)"><?= (int)$r['sheets_without_net'] ?> without net</div>
           <?php endif; ?></td>
         <td class="rc-num"><?= $sym . money($r['owed']) ?></td>
         <td class="rc-num"><?= $r['pay_status'] === '' || !in_array($r['pay_status'], ['paid','released'], true) ? '—' : $sym . money($r['paid']) ?></td>
         <td class="rc-num <?= $r['variance'] > RECON_TOLERANCE ? 'rc-var-pos' : ($r['variance'] < -RECON_TOLERANCE && $r['class'] !== 'unpaid' ? 'rc-var-neg' : '') ?>">
           <?= $r['class'] === 'unpaid' ? '—' : ($r['variance'] > 0 ? '+' : '') . money($r['variance']) ?></td>
         <td><span class="badge <?= $badge ?>"><?= $lbl ?></span>
-          <?php if ($r['pay_status'] === 'on_hold'): ?><div style="font-size:.62rem;color:var(--muted)">on hold</div><?php endif; ?></td>
+          <?php if ($r['pay_status'] === 'on_hold'): ?><div style="font-size:.72rem;color:var(--muted)">on hold</div><?php endif; ?></td>
         <td style="font-size:.72rem">
           <?php if (in_array($r['pay_status'], ['paid','released'], true)): ?>
             <div><?= htmlspecialchars((string)$r['payment_method']) ?></div>

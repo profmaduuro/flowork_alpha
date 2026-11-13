@@ -308,7 +308,7 @@ include "includes/layout.php";
     <button type="submit" class="btn btn-ghost btn-sm">Go</button>
   </form>
 </div>
-<div class="table-wrap" style="max-height:560px;overflow-y:auto"><table>
+<div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto"><table>
 <thead><tr>
   <th>Grower #</th><th>Surname</th><th>Name</th>
   <th>Province</th><th>District</th><th>Farm</th>
@@ -321,7 +321,7 @@ include "includes/layout.php";
 </td></tr>
 <?php else: foreach($registry as $r):?>
 <tr>
-  <td><span class="badge badge-gold" style="font-size:.6rem"><?=htmlspecialchars($r['grower_num'])?></span></td>
+  <td><span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($r['grower_num'])?></span></td>
   <td style="font-size:.78rem;font-weight:500"><?=htmlspecialchars($r['surname'])?></td>
   <td style="font-size:.78rem"><?=htmlspecialchars($r['name'])?></td>
   <td style="font-size:.7rem;color:var(--muted)"><?=htmlspecialchars($r['province'])?></td>

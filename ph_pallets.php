@@ -168,7 +168,7 @@ include "includes/layout.php";
 <?php foreach($list as $p): $bd=['open'=>'badge-gold','full'=>'badge-green','dispatched'=>'badge-gray'][$p['status']]??'badge-gray';?>
 <tr>
   <td><a href="?view=<?=htmlspecialchars($p['pallet_no'])?>" style="font-weight:600;color:var(--gold)"><?=htmlspecialchars($p['pallet_no'])?></a></td>
-  <td><span class="badge badge-blue" style="font-size:.6rem"><?=htmlspecialchars($p['house_code'])?></span></td>
+  <td><span class="badge badge-blue" style="font-size:.72rem"><?=htmlspecialchars($p['house_code'])?></span></td>
   <td><?=htmlspecialchars($p['line_no']?:'—')?></td>
   <td><?=htmlspecialchars($p['buyer_grade']?:'—')?></td>
   <td class="text-right"><?=(int)$p['bale_count']?>/12</td>

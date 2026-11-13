@@ -323,9 +323,9 @@ include "includes/layout.php";
 #buyers-table tbody tr { cursor:pointer; transition:background .1s; }
 #buyers-table tbody tr:hover td { background:rgba(200,149,42,.07); }
 #buyers-table td { font-size:.74rem; padding:.45rem .7rem; white-space:nowrap; }
-#buyers-table th { font-size:.64rem; padding:.42rem .7rem; white-space:nowrap; }
+#buyers-table th { font-size:.72rem; padding:.42rem .7rem; white-space:nowrap; }
 .up-dot { display:inline-flex;align-items:center;gap:.3rem;font-size:.68rem;font-weight:500; }
-.up-yes { color:#3a9a3a; }
+.up-yes { color:var(--ok-text); }
 .up-no  { color:var(--muted); }
 
 /* ── Buyer modal ── */
@@ -337,7 +337,7 @@ include "includes/layout.php";
 }
 @keyframes bmo-in{from{opacity:0}to{opacity:1}}
 #bmb {
-  background:#fff; border-radius:14px;
+  background:var(--surface); border-radius:14px;
   max-width:780px; margin:0 auto;
   box-shadow:0 24px 64px rgba(0,0,0,.4), 0 0 0 1px rgba(200,149,42,.12);
   overflow:hidden; animation:bmb-in .2s cubic-bezier(.16,1,.3,1);
@@ -348,9 +348,9 @@ include "includes/layout.php";
   padding:.95rem 1.25rem; display:flex; align-items:center; gap:.85rem;
   border-bottom:2px solid rgba(200,149,42,.25);
 }
-#bm-name { font-family:'Bebas Neue',sans-serif; font-size:1.35rem; color:#c8952a; letter-spacing:.1em; line-height:1; }
+#bm-name { font-family:'DM Sans',sans-serif; font-size:1.15rem; color:var(--accent-text); line-height:1;font-weight:600}
 #bm-code-badge { padding:.18rem .55rem; border-radius:6px; background:rgba(200,149,42,.18);
-                  border:1px solid rgba(200,149,42,.3); color:#c8952a; font-size:.72rem;
+                  border:1px solid rgba(200,149,42,.3); color:var(--accent-text); font-size:.72rem;
                   font-family:monospace; font-weight:600; letter-spacing:.04em; }
 #bm-close { background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.15);
              color:rgba(245,240,232,.65); width:30px; height:30px; border-radius:7px;
@@ -358,30 +358,29 @@ include "includes/layout.php";
 #bm-close:hover { background:rgba(255,255,255,.2); color:#fff; }
 
 /* Edit buyer inline */
-#bm-edit-bar { background:#fdf6e8; border-bottom:1px solid #e8d8a0; padding:.7rem 1.25rem;
+#bm-edit-bar { background:var(--surface-2); border-bottom:1px solid #e8d8a0; padding:.7rem 1.25rem;
                display:none; }
-.bm-section { padding:.9rem 1.25rem; border-bottom:1px solid #f0ebe0; }
+.bm-section { padding:.9rem 1.25rem; border-bottom:1px solid var(--line); }
 .bm-section:last-of-type { border-bottom:none; }
-.bm-section-title { font-size:.68rem; font-weight:700; text-transform:uppercase;
-                     letter-spacing:.07em; color:#9a7830; margin-bottom:.65rem; }
+.bm-section-title { font-size:.78rem; font-weight:700; color:#9a7830; margin-bottom:.65rem; }
 
 /* Grades table inside modal */
 #bm-grades-table { width:100%; border-collapse:collapse; font-size:.76rem; }
-#bm-grades-table th { background:#f8f5ef; color:#5a4820; font-size:.62rem; font-weight:600;
-                       text-transform:uppercase; letter-spacing:.05em; padding:.4rem .65rem;
-                       border-bottom:2px solid #e8dfc8; }
-#bm-grades-table td { padding:.38rem .65rem; border-bottom:1px solid #f4efe4; color:#2a1e08; }
+#bm-grades-table th { background:var(--warn-tint); color:var(--warn-text); font-size:.78rem; font-weight:600;
+                       padding:.4rem .65rem;
+                       border-bottom:2px solid var(--line); }
+#bm-grades-table td { padding:.38rem .65rem; border-bottom:1px solid #f4efe4; color:var(--text); }
 #bm-grades-table tr:last-child td { border-bottom:none; }
-#bm-grades-table tr:hover td { background:#fdf6e8; }
-.grade-code { font-family:'Bebas Neue',monospace; font-size:1.05rem; letter-spacing:.06em; color:#c8952a; }
+#bm-grades-table tr:hover td { background:var(--surface-2); }
+.grade-code { font-family:'DM Sans',sans-serif; font-size:0.89rem; color:var(--accent-text);font-weight:600}
 .grade-code.inactive { color:#aaa; }
 
 /* CSV preview box */
-#bm-csv-prev { background:#fdf6e8; border:1px solid #e8d8a0; border-radius:8px;
+#bm-csv-prev { background:var(--surface-2); border:1px solid #e8d8a0; border-radius:8px;
                padding:.75rem 1rem; margin-bottom:.75rem; }
 
 /* Footer */
-#bm-foot { padding:.8rem 1.25rem; background:#f8f5ef; border-top:2px solid #e8dfc8;
+#bm-foot { padding:.8rem 1.25rem; background:var(--surface-2); border-top:2px solid var(--line);
             display:flex; align-items:center; gap:.65rem; flex-wrap:wrap; }
 
 /* Toast */
@@ -393,7 +392,7 @@ include "includes/layout.php";
 
 /* TIMB table */
 .tbl-timb td { font-size:.72rem; padding:.4rem .65rem; }
-.tbl-timb th { font-size:.63rem; padding:.4rem .65rem; }
+.tbl-timb th { font-size:.72rem; padding:.4rem .65rem; }
 
 /* Premium Segmented / Capsule Tab Strip */
 .premium-tabs-nav {
@@ -433,14 +432,14 @@ body.theme-dark .premium-tab-btn:hover {
     background: rgba(255, 255, 255, 0.04);
 }
 .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
     box-shadow: 0 4px 12px rgba(26, 18, 8, 0.15);
     font-weight: 600;
 }
 body.theme-light .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
 }
 body.theme-dark .premium-tab-btn.active {
     background: var(--gold);
@@ -484,7 +483,7 @@ body.theme-dark .premium-tab-btn.active {
       🏢 Buyers List
   </button>
   <button class="premium-tab-btn" data-tab="timb" onclick="switchBuyersTab('timb')">
-      📋 TIMB Grades <span class="badge badge-gray" style="font-size:.62rem; margin-left:4px"><?= count($timb_all) ?></span>
+      📋 TIMB Grades <span class="badge badge-gray" style="font-size:.72rem; margin-left:4px"><?= count($timb_all) ?></span>
   </button>
 </div>
 
@@ -560,7 +559,7 @@ body.theme-dark .premium-tab-btn.active {
         </div>
       </div>
 
-      <div id="timb-add-form" style="display:none;padding:.75rem 1.15rem;border-bottom:1px solid var(--border);background:var(--cream)">
+      <div id="timb-add-form" style="display:none;padding:.75rem 1.15rem;border-bottom:1px solid var(--border);background:var(--surface)">
         <div style="display:flex;gap:.5rem;align-items:flex-end;max-width:380px">
           <div class="form-group" style="flex:1;margin:0">
             <label style="font-size:.72rem">TIMB Grade Code</label>
@@ -570,11 +569,11 @@ body.theme-dark .premium-tab-btn.active {
           <button class="btn btn-primary" onclick="addTimbGrade()">Add</button>
           <button class="btn btn-ghost" onclick="toggleEl('timb-add-form')">Cancel</button>
         </div>
-        <div id="timb-add-err" style="font-size:.72rem;color:#c03030;margin-top:.3rem"></div>
+        <div id="timb-add-err" style="font-size:.72rem;color:var(--bad-text);margin-top:.3rem"></div>
       </div>
 
       <!-- TIMB CSV upload -->
-      <div id="timb-csv-form" style="display:<?= !empty($timb_preview)?'block':'none' ?>;border-bottom:1px solid var(--border);background:var(--cream)">
+      <div id="timb-csv-form" style="display:<?= !empty($timb_preview)?'block':'none' ?>;border-bottom:1px solid var(--border);background:var(--surface)">
       <?php if (!empty($timb_preview)): ?>
       <div style="padding:.85rem 1.15rem">
         <div style="font-size:.72rem;font-weight:600;margin-bottom:.5rem">Preview — <?= count($timb_preview) ?> TIMB grades to import</div>
@@ -628,7 +627,7 @@ body.theme-dark .premium-tab-btn.active {
         </label>
       </div>
 
-      <div class="table-wrap" style="max-height:520px;overflow-y:auto">
+      <div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto">
       <table id="timb-table" class="tbl-timb">
       <thead><tr>
         <th style="width:36px">#</th>
@@ -648,12 +647,11 @@ body.theme-dark .premium-tab-btn.active {
           data-id="<?= $r['id'] ?>">
         <td class="td-muted" style="font-size:.68rem"><?= $seq ?></td>
         <td>
-          <span style="font-family:'Bebas Neue',monospace;font-size:1.1rem;letter-spacing:.06em;
-                       color:<?= $active?'var(--gold)':'var(--muted)' ?>">
+          <span style="font-family:'DM Sans',sans-serif;font-size:0.94rem;color:<?= $active?'var(--gold)':'var(--muted)' ?>;font-weight:600">
             <?= htmlspecialchars($r['description']) ?>
           </span>
           <?php if (!$active): ?>
-          <span class="badge badge-gray" style="font-size:.52rem;margin-left:.35rem">Inactive</span>
+          <span class="badge badge-gray" style="font-size:.72rem;margin-left:.35rem">Inactive</span>
           <?php endif; ?>
         </td>
         <td class="td-mono text-right">
@@ -697,7 +695,7 @@ body.theme-dark .premium-tab-btn.active {
 <!-- ═══════════════════════════════════════════════════════════════════════════ -->
 <div id="add-buyer-modal" style="display:none;position:fixed;inset:0;z-index:9100;
      background:rgba(10,7,3,.7);align-items:center;justify-content:center">
-  <div style="background:var(--cream);border-radius:12px;padding:1.5rem;width:380px;
+  <div style="background:var(--surface);border-radius:12px;padding:1.5rem;width:380px;
               box-shadow:0 16px 48px rgba(0,0,0,.3)">
     <div style="font-weight:600;font-size:1rem;margin-bottom:1rem;color:var(--text-strong)">Add New Buyer</div>
     <form method="POST">
@@ -760,11 +758,11 @@ body.theme-dark .premium-tab-btn.active {
       <button class="btn btn-primary btn-sm" onclick="saveEditBuyer()">Save</button>
       <button class="btn btn-ghost btn-sm" onclick="toggleEditBuyer()">Cancel</button>
     </div>
-    <div id="edit-err" style="font-size:.71rem;color:#c03030;margin-top:.3rem"></div>
+    <div id="edit-err" style="font-size:.71rem;color:var(--bad-text);margin-top:.3rem"></div>
   </div>
 
   <!-- Add buyer mark inline bar -->
-  <div id="bm-add-mark-bar" style="background:#fdf9f0; border-bottom:1px solid #e8d8a0; padding:.7rem 1.25rem; display:none;">
+  <div id="bm-add-mark-bar" style="background:var(--surface-2); border-bottom:1px solid #e8d8a0; padding:.7rem 1.25rem; display:none;">
     <div style="font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#9a7830;margin-bottom:.5rem">Add Buyer Mark</div>
     <div style="display:flex;gap:.5rem;align-items:flex-end;flex-wrap:wrap">
       <div class="form-group" style="flex:2;min-width:180px;margin:0">
@@ -779,7 +777,7 @@ body.theme-dark .premium-tab-btn.active {
       <button class="btn btn-gold btn-sm" onclick="saveAddBuyerMark()">+ Add Mark</button>
       <button class="btn btn-ghost btn-sm" onclick="toggleAddMark()">Cancel</button>
     </div>
-    <div id="add-mark-err" style="font-size:.71rem;color:#c03030;margin-top:.3rem"></div>
+    <div id="add-mark-err" style="font-size:.71rem;color:var(--bad-text);margin-top:.3rem"></div>
   </div>
 
   <!-- Grades section -->
@@ -829,11 +827,11 @@ body.theme-dark .premium-tab-btn.active {
       </button>
       <a id="bm-csv-dl" href="#" class="btn btn-ghost btn-sm">&#8595; Template</a>
     </div>
-    <div id="add-grade-err" style="font-size:.71rem;color:#c03030;margin-bottom:.3rem;display:none"></div>
+    <div id="add-grade-err" style="font-size:.71rem;color:var(--bad-text);margin-bottom:.3rem;display:none"></div>
 
     <!-- CSV upload section (hidden by default) -->
     <div id="bm-csv-section" style="display:none;margin-bottom:.75rem;border:1px solid #e8d8a0;
-         border-radius:8px;padding:.75rem 1rem;background:#fdf9f0">
+         border-radius:8px;padding:.75rem 1rem;background:var(--surface-2)">
       <div style="font-size:.7rem;color:#9a7830;margin-bottom:.5rem">
         One grade per row. First row (header) is skipped automatically.
       </div>
@@ -851,7 +849,7 @@ body.theme-dark .premium-tab-btn.active {
     </div>
 
     <!-- Grades table -->
-    <div style="border:1px solid #e8dfc8;border-radius:8px;overflow:hidden">
+    <div style="border:1px solid var(--line);border-radius:8px;overflow:hidden">
     <table id="bm-grades-table">
       <thead><tr>
         <th>Grade</th>
@@ -881,7 +879,7 @@ body.theme-dark .premium-tab-btn.active {
 <!-- TIMB Rename modal -->
 <div id="timb-rename-modal" style="display:none;position:fixed;inset:0;z-index:9200;
      background:rgba(0,0,0,.45);align-items:center;justify-content:center">
-  <div style="background:var(--cream);border-radius:var(--radius);padding:1.4rem;width:320px;
+  <div style="background:var(--surface);border-radius:var(--radius);padding:1.4rem;width:320px;
               box-shadow:0 8px 32px rgba(0,0,0,.2)">
     <div style="font-weight:600;font-size:.95rem;margin-bottom:.85rem">Rename TIMB Grade</div>
     <div class="form-group">
@@ -889,7 +887,7 @@ body.theme-dark .premium-tab-btn.active {
       <input type="text" id="timb-rename-val" class="form-control" required
              style="font-family:monospace;font-size:1rem;letter-spacing:.06em;text-transform:uppercase">
     </div>
-    <div id="timb-rename-err" style="font-size:.71rem;color:#c03030;margin-bottom:.4rem"></div>
+    <div id="timb-rename-err" style="font-size:.71rem;color:var(--bad-text);margin-bottom:.4rem"></div>
     <div style="display:flex;gap:.5rem">
       <button class="btn btn-primary btn-sm" onclick="saveTimbRename()">Save</button>
       <button class="btn btn-ghost btn-sm" onclick="closeTimbRename()">Cancel</button>

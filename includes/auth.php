@@ -3,6 +3,7 @@ require_once __DIR__ . '/password_helper.php';
 require_once __DIR__ . '/audit.php';
 require_once __DIR__ . '/rights.php';
 require_once __DIR__ . '/floor_scope.php';
+require_once __DIR__ . '/twofa_policy.php';
 
 function require_login() {
     if (session_status() === PHP_SESSION_NONE) session_start();
@@ -74,7 +75,10 @@ function require_login() {
                 require_once $conn_path;
             }
         }
-        if (isset($conn) && $conn instanceof mysqli) {
+        // System switch off (Two-Factor page): nobody is asked for a code
+        if (isset($conn) && $conn instanceof mysqli && !flowork_2fa_system_on($conn)) {
+            $_SESSION['2fa_verified'] = true;
+        } elseif (isset($conn) && $conn instanceof mysqli) {
             $uid = (int)$_SESSION['userid'];
             $fa_q = $conn->query("SELECT enabled FROM user_2fa WHERE userid=$uid LIMIT 1");
             if ($fa_q && $fa_q->num_rows > 0) {
@@ -99,7 +103,7 @@ function require_login() {
         $current_script = basename($_SERVER['SCRIPT_NAME'] ?? '');
         if (!in_array($current_script, ['two_factor.php', 'logout.php', 'login.php'], true)) {
             global $conn;
-            if (isset($conn) && $conn instanceof mysqli) {
+            if (isset($conn) && $conn instanceof mysqli && flowork_2fa_system_on($conn)) {
                 $uid = (int)$_SESSION['userid'];
                 $fa_on = $conn->query("SELECT 1 FROM user_2fa WHERE userid=$uid AND enabled=1 LIMIT 1");
                 if (!$fa_on || $fa_on === true || $fa_on->num_rows === 0) {
@@ -133,6 +137,7 @@ function require_login() {
             // balance
             'balance.php'           => 'balance',
             'balance_bales_action.php'=> 'balance',
+            'bale_import.php'       => 'balance',
             'bale_adjustments.php'  => 'balance',
             'bale_check.php'        => 'balance',
             'bales.php'             => 'balance',

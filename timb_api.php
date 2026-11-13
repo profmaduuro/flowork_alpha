@@ -350,7 +350,7 @@ include "includes/layout.php";
   <h3>Submission History</h3>
   <span class="badge badge-gray"><?=count($submissions)?> submissions</span>
 </div>
-<div class="table-wrap" style="max-height:580px;overflow-y:auto"><table>
+<div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto"><table>
 <thead><tr>
   <th>Date</th><th>Type</th><th class="text-right">Bales</th>
   <th>Status</th><th>Reference</th><th>By</th><th>Time</th>
@@ -365,7 +365,7 @@ $sc=['accepted'=>'badge-green','submitted'=>'badge-gold','pending'=>'badge-gray'
   <td style="font-size:.75rem"><?=date('d M Y',strtotime($s['sell_date']))?></td>
   <td style="font-size:.7rem;color:var(--muted)"><?=str_replace('_',' ',$s['submission_type'])?></td>
   <td class="td-mono text-right"><?=number_format((int)$s['bales_count'])?></td>
-  <td><span class="badge <?=$sc[$s['status']]??'badge-gray'?>" style="font-size:.58rem"><?=strtoupper($s['status'])?></span></td>
+  <td><span class="badge <?=$sc[$s['status']]??'badge-gray'?>" style="font-size:.72rem"><?=strtoupper($s['status'])?></span></td>
   <td style="font-size:.7rem;font-family:monospace;color:var(--muted)"><?=htmlspecialchars($s['reference_number'])?:$s['response_code']?></td>
   <td style="font-size:.7rem"><?=htmlspecialchars($s['username']??'—')?></td>
   <td style="font-size:.68rem;color:var(--muted)"><?=date('d M H:i',strtotime($s['created_at']))?></td>

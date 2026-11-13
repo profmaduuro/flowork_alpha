@@ -257,7 +257,7 @@ elseif ($page === 'eod') {
           . rtrim(str_replace('\\','/',dirname($_SERVER['PHP_SELF'])),'/') . '/eod_reports.php';
     session_write_close();   // release the lock so sub-requests can read the session
 
-    $failed = [];
+    $failed = []; $empty = [];
     $fetch = function($url) use($cookie,&$failed){
         $ch=curl_init($url);
         curl_setopt_array($ch,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_HEADER=>true,
@@ -284,11 +284,17 @@ elseif ($page === 'eod') {
         if($rep==='revenue_report') $url.="&from=".rawurlencode($date_f)."&to=".rawurlencode($date_f);
         $res=$fetch($url);
         if($res && $res[1]!==''){ $zip->addFromString($res[0], $res[1]); $files_added++; }
+        elseif($res) $empty[]=$rep;   // fetched, but nothing for this date and these filters
     }
     foreach($cc_charges as $cid){
         $res=$fetch($base."?report=cred_collection&dl=1&charge=$cid&date=".rawurlencode($date_f) . $filter_qs);
         if($res && $res[1]!==''){ $zip->addFromString($res[0], $res[1]); $files_added++; }
     }
+    if($empty) $zip->addFromString('NOT_INCLUDED.txt',
+        "These reports had no data for $date_f with the filters used"
+        .($filter_qs!==''?" (".ltrim(str_replace('&',', ',$filter_qs),', ').")":'')
+        .", so they are not in this ZIP:\r\n".implode("\r\n",$empty)."\r\n\r\n"
+        ."Bales are reported by sale date, and the location filter uses each bale's transporter location.\r\n");
     if($failed) $zip->addFromString('ERRORS.txt',"These reports could not be fetched:\r\n".implode("\r\n",$failed)."\r\n");
     elseif($files_added===0) $zip->addFromString('README.txt',"No report data for $date_f.\n");
 

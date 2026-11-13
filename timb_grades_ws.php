@@ -420,7 +420,7 @@ include "includes/layout.php";
   <?php if(!$grades):?>
     <div class="card-body text-center text-muted">No grades match.</div>
   <?php else:?>
-  <div class="table-wrap" style="max-height:520px;overflow-y:auto"><table>
+  <div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto"><table>
     <thead><tr><th>Grade</th><th>Added</th></tr></thead>
     <tbody>
     <?php foreach($grades as $g):?>
@@ -442,7 +442,7 @@ include "includes/layout.php";
   <?php if(!$subs):?>
     <div class="card-body text-center text-muted">Nothing submitted yet.</div>
   <?php else:?>
-  <div class="table-wrap" style="max-height:560px;overflow-y:auto"><table>
+  <div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto"><table>
     <thead><tr><th>When</th><th>Grade</th><th>Result</th><th>Confirmation</th><th>Batch</th><th>User</th></tr></thead>
     <tbody>
     <?php foreach($subs as $s):?>

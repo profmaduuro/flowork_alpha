@@ -157,7 +157,7 @@ $sold_count = count(array_filter($summary,fn($r)=>$r['status']==='SOLD'));
 include "includes/layout.php";
 ?>
 <style>
-.scan-box{background:var(--cream);border:2px solid var(--border);border-radius:var(--radius);padding:1rem;margin-bottom:1rem}
+.scan-box{background:var(--surface-2);border:2px solid var(--border);border-radius:var(--radius);padding:1rem;margin-bottom:1rem}
 .scan-box.success{border-color:var(--leaf);animation:scan-flash .4s ease}
 .scan-box.error{border-color:var(--danger);animation:scan-flash .4s ease}
 @keyframes scan-flash{0%,100%{opacity:1}50%{opacity:.6}}
@@ -191,7 +191,7 @@ include "includes/layout.php";
   </div>
   <div style="display:flex;gap:.5rem;align-items:flex-end;flex-wrap:wrap">
     <div>
-      <label style="font-size:.62rem;display:block">Date</label>
+      <label style="font-size:.72rem;display:block">Date</label>
       <input type="date" id="date-filter" value="<?=htmlspecialchars((string)$date_f)?>" onchange="location='floor_summary.php?date='+this.value" class="form-control" style="font-size:.8rem;padding:.32rem .55rem">
     </div>
     <a href="?date=<?=htmlspecialchars((string)$date_f)?>&export=<?=htmlspecialchars((string)$date_f)?>" class="btn btn-ghost btn-sm">⬇ CSV</a>
@@ -265,12 +265,12 @@ include "includes/layout.php";
   <td><span class="row-badge"><?=htmlspecialchars($r['row']??'—')?></span></td>
   <td style="font-family:monospace;font-size:.75rem"><?=htmlspecialchars($r['barcode'])?></td>
   <td style="font-family:monospace;font-size:.72rem;color:var(--muted)"><?=htmlspecialchars($r['timb_bc'])?></td>
-  <td><span class="badge badge-gold" style="font-size:.62rem"><?=htmlspecialchars($r['grower_num'])?></span></td>
+  <td><span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($r['grower_num'])?></span></td>
   <td style="font-size:.78rem"><?=htmlspecialchars(trim($r['name'].' '.$r['surname']))?></td>
   <td class="td-mono text-right"><?=number_format((float)$r['mass'],2)?></td>
   <td style="font-size:.72rem"><?=htmlspecialchars($r['loc_code']??'—')?></td>
   <td>
-    <span class="badge <?=$r['status']==='SOLD'?'badge-green':'badge-gold'?>" style="font-size:.6rem">
+    <span class="badge <?=$r['status']==='SOLD'?'badge-green':'badge-gold'?>" style="font-size:.72rem">
       <?=$r['status']?>
     </span>
   </td>
@@ -322,7 +322,7 @@ async function captureBarcode() {
     prev.innerHTML = '🌿 <strong>'+lookup.grower_num+'</strong> — '+lookup.name+' '+lookup.surname+
         ' &nbsp;|&nbsp; <strong>'+lookup.mass+' kg</strong> &nbsp;|&nbsp; '+
         (lookup.loc_code||'No location')+' &nbsp;|&nbsp; TIMB: '+lookup.timb_bc+
-        (lookup.fs_id ? ' &nbsp; <span class="badge badge-red" style="font-size:.6rem">Already scanned</span>' : '');
+        (lookup.fs_id ? ' &nbsp; <span class="badge badge-red" style="font-size:.72rem">Already scanned</span>' : '');
 
     if (lookup.fs_id) { showScanFeedback('Already scanned in row ' + lookup.fs_row, 'error'); return; }
 
@@ -352,11 +352,11 @@ function addTableRow(b, row, add) {
         '<td><span class="row-badge">'+(row||'—')+'</span></td>'+
         '<td style="font-family:monospace;font-size:.75rem">'+b.barcode+'</td>'+
         '<td style="font-family:monospace;font-size:.72rem;color:var(--muted)">'+b.timb_bc+'</td>'+
-        '<td><span class="badge badge-gold" style="font-size:.62rem">'+b.grower_num+'</span></td>'+
+        '<td><span class="badge badge-gold" style="font-size:.72rem">'+b.grower_num+'</span></td>'+
         '<td style="font-size:.78rem">'+b.name+' '+b.surname+'</td>'+
         '<td class="td-mono text-right">'+parseFloat(b.mass).toFixed(2)+'</td>'+
         '<td style="font-size:.72rem">'+(b.loc_code||'—')+'</td>'+
-        '<td><span class="badge '+(b.sold_id?'badge-green':'badge-gold')+'" style="font-size:.6rem">'+(b.sold_id?'SOLD':'UNSOLD')+'</span></td>'+
+        '<td><span class="badge '+(b.sold_id?'badge-green':'badge-gold')+'" style="font-size:.72rem">'+(b.sold_id?'SOLD':'UNSOLD')+'</span></td>'+
         '<td style="font-size:.68rem;color:var(--muted)">now</td>'+
         '<td><button onclick="removeRow('+add.id+')" class="btn btn-ghost btn-sm" style="font-size:.65rem;color:var(--danger)">✕</button></td>';
     tbody.prepend(tr);

@@ -359,14 +359,14 @@ include "includes/layout.php";
 </div>
 
 <!-- Grower selection -->
-<div style="font-size:.62rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem">
+<div style="font-size:.78rem;font-weight:500;color:var(--muted);margin-bottom:.5rem">
   Select Growers
   <button type="button" onclick="selAll()" class="btn btn-ghost btn-sm" style="margin-left:.5rem">All pending</button>
   <button type="button" onclick="clrAll()" class="btn btn-ghost btn-sm">Clear</button>
 </div>
 <div style="max-height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:.85rem">
 <table style="width:100%;border-collapse:collapse;font-size:.75rem">
-<thead><tr style="background:var(--ink);color:var(--cream)">
+<thead><tr style="background:var(--surface-2);color:var(--text-muted)">
   <th style="padding:4px 7px;width:28px"><input type="checkbox" id="ca" onchange="toggleAll(this)"></th>
   <th style="padding:4px 7px">Grower</th>
   <th style="padding:4px 7px;text-align:right">Net USD</th>
@@ -387,7 +387,7 @@ include "includes/layout.php";
     <?php else:?>✓<?php endif;?>
   </td>
   <td style="padding:3px 7px">
-    <span class="badge badge-gold" style="font-size:.6rem"><?=htmlspecialchars($gr['grower_num'])?></span>
+    <span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($gr['grower_num'])?></span>
     <span style="font-size:.75rem;margin-left:3px"><?=htmlspecialchars($gr['grower_name'])?></span>
   </td>
   <td style="padding:3px 7px;text-align:right;font-family:monospace;font-size:.75rem">$<?=number_format((float)$gr['net_usd'],2)?></td>
@@ -431,9 +431,9 @@ include "includes/layout.php";
 ?>
 <tr style="cursor:pointer;<?=$view_bid==$b['id']?'background:var(--gold-bg);border-left:3px solid var(--gold)':''?>"
     onclick="location='?date=<?=htmlspecialchars((string)$date_f)?>&bid=<?=$b['id']?>'">
-  <td><span class="badge badge-blue" style="font-size:.62rem">#<?=$b['id']?></span></td>
+  <td><span class="badge badge-blue" style="font-size:.72rem">#<?=$b['id']?></span></td>
   <td style="font-size:.8rem"><?=($PAYMENT_TYPES[$b['payment_method']]??'🔷')?> <?=htmlspecialchars($b['payment_method'])?></td>
-  <td><span class="badge <?=$sc?>" style="font-size:.62rem"><?=$sl?></span></td>
+  <td><span class="badge <?=$sc?>" style="font-size:.72rem"><?=$sl?></span></td>
   <td class="td-mono text-right"><?=(int)$b['cnt']?></td>
   <td class="td-mono text-right fw-500">$<?=number_format((float)$b['total'],2)?></td>
   <td onclick="event.stopPropagation()"><a href="?date=<?=htmlspecialchars((string)$date_f)?>&bid=<?=$b['id']?>" class="btn btn-ghost btn-sm">View</a></td>
@@ -458,12 +458,12 @@ include "includes/layout.php";
   $can_lock    = pay_can($my_role,'lock_batch') && $batch_detail['status']==='released';
 ?>
 <div class="card">
-<div class="card-head" style="background:var(--ink);color:var(--cream)">
+<div class="card-head" style="background:var(--surface-2);color:var(--text)">
   <div>
     <div class="fw-500">Batch #<?=$bid_d?> — <?=htmlspecialchars($batch_detail['payment_method'])?></div>
     <div style="font-size:.72rem;color:rgba(245,240,232,.45);margin-top:2px">
       <?=count($batch_items)?> growers &nbsp;·&nbsp; $<?=number_format($batch_total_d,2)?> USD
-      &nbsp;·&nbsp; <span class="badge <?=$sc?>" style="font-size:.6rem"><?=$sl?></span>
+      &nbsp;·&nbsp; <span class="badge <?=$sc?>" style="font-size:.72rem"><?=$sl?></span>
     </div>
   </div>
   <div class="flex gap-1">
@@ -475,9 +475,9 @@ include "includes/layout.php";
        class="btn btn-ghost btn-sm" style="color:var(--gold-l);border-color:rgba(200,149,42,.3);font-size:.68rem">⬇ Excel</a>
     <div style="position:relative;display:inline-block">
       <button class="btn btn-ghost btn-sm" style="color:var(--gold-l);border-color:rgba(200,149,42,.3);font-size:.68rem" onclick="tog('bank-export-dd')">Bank Files ▾</button>
-      <div id="bank-export-dd" style="display:none;position:absolute;right:0;top:100%;background:#fff;border:1px solid var(--border);border-radius:var(--radius);z-index:50;min-width:150px;box-shadow:0 4px 12px rgba(0,0,0,.1)">
-        <a href="?date=<?=htmlspecialchars((string)$date_f)?>&bid=<?=$bid_d?>&ebid=<?=$bid_d?>&export=cbz_csv" style="display:block;padding:.4rem .75rem;font-size:.75rem;text-decoration:none;color:var(--ink)">⬇ CBZ Upload CSV</a>
-        <a href="?date=<?=htmlspecialchars((string)$date_f)?>&bid=<?=$bid_d?>&ebid=<?=$bid_d?>&export=fbc_csv" style="display:block;padding:.4rem .75rem;font-size:.75rem;text-decoration:none;color:var(--ink)">⬇ FBC Upload CSV</a>
+      <div id="bank-export-dd" style="display:none;position:absolute;right:0;top:100%;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);z-index:50;min-width:150px;box-shadow:0 4px 12px rgba(0,0,0,.1)">
+        <a href="?date=<?=htmlspecialchars((string)$date_f)?>&bid=<?=$bid_d?>&ebid=<?=$bid_d?>&export=cbz_csv" style="display:block;padding:.4rem .75rem;font-size:.75rem;text-decoration:none;color:var(--text)">⬇ CBZ Upload CSV</a>
+        <a href="?date=<?=htmlspecialchars((string)$date_f)?>&bid=<?=$bid_d?>&ebid=<?=$bid_d?>&export=fbc_csv" style="display:block;padding:.4rem .75rem;font-size:.75rem;text-decoration:none;color:var(--text)">⬇ FBC Upload CSV</a>
       </div>
     </div>
   </div>
@@ -529,7 +529,7 @@ include "includes/layout.php";
 </div>
 
 <!-- Batch items -->
-<div class="table-wrap" style="max-height:480px;overflow-y:auto"><table>
+<div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto"><table>
 <thead><tr>
   <th>#</th><th>Grower #</th><th>Name</th>
   <th>Bank / Account</th><th>Verified</th>
@@ -541,7 +541,7 @@ include "includes/layout.php";
 ?>
 <tr>
   <td class="td-muted" style="font-size:.7rem"><?=$sq?></td>
-  <td><span class="badge badge-gold" style="font-size:.62rem"><?=htmlspecialchars($bi2['grower_num'])?></span></td>
+  <td><span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($bi2['grower_num'])?></span></td>
   <td style="font-size:.78rem"><?=htmlspecialchars($bi2['grower_name'])?></td>
   <td style="font-size:.72rem">
     <div><?=htmlspecialchars($bi2['bank_name']??'—')?></div>
@@ -549,14 +549,14 @@ include "includes/layout.php";
   </td>
   <td>
     <?php if($bi2['verified']):?>
-    <span class="badge badge-green" style="font-size:.58rem">✓ Verified</span>
+    <span class="badge badge-green" style="font-size:.72rem">✓ Verified</span>
     <?php else:?>
-    <span class="badge badge-red" style="font-size:.58rem">Unverified</span>
+    <span class="badge badge-red" style="font-size:.72rem">Unverified</span>
     <?php endif;?>
   </td>
   <td>
     <?php foreach($bflags as $f): $f=trim($f); if(!$f) continue; ?>
-    <span class="badge badge-red" style="font-size:.58rem;margin-right:2px" title="<?=htmlspecialchars($f)?>"><?=$flag_labels[$f]??$f?></span>
+    <span class="badge badge-red" style="font-size:.72rem;margin-right:2px" title="<?=htmlspecialchars($f)?>"><?=$flag_labels[$f]??$f?></span>
     <?php endforeach;?>
   </td>
   <td class="td-mono text-right fw-500">$<?=number_format((float)$bi2['net_amount'],4)?></td>

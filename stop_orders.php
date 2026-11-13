@@ -442,7 +442,7 @@ include "includes/layout.php";
         <a href="settings.php" style="color:var(--gold);font-weight:600">Settings → TIMB File Keys</a>
       </span>
       <?php else:?>
-      <span class="badge badge-green" style="font-size:.6rem">✓ Keys Configured</span>
+      <span class="badge badge-green" style="font-size:.72rem">✓ Keys Configured</span>
       <?php endif;?>
       <button class="btn btn-ghost btn-sm" onclick="toggleSoUpload()" id="so-upload-toggle">
         <?=isset($timb_so_preview)?'↑ Hide':'↓ Upload File'?>
@@ -503,7 +503,7 @@ include "includes/layout.php";
     <tbody>
     <?php foreach($timb_so_preview['records'] as $pr):?>
     <tr style="<?=!$pr['found']?'opacity:.5':'';?>">
-      <td><span class="badge badge-gold" style="font-size:.6rem"><?=htmlspecialchars($pr['gr_num'])?></span></td>
+      <td><span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($pr['gr_num'])?></span></td>
       <td style="font-size:.72rem"><?=htmlspecialchars($pr['grower_name'])?></td>
       <td style="font-family:monospace;font-size:.7rem">
         <?=htmlspecialchars($pr['cred_no'])?>
@@ -518,8 +518,8 @@ include "includes/layout.php";
       <td class="td-mono"><?=(int)$pr['priority']?></td>
       <td style="font-size:.7rem"><?=htmlspecialchars($pr['fmt_date']??$pr['sos_raw'])?></td>
       <td>
-        <?php if($pr['found']):?><span class="badge badge-green" style="font-size:.58rem">✓ Matched</span>
-        <?php else:?><span class="badge badge-gray" style="font-size:.58rem">✕ Not found</span>
+        <?php if($pr['found']):?><span class="badge badge-green" style="font-size:.72rem">✓ Matched</span>
+        <?php else:?><span class="badge badge-gray" style="font-size:.72rem">✕ Not found</span>
         <?php endif;?>
       </td>
     </tr>
@@ -741,7 +741,7 @@ $iso_amounts = $sel_iso ? $conn->query("SELECT isoa.*, ct.description AS ct_desc
             <h3><?= htmlspecialchars($sel_iso_data['description']) ?> — Amounts</h3>
             <button class="btn btn-gold btn-sm" onclick="toggleForm('amt-form')">+ Amount</button>
         </div>
-        <div id="amt-form" style="display:none;padding:1rem 1.25rem;border-bottom:1px solid var(--border);background:var(--cream)">
+        <div id="amt-form" style="display:none;padding:1rem 1.25rem;border-bottom:1px solid var(--border);background:var(--surface)">
             <form method="POST">
                 <input type="hidden" name="action" value="add_iso_amount">
                 <input type="hidden" name="internal_stop_orderid" value="<?= $sel_iso ?>">

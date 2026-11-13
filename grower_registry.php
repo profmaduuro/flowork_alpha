@@ -310,14 +310,14 @@ body.theme-dark .premium-tab-btn:hover {
     background: rgba(255, 255, 255, 0.04);
 }
 .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
     box-shadow: 0 4px 12px rgba(26, 18, 8, 0.15);
     font-weight: 600;
 }
 body.theme-light .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
 }
 body.theme-dark .premium-tab-btn.active {
     background: var(--gold);
@@ -365,9 +365,9 @@ body.theme-dark .premium-tab-btn.active {
     <div class="card-head"><h3>Import Results</h3></div>
     <div class="card-body">
         <div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-bottom:<?= !empty($import_results['errors'])?'1rem':'0' ?>">
-            <div><span style="font-family:'Bebas Neue',sans-serif;font-size:2rem;color:var(--leaf)"><?= $import_results['inserted'] ?></span> <span class="text-muted">inserted</span></div>
-            <div><span style="font-family:'Bebas Neue',sans-serif;font-size:2rem;color:var(--gold)"><?= $import_results['updated'] ?></span> <span class="text-muted">updated</span></div>
-            <div><span style="font-family:'Bebas Neue',sans-serif;font-size:2rem;color:var(--muted)"><?= $import_results['skipped'] ?></span> <span class="text-muted">skipped</span></div>
+            <div><span style="font-family:'DM Sans',sans-serif;font-size:1.7rem;color:var(--leaf);font-weight:600"><?= $import_results['inserted'] ?></span> <span class="text-muted">inserted</span></div>
+            <div><span style="font-family:'DM Sans',sans-serif;font-size:1.7rem;color:var(--gold);font-weight:600"><?= $import_results['updated'] ?></span> <span class="text-muted">updated</span></div>
+            <div><span style="font-family:'DM Sans',sans-serif;font-size:1.7rem;color:var(--muted);font-weight:600"><?= $import_results['skipped'] ?></span> <span class="text-muted">skipped</span></div>
         </div>
         <?php if (!empty($import_results['errors'])): ?>
         <div style="background:var(--danger-bg);border:1px solid #f5b8b2;border-radius:var(--radius);padding:0.75rem;max-height:160px;overflow-y:auto;font-size:0.78rem;color:var(--danger)">
@@ -427,7 +427,8 @@ body.theme-dark .premium-tab-btn.active {
                     <tr>
                         <th>#</th>
                         <th>Grower #</th>
-                        <th>Name</th>
+                        <th>First name</th>
+                        <th>Surname</th>
                         <th>National ID</th>
                         <th>Phone</th>
                         <th>Farm</th>
@@ -442,22 +443,18 @@ body.theme-dark .premium-tab-btn.active {
                 <tr>
                     <td class="td-muted" style="font-size:0.72rem"><?= $row_n++ ?></td>
                     <td><span class="badge badge-gold"><?= htmlspecialchars($r['grower_num']) ?></span></td>
-                    <td>
-                        <div class="fw-500"><?= htmlspecialchars($r['name'].' '.$r['surname']) ?></div>
-                        <?php if ($r['farm_name']): ?>
-                        <div class="td-muted" style="font-size:0.7rem"><?= htmlspecialchars($r['farm_name']) ?></div>
-                        <?php endif; ?>
-                    </td>
-                    <td class="td-muted"><?= htmlspecialchars($r['national_id']) ?></td>
+                    <td class="fw-500 nowrap"><?= htmlspecialchars($r['name']) ?></td>
+                    <td class="fw-500 nowrap"><?= htmlspecialchars($r['surname']) ?></td>
+                    <td class="td-muted nowrap"><?= htmlspecialchars($r['national_id']) ?></td>
                     <td class="td-muted"><?= htmlspecialchars($r['phone']) ?></td>
-                    <td><?= htmlspecialchars($r['farm_name']) ?></td>
-                    <td class="td-muted"><?= htmlspecialchars($r['province']) ?></td>
+                    <td class="nowrap"><?= htmlspecialchars($r['farm_name']) ?></td>
+                    <td class="td-muted nowrap"><?= htmlspecialchars($r['province']) ?></td>
                     <td class="td-muted"><?= htmlspecialchars($r['contractor']) ?></td>
                     <td class="td-mono text-right"><?= htmlspecialchars($r['dry_land_ha']) ?></td>
                     <td class="td-mono text-right"><?= htmlspecialchars($r['irr_land_ha']) ?></td>
                 </tr>
                 <?php endwhile; else: ?>
-                <tr><td colspan="10" class="text-center text-muted" style="padding:2rem">
+                <tr><td colspan="11" class="text-center text-muted" style="padding:2rem">
                     <?= $search ? 'No growers matching "'.htmlspecialchars($search).'".' : 'No growers registered yet.' ?>
                 </td></tr>
                 <?php endif; ?>
@@ -538,10 +535,10 @@ body.theme-dark .premium-tab-btn.active {
                 <h3>Upload Growers from CSV</h3>
             </div>
             <div class="card-body">
-                <div style="display:flex;align-items:center;gap:0.75rem;background:var(--ink);color:var(--cream);padding:0.75rem 1rem;border-radius:var(--radius);margin-bottom:1rem">
+                <div style="display:flex;align-items:center;gap:0.75rem;background:var(--surface-2);color:var(--text);padding:0.75rem 1rem;border-radius:var(--radius);margin-bottom:1rem">
                     <div>
-                        <div style="font-size:0.62rem;letter-spacing:0.14em;text-transform:uppercase;color:rgba(232,184,75,0.6)">Importing into selling point</div>
-                        <div style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--gold-l);letter-spacing:0.08em">
+                        <div style="font-size:.78rem;color:rgba(232,184,75,0.6)">Importing into selling point</div>
+                        <div style="font-family:'DM Sans',sans-serif;font-size:0.94rem;color:var(--gold-l);font-weight:600">
                             <?= htmlspecialchars($_SESSION['selling_point_name'] ?? 'NOT SET') ?>
                         </div>
                     </div>
@@ -562,7 +559,7 @@ body.theme-dark .premium-tab-btn.active {
 
                 <form method="POST" enctype="multipart/form-data">
                     <input type="hidden" name="action" value="csv_preview">
-                    <div style="border:2px dashed var(--border);border-radius:var(--radius);padding:2.5rem;text-align:center;background:var(--cream);cursor:pointer;transition:border-color 0.15s"
+                    <div style="border:2px dashed var(--border);border-radius:var(--radius);padding:2.5rem;text-align:center;background:var(--surface);cursor:pointer;transition:border-color 0.15s"
                          id="drop-zone"
                          ondragover="event.preventDefault();this.style.borderColor='var(--gold)'"
                          ondragleave="this.style.borderColor='var(--border)'"
@@ -614,8 +611,8 @@ body.theme-dark .premium-tab-btn.active {
                                 $auto = $auto_map[$db_col] ?? '';
                                 $required = strpos($label, '*') !== false;
                             ?>
-                            <div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius);padding:0.6rem 0.75rem">
-                                <div style="font-size:0.65rem;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:<?= $required?'var(--gold)':'var(--muted)' ?>;margin-bottom:0.35rem">
+                            <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:0.6rem 0.75rem">
+                                <div style="font-size:.78rem;font-weight:500;color:<?= $required?'var(--gold)':'var(--muted)' ?>;margin-bottom:0.35rem">
                                     <?= htmlspecialchars($label) ?>
                                 </div>
                                 <select name="col_map[<?= $db_col ?>]" class="form-control" style="padding:0.3rem 0.5rem;font-size:0.78rem">
@@ -637,7 +634,7 @@ body.theme-dark .premium-tab-btn.active {
                     </div>
 
                     <!-- Selling point confirmation -->
-                    <div style="background:var(--ink);color:var(--cream);border-radius:var(--radius);padding:0.6rem 1rem;margin-bottom:1rem;display:flex;align-items:center;gap:0.6rem">
+                    <div style="background:var(--surface-2);color:var(--text);border-radius:var(--radius);padding:0.6rem 1rem;margin-bottom:1rem;display:flex;align-items:center;gap:0.6rem">
                         <div style="width:8px;height:8px;border-radius:50%;background:var(--gold);flex-shrink:0"></div>
                         <span style="font-size:0.8rem">
                             All <?= count($csv_preview) ?> growers will be assigned to
@@ -646,7 +643,7 @@ body.theme-dark .premium-tab-btn.active {
                     </div>
 
                     <!-- Duplicate handling -->
-                    <div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius);padding:0.85rem 1rem;margin-bottom:1.25rem;display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap">
+                    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:0.85rem 1rem;margin-bottom:1.25rem;display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap">
                         <div class="kpi-label" style="margin-bottom:0">If grower number already exists:</div>
                         <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;font-size:0.85rem">
                             <input type="radio" name="on_duplicate" value="skip" checked> Skip (keep existing)

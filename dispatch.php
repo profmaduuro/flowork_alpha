@@ -546,7 +546,7 @@ if (!$truck_info) {
 }
 ?>
 <div class="card mb-3" style="border-top:3px solid var(--gold)">
-<div class="card-head" style="background:var(--ink);color:var(--cream)">
+<div class="card-head" style="background:var(--surface-2);color:var(--text)">
   <div>
     <div class="fw-500" style="font-size:.95rem">
       🚛 Scanning → <?= htmlspecialchars($truck_info['horse_num'] ?? 'Truck') ?>
@@ -727,12 +727,12 @@ if (!$truck_info) {
 <?php if($dispatch_points&&$dispatch_points->num_rows>0):while($r=$dispatch_points->fetch_assoc()):?>
 <tr style="cursor:pointer;<?=$sel_spd==$r['id']?'background:var(--gold-bg);border-left:3px solid var(--gold)':''?>"
     onclick="location='?spd=<?=$r['id']?>'">
-  <td><span class="badge badge-blue" style="font-size:.62rem"><?=htmlspecialchars($r['buyer_code'])?></span>
+  <td><span class="badge badge-blue" style="font-size:.72rem"><?=htmlspecialchars($r['buyer_code'])?></span>
       <span style="font-size:.82rem;margin-left:5px"><?=htmlspecialchars($r['buyer_name'])?></span></td>
   <td class="fw-500" style="font-size:.82rem"><?=htmlspecialchars($r['destination'])?></td>
   <td class="text-right">
-    <?php if($r['open_count']>0):?><span class="badge badge-green" style="font-size:.62rem"><?=$r['open_count']?> open</span><?php endif;?>
-    <span class="badge badge-gray" style="font-size:.62rem"><?=$r['dest_count']?> total</span>
+    <?php if($r['open_count']>0):?><span class="badge badge-green" style="font-size:.72rem"><?=$r['open_count']?> open</span><?php endif;?>
+    <span class="badge badge-gray" style="font-size:.72rem"><?=$r['dest_count']?> total</span>
   </td>
   <td><a href="?spd=<?=$r['id']?>" class="btn btn-ghost btn-sm" onclick="event.stopPropagation()">Manage</a></td>
 </tr>
@@ -748,7 +748,7 @@ if (!$truck_info) {
   <h3><?=htmlspecialchars($sel_point['buyer_name'])?> → <?=htmlspecialchars($sel_point['destination'])?></h3>
   <button class="btn btn-gold btn-sm" onclick="tog('truck-form')">+ Add Truck</button>
 </div>
-<div id="truck-form" style="display:none;padding:1rem 1.25rem;border-bottom:1px solid var(--border);background:var(--cream)">
+<div id="truck-form" style="display:none;padding:1rem 1.25rem;border-bottom:1px solid var(--border);background:var(--surface)">
 <form method="POST"><input type="hidden" name="action" value="add_dest">
 <input type="hidden" name="selling_point_dispatchid" value="<?=$sel_spd?>">
 <div class="form-row cols-2">
@@ -821,7 +821,7 @@ if (!$truck_info) {
   $det_val  = array_reduce($dest_bales_arr,function($c,$b){$p=(float)$b['price'];if($p>10)$p/=100;return $c+(float)$b['mass']*$p;},0);
 ?>
 <div class="card mb-3">
-<div class="card-head" style="background:var(--ink);color:var(--cream)">
+<div class="card-head" style="background:var(--surface-2);color:var(--text)">
   <div>
     <div class="fw-500"><?=htmlspecialchars($di['horse_num'])?> — <?=htmlspecialchars(trim($di['driver_name'].' '.$di['driver_surname']))?></div>
     <div style="font-size:.72rem;color:rgba(245,240,232,.45);margin-top:2px">
@@ -845,7 +845,7 @@ if (!$truck_info) {
   </div>
 </div>
 
-<div class="table-wrap" style="max-height:480px;overflow-y:auto"><table>
+<div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto"><table>
 <thead><tr>
   <th>#</th><th>Barcode</th><th>Grower #</th><th>Grower Name</th>
   <th>TIMB Grade</th><th>Buyer Grade</th>
@@ -859,9 +859,9 @@ if (!$truck_info) {
 <tr>
   <td class="td-muted" style="font-size:.7rem"><?=$seq?></td>
   <td><code style="font-size:.72rem"><?=htmlspecialchars($b['barcode'])?></code></td>
-  <td><span class="badge badge-gold" style="font-size:.62rem"><?=htmlspecialchars($b['grower_num'])?></span></td>
+  <td><span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($b['grower_num'])?></span></td>
   <td style="font-size:.78rem"><?=htmlspecialchars(trim($b['gname'].' '.$b['surname']))?></td>
-  <td><span class="badge badge-gold" style="font-size:.6rem"><?=htmlspecialchars($b['timb_grade']??'—')?></span></td>
+  <td><span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($b['timb_grade']??'—')?></span></td>
   <td class="td-muted" style="font-size:.72rem"><?=htmlspecialchars($b['buyer_grade']??'—')?></td>
   <td class="td-mono text-right"><?=number_format((float)$b['mass'],0)?></td>
   <td class="td-mono text-right"><?=$p>0?'$'.number_format($p,4):'—'?></td>
@@ -887,7 +887,7 @@ if (!$truck_info) {
 
 <!-- TPZ live preview ─────────────────────────────────────────────────────── -->
 <div style="padding:.75rem 1.15rem;border-top:1px solid var(--border)">
-  <div style="font-size:.62rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem">
+  <div style="font-size:.78rem;font-weight:500;color:var(--muted);margin-bottom:.4rem">
     TPZ Preview &nbsp;—&nbsp; Virtual Warehouse import file format (.v)
   </div>
   <div style="background:#1a1208;border-radius:var(--radius);padding:.7rem 1rem;
@@ -927,11 +927,11 @@ if (!$truck_info) {
   <td class="td-muted" style="font-size:.72rem"><?=date('H:i',strtotime($r['created_at']))?></td>
   <td><code style="font-size:.72rem"><?=htmlspecialchars($r['barcode'])?></code></td>
   <td>
-    <span class="badge badge-gold" style="font-size:.62rem"><?=htmlspecialchars($r['grower_num'])?></span>
+    <span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($r['grower_num'])?></span>
     <span class="td-muted" style="font-size:.72rem;margin-left:4px"><?=htmlspecialchars($r['grower_name'])?></span>
   </td>
   <td style="font-size:.78rem"><?=htmlspecialchars($r['buyer_name'])?></td>
-  <td><span class="badge badge-gray" style="font-size:.62rem"><?=htmlspecialchars($r['horse_num'])?></span></td>
+  <td><span class="badge badge-gray" style="font-size:.72rem"><?=htmlspecialchars($r['horse_num'])?></span></td>
   <td class="td-muted" style="font-size:.75rem"><?=htmlspecialchars($r['destination'])?></td>
   <td class="td-mono text-right"><?=number_format((float)$r['mass'],0)?></td>
 </tr>

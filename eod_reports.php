@@ -15,7 +15,15 @@ $userid   = current_userid();
 $msg = $err = '';
 
 // ── Filters ────────────────────────────────────────────────────────────────
-$date_f       = $conn->real_escape_string(trim($_GET['date']  ?? date('Y-m-d')));
+// No date chosen: the floor's open selling day (bales are reported by sale date,
+// which is often not today), else today
+$_default_date = date('Y-m-d');
+if ($spid > 0 && trim($_GET['date'] ?? '') === '') {
+    $_od = $conn->query("SELECT description FROM start_of_day WHERE selling_pointid=$spid AND active=1 ORDER BY id DESC LIMIT 1");
+    $_odv = ($_od && $_od !== true && $_od->num_rows) ? trim($_od->fetch_assoc()['description']) : '';
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $_odv)) $_default_date = $_odv;
+}
+$date_f       = $conn->real_escape_string(trim($_GET['date'] ?? '') !== '' ? trim($_GET['date']) : $_default_date);
 $buyer_f      = $conn->real_escape_string(trim($_GET['buyer'] ?? ''));
 if ($buyer_f === '0') $buyer_f = '';
 $buyer_mark_f = $conn->real_escape_string(trim($_GET['buyer_mark'] ?? ''));
@@ -131,7 +139,7 @@ function load_bales($conn, $date_f, $spid, $buyer_f, $loc_f, $ytd=false) {
                COALESCE(g.national_id, tgr.national_id, '') AS national_id,
                bl.id AS loc_id, bl.code AS loc_code, bl.name AS loc_name, bl.subcontractor,
                COALESCE(t.name,'') AS transporter_name,
-               bj.lot, bj.bale_group, bj.splitid
+               bj.lot, bj.bale_group, bj.splitid, tg2.id AS tgid
         FROM tickets tk
         JOIN  bale_junus bj           ON bj.id  = tk.bale_junusid
         LEFT JOIN bale_mass bm        ON bm.id  = bj.bale_massid
@@ -697,6 +705,19 @@ function buyerInvoiceTxt($conn, array $bales, float $zig_rate, string $sp_name, 
     $by_buyer = [];
     foreach ($sold as $b) $by_buyer[(int)($b['buyer_id'] ?? 0)][] = $b;
 
+    // RBZ retention: the USD (nostro) share each delivery was balanced with,
+    // else the rate in Settings → RBZ retention
+    $_rq = $conn->query("SELECT usd_percent FROM rbz_retention_rate LIMIT 1");
+    $rbz_default = ($_rq && $_rq !== true && $_rq->num_rows) ? (float)$_rq->fetch_assoc()['usd_percent'] : NOSTRO_SPLIT_PCT;
+    if ($rbz_default > 1) $rbz_default /= 100;   // stored as a percent
+    $rbz_for = [];
+    $tgids = array_values(array_unique(array_filter(array_map(fn($b)=>(int)($b['tgid'] ?? 0), $sold))));
+    if ($tgids) {
+        $rq = $conn->query("SELECT transporter_growersid tg, rule_rbz_usd r FROM balanced_bales
+            WHERE transporter_growersid IN (".implode(',', $tgids).") AND rule_rbz_usd IS NOT NULL ORDER BY id");
+        while ($rq && $rq !== true && $r = $rq->fetch_assoc()) $rbz_for[(int)$r['tg']] = (float)$r['r'];
+    }
+
     $out = '';
     foreach ($by_buyer as $bid => $bb) {
         // buyer name + mark for the header line ("ILT (PA2)")
@@ -764,7 +785,12 @@ function buyerInvoiceTxt($conn, array $bales, float $zig_rate, string $sp_name, 
         $tta = $g_mass * TTA_LEVY_PER_KG;
         $flr = $g_bales * FLOOR_CLEARING_PER_BALE;
         $levies = $tob + $tta + $flr;
-        $nostro_usd = $g_us * NOSTRO_SPLIT_PCT;
+        $nostro_usd = 0.0;
+        foreach ($bb as $b) {
+            $share = $rbz_for[(int)($b['tgid'] ?? 0)] ?? $rbz_default;
+            $nostro_usd += (float)$b['price_per_kg'] * (float)$b['mass'] * $share;
+        }
+        $rbz_pct = $g_us > 0 ? $nostro_usd / $g_us * 100 : $rbz_default * 100;
         $rtgs_usd   = $g_us - $nostro_usd;
         $rtgs_zw    = $rtgs_usd * $zig_rate;
         $nostro_due = $nostro_usd + $levies;
@@ -778,6 +804,7 @@ function buyerInvoiceTxt($conn, array $bales, float $zig_rate, string $sp_name, 
         $out .= $bar;
         $out .= $L('NET PURCHASES', $g_us, $g_zw);
         $out .= $L('NOSTRO / RTGS SPLIT', $nostro_usd, $rtgs_zw);
+        $out .= "RBZ RETENTION                 USD ".number_format($rbz_pct,2)."%  /  ZIG ".number_format(100-$rbz_pct,2)."%\n";
         $out .= $L('TOBACCO LEVY', $tob, 0);
         $out .= $L('TTA LEVY', $tta, 0);
         $out .= $L('FLOOR CLEARING', $flr, 0);
@@ -787,6 +814,12 @@ function buyerInvoiceTxt($conn, array $bales, float $zig_rate, string $sp_name, 
         $out .= "\n".$bar."\n";
         $out .= "NOSTRO AMOUNT DUE:        ".$pl($n2($nostro_due),16)."\n\n";
         $out .= "RTGS AMOUNT DUE:          ".$pl($n2($rtgs_zw),16)."\n\n\n\n\n \n";
+    }
+    if ($out === '') {
+        // Never hand out an empty file: say why there is nothing on it
+        $out = "$sp_name BUYERS GRADE INVOICE for: $date_f 00:00:00\n\n"
+             . "NO SOLD BALES WITH A BUYER FOR THIS SALE DATE AND FILTERS.\n"
+             . "Bales are reported by their sale date; check the date, and clear the buyer, mark or location filter.\n";
     }
     return $out;
 }
@@ -1309,32 +1342,32 @@ if (isset($_GET['dl']) && $report) {
 include "includes/layout.php";
 ?>
 <style>
-.rpt-section{background:#fff;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:1.25rem}
+.rpt-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:1.25rem}
 body.theme-dark .rpt-section{background:#1f1a14;border-color:rgba(245,240,232,0.10)}
-.rpt-head{padding:0.85rem 1.25rem;border-bottom:2px solid var(--gold);background:var(--ink);color:var(--cream);display:flex;align-items:flex-start;justify-content:space-between;gap:1rem}
-.rpt-head h3{font-family:'Bebas Neue',sans-serif;font-size:1.15rem;letter-spacing:0.08em;color:var(--cream);line-height:1.1;margin:0}
-.rpt-meta{font-size:0.7rem;color:rgba(245,240,232,0.5);margin-top:3px}
+.rpt-head{padding:0.85rem 1.25rem;border-bottom:2px solid var(--gold);background:var(--surface-2);color:var(--text);display:flex;align-items:flex-start;justify-content:space-between;gap:1rem}
+.rpt-head h3{font-family:'DM Sans',sans-serif;font-size:0.98rem;color:var(--text);line-height:1.1;margin:0;font-weight:600}
+.rpt-meta{font-size:0.7rem;color:var(--text-muted);margin-top:3px}
 .rpt-table{width:100%;border-collapse:collapse;font-size:0.8rem}
-.rpt-table thead th{font-size:0.62rem;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);padding:0.55rem 0.9rem;background:var(--cream);border-bottom:1px solid var(--border);white-space:nowrap;text-align:left}
+.rpt-table thead th{font-size:.78rem;font-weight:500;color:var(--muted);padding:0.55rem 0.9rem;background:var(--surface);border-bottom:1px solid var(--border);white-space:nowrap;text-align:left}
 .rpt-table tbody tr{border-bottom:1px solid rgba(26,18,8,0.05)}
-.rpt-table tbody tr:hover{background:#faf8f5}
+.rpt-table tbody tr:hover{background:var(--surface-2)}
 .rpt-table td{padding:0.5rem 0.9rem;vertical-align:middle}
-.rpt-table tfoot tr{background:var(--ink);color:var(--cream)}
+.rpt-table tfoot tr{background:var(--primary-bg);color:var(--primary-text)}
 .rpt-table tfoot td{padding:0.55rem 0.9rem;font-weight:500}
 .rpt-table .tr-sub{background:var(--cream-d)}
-.rpt-table .tr-sub td{font-size:0.65rem;color:var(--muted);padding:2px 0.9rem;letter-spacing:0.08em;text-transform:uppercase}
+.rpt-table .tr-sub td{font-size:.78rem;color:var(--muted);padding:2px 0.9rem;}
 .rpt-kpis{display:grid;gap:0.85rem;padding:1.15rem}
-.rpt-kpi{background:var(--cream);border:1px solid var(--border);border-radius:var(--radius);padding:0.85rem 1rem;position:relative;overflow:hidden}
+.rpt-kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:0.85rem 1rem;position:relative;overflow:hidden}
 .rpt-kpi::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;background:var(--kpi-color,var(--gold))}
-.rpt-kpi-label{font-size:0.62rem;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
-.rpt-kpi-val{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;letter-spacing:0.04em;line-height:1}
+.rpt-kpi-label{font-size:.78rem;font-weight:500;color:var(--muted);margin-bottom:4px}
+.rpt-kpi-val{font-family:'DM Sans',sans-serif;font-size:1.36rem;line-height:1;font-weight:600}
 .rpt-kpi-sub{font-size:0.68rem;color:var(--muted);margin-top:2px}
 .recon-ok{color:var(--leaf);font-weight:500}.recon-warn{color:var(--danger);font-weight:500}.recon-zero{color:var(--muted)}
 .rec-bar{width:60px;height:6px;background:var(--border);border-radius:3px;display:inline-block;vertical-align:middle;margin-right:4px}
 .rec-fill{height:6px;border-radius:3px}
-.rnav-cat{font-size:0.58rem;font-weight:500;letter-spacing:0.15em;text-transform:uppercase;color:rgba(245,240,232,0.22);padding:0.8rem 0.9rem 0.25rem;border-top:1px solid rgba(200,149,42,0.07);margin-top:2px}
+.rnav-cat{font-size:.78rem;font-weight:500;color:var(--text-muted);padding:0.8rem 0.9rem 0.25rem;border-top:1px solid rgba(200,149,42,0.07);margin-top:2px}
 .rnav-cat:first-child{border-top:none;margin-top:0}
-.rnav-link{display:flex;align-items:center;gap:7px;padding:0.42rem 0.9rem;color:rgba(245,240,232,0.55);text-decoration:none;font-size:0.78rem;border-left:2px solid transparent;transition:all 0.12s;line-height:1.3}
+.rnav-link{display:flex;align-items:center;gap:7px;padding:0.42rem 0.9rem;color:var(--text-muted);text-decoration:none;font-size:0.78rem;border-left:2px solid transparent;transition:all 0.12s;line-height:1.3}
 .rnav-link:hover{background:rgba(200,149,42,0.08);color:rgba(245,240,232,0.85);border-left-color:rgba(200,149,42,0.3)}
 .rnav-link.active{background:rgba(200,149,42,0.14);color:var(--gold-l);border-left-color:var(--gold);font-weight:500}
 .rnav-dot{width:6px;height:6px;border-radius:50%;border:1.5px solid currentColor;flex-shrink:0}
@@ -1360,27 +1393,27 @@ body.theme-dark .rpt-section{background:#fff!important;border-color:rgba(26,18,8
 <div class="card-body" style="padding:0.65rem 1.15rem">
 <form method="GET" style="display:flex;gap:0.6rem;align-items:flex-end;flex-wrap:wrap">
     <?php if($report):?><input type="hidden" name="report" value="<?=htmlspecialchars($report)?>"><?php endif;?>
-    <div class="form-group" style="margin:0"><label style="font-size:0.62rem">Date</label>
+    <div class="form-group" style="margin:0"><label style="font-size:.72rem">Date</label>
         <select name="date" class="form-control" style="padding:0.35rem 0.55rem;font-size:0.8rem" onchange="this.form.submit()">
             <?php while($sell_dates_q && $sd=$sell_dates_q->fetch_assoc()):?>
             <option value="<?=$sd['sd']?>" <?=$date_f===$sd['sd']?'selected':''?>><?=date('d M Y',strtotime($sd['sd']))?> (<?=$sd['tix']?>)</option>
             <?php endwhile;?>
         </select></div>
-    <div class="form-group" style="margin:0"><label style="font-size:0.62rem">Buyer</label>
+    <div class="form-group" style="margin:0"><label style="font-size:.72rem">Buyer</label>
         <select name="buyer" class="form-control" style="padding:0.35rem 0.5rem;font-size:0.78rem;width:auto" onchange="this.form.submit()">
             <option value="">All buyers</option>
             <?php foreach($buyers as $b):?>
             <option value="<?=htmlspecialchars($b['name'])?>" <?=$buyer_f===$b['name']?'selected':''?>><?=htmlspecialchars($b['name'])?></option>
             <?php endforeach;?>
         </select></div>
-    <div class="form-group" style="margin:0"><label style="font-size:0.62rem">Buyer Mark</label>
+    <div class="form-group" style="margin:0"><label style="font-size:.72rem">Buyer Mark</label>
         <select name="buyer_mark" class="form-control" style="padding:0.35rem 0.5rem;font-size:0.78rem;width:auto" onchange="this.form.submit()">
             <option value="">All marks</option>
             <?php foreach($buyer_marks as $bm):?>
             <option value="<?=$bm['buyer_code']?>" <?=$buyer_mark_f===$bm['buyer_code']?'selected':''?>><?=htmlspecialchars($bm['buyer_code'])?></option>
             <?php endforeach;?>
         </select></div>
-    <div class="form-group" style="margin:0"><label style="font-size:0.62rem">Location</label>
+    <div class="form-group" style="margin:0"><label style="font-size:.72rem">Location</label>
         <select name="loc" class="form-control" style="padding:0.35rem 0.5rem;font-size:0.78rem;width:auto" onchange="this.form.submit()">
             <option value="0">All locations</option>
             <?php foreach($locs as $l):?>
@@ -1552,7 +1585,8 @@ elseif ($report==='buyer_invoice'||$report==='buyer_ytd'):
     $title = $is_ytd ? 'Buyer YTD Grade Invoice' : 'Buyer Grade Invoice';
     $subtitle = $is_ytd ? 'All purchases up to '.date('d/m/Y',strtotime($date_f)).' (cumulative)' : date('d/m/Y',strtotime($date_f));
     rpt_head($title, $subtitle);
-    $txt_url="?date=".urlencode($date_f)."&report=".htmlspecialchars($report)."&dl=1".($buyer_f?"&buyer=$buyer_f":"").($loc_f?"&loc=$loc_f":"");
+    $txt_url="?date=".urlencode($date_f)."&report=".htmlspecialchars($report)."&dl=1".($buyer_f?"&buyer=".urlencode($buyer_f):"")
+            .($buyer_mark_f?"&buyer_mark=".urlencode($buyer_mark_f):"").($loc_f?"&loc=$loc_f":"");
     ?><div style="padding:0.6rem 1.15rem;display:flex;justify-content:flex-end;border-bottom:1px solid var(--border)">
         <a href="<?=$txt_url?>" class="btn btn-primary btn-sm">⬇ Download Official Invoice (.txt)</a>
     </div><?php
@@ -1561,7 +1595,7 @@ elseif ($report==='buyer_invoice'||$report==='buyer_ytd'):
     foreach ($by_buyer as $bn=>$bb):
         $by_grade=grp($bb,'buyer_grade');
     ?>
-    <div style="padding:0.75rem 1.15rem;border-top:1px solid var(--border);background:var(--cream)">
+    <div style="padding:0.75rem 1.15rem;border-top:1px solid var(--border);background:var(--surface)">
         <div style="font-weight:500;font-size:0.88rem">BUYER: <?=htmlspecialchars($bn)?></div>
     </div>
     <div class="table-wrap" style="overflow-x:auto">
@@ -1576,7 +1610,7 @@ elseif ($report==='buyer_invoice'||$report==='buyer_ytd'):
     ?>
     <?php foreach ($gb as $b): $zp=$b['price_per_kg']*$zig_rate; ?>
     <tr>
-        <td><span class="badge badge-gold" style="font-size:0.62rem"><?=htmlspecialchars($b['buyer_grade']??'—')?></span></td>
+        <td><span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($b['buyer_grade']??'—')?></span></td>
         <td style="font-size:0.75rem"><?=htmlspecialchars($b['grower_num'])?></td>
         <td class="td-mono" style="font-size:0.75rem"><?=$b['lot']?></td>
         <td class="td-mono text-right"><?=money($b['mass'],1)?></td>
@@ -1739,7 +1773,7 @@ elseif ($report==='daily_sales_ret'):
     dsr_row('Value Sold', $usd, $usd_ytd, 'm');
     dsr_row('Average Price', $avg, $avg_ytd, 'f');
     ?>
-    <tr style="background:var(--cream);border-bottom:1px solid var(--border)"><td colspan="7" style="padding:2px 0.8rem;font-size:0.68rem;color:var(--muted)">ADJUSTMENTS</td></tr>
+    <tr style="background:var(--surface);border-bottom:1px solid var(--border)"><td colspan="7" style="padding:2px 0.8rem;font-size:0.68rem;color:var(--muted)">ADJUSTMENTS</td></tr>
     <?php
     dsr_row('Bales Adj', 0, 0, 'n', true);
     dsr_row('Mass Adj', 0, 0, 'n', true);
@@ -1759,7 +1793,7 @@ elseif ($report==='daily_sales_ret'):
     <!-- Summary boxes below -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-top:1.25rem">
     <div style="border:1px solid var(--border);border-radius:var(--radius);padding:0.85rem 1rem">
-        <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:0.5rem">Today's Sale</div>
+        <div style="font-size:.78rem;color:var(--muted);margin-bottom:0.5rem">Today's Sale</div>
         <table style="width:100%;font-size:0.78rem"><tbody>
             <tr><td>Bales Sold</td><td class="td-mono text-right fw-500"><?=number_format(count($sold))?></td></tr>
             <tr><td>Bales Rejected</td><td class="td-mono text-right"><?=number_format($rej)?></td></tr>
@@ -1769,7 +1803,7 @@ elseif ($report==='daily_sales_ret'):
         </tbody></table>
     </div>
     <div style="border:1px solid var(--border);border-radius:var(--radius);padding:0.85rem 1rem">
-        <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:0.5rem">Year to Date</div>
+        <div style="font-size:.78rem;color:var(--muted);margin-bottom:0.5rem">Year to Date</div>
         <table style="width:100%;font-size:0.78rem"><tbody>
             <tr><td>Bales Sold</td><td class="td-mono text-right fw-500"><?=number_format(count($sold_ytd))?></td></tr>
             <tr><td>Bales Rejected</td><td class="td-mono text-right"><?=number_format($rej_ytd)?></td></tr>
@@ -1844,10 +1878,10 @@ elseif ($report==='cred_invoice'):
     while($so_q && $r=$so_q->fetch_assoc()) $rows_by_cred[$r['cred_no']][]=$r;
     ?>
     <?php foreach ($rows_by_cred as $cno=>$crows): $cr=$crows[0]; $ct=sum_col($crows,'amount'); ?>
-    <div style="padding:0.65rem 1.15rem;background:var(--cream);border-top:1px solid var(--border)">
+    <div style="padding:0.65rem 1.15rem;background:var(--surface);border-top:1px solid var(--border)">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:0.5rem">
         <div>
-            <div style="font-size:0.72rem;font-weight:500;color:var(--muted)">CREDITOR NUMBER: <span style="font-family:monospace;color:var(--ink)"><?=$cno?></span></div>
+            <div style="font-size:0.72rem;font-weight:500;color:var(--muted)">CREDITOR NUMBER: <span style="font-family:monospace;color:var(--text)"><?=$cno?></span></div>
             <div class="fw-500"><?=htmlspecialchars($cr['cred_name'])?></div>
             <div style="font-size:0.72rem;color:var(--muted)"><?=htmlspecialchars($cr['phone']??'')?>  <?=$cr['account_no']?'· Acc: '.htmlspecialchars($cr['account_no']):''?></div>
         </div>
@@ -1863,7 +1897,7 @@ elseif ($report==='cred_invoice'):
     <?php foreach ($crows as $r): ?>
     <tr>
         <td class="td-mono" style="font-size:0.75rem"><?=date('d/m/Y',strtotime($r['sell_date']))?></td>
-        <td><span class="badge badge-gold" style="font-size:0.62rem"><?=htmlspecialchars($r['grower_num'])?></span></td>
+        <td><span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($r['grower_num'])?></span></td>
         <td style="font-size:0.8rem"><?=htmlspecialchars($r['name'].' '.$r['surname'])?></td>
         <td class="td-mono text-right"><?=money($r['amount'])?></td>
         <td class="td-mono text-right"><?=$zig_rate>0?number_format($r['amount']*$zig_rate,2):'—'?></td>
@@ -1935,8 +1969,8 @@ elseif ($report==='cred_summary'):
         <a href="?date=<?=urlencode($date_f)?>&report=cred_summary&dl=1" class="btn btn-primary btn-sm">⬇ Download Creditor Summary (.txt)</a>
     </div><?php
     ?><div style="padding:0.85rem 1.15rem;font-size:0.78rem;color:var(--muted)">
-        <strong style="color:var(--ink)">CURRENCY:</strong> USD &nbsp;&nbsp;
-        <strong style="color:var(--ink)">SELLING POINT:</strong> <?=$sp_name?>
+        <strong style="color:var(--text)">CURRENCY:</strong> USD &nbsp;&nbsp;
+        <strong style="color:var(--text)">SELLING POINT:</strong> <?=$sp_name?>
     </div>
     <div class="table-wrap" style="overflow-x:auto"><table class="rpt-table">
     <thead><tr>
@@ -2034,7 +2068,7 @@ elseif ($report==='cred_collection'):
         <?php foreach ($grows as $r): ?>
         <tr style="border-top:1px solid rgba(26,18,8,0.05)">
             <td style="padding:3px 0;color:var(--muted)">
-                <span class="badge badge-gray" style="font-size:0.6rem;margin-right:4px"><?=htmlspecialchars($r['creditor_no']??'—')?></span>
+                <span class="badge badge-gray" style="font-size:.72rem;margin-right:4px"><?=htmlspecialchars($r['creditor_no']??'—')?></span>
                 <?=htmlspecialchars($r['cred_name'])?>
                 <?php if($r['phone']): ?><span style="color:var(--muted);margin-left:6px;font-size:0.7rem"><?=htmlspecialchars($r['phone'])?></span><?php endif;?>
             </td>
@@ -2078,7 +2112,7 @@ elseif ($report==='rejected_summary'):
         <tr><td colspan="3" class="text-center" style="color:var(--muted);padding:1rem">No rejections</td></tr>
         <?php else: foreach ($by_grade as $grade=>$d): ?>
         <tr>
-            <td><span class="badge badge-red" style="font-size:0.62rem"><?=htmlspecialchars($grade)?></span></td>
+            <td><span class="badge badge-red" style="font-size:.72rem"><?=htmlspecialchars($grade)?></span></td>
             <td class="td-mono text-right"><?=$d['cnt']?></td>
             <td class="td-mono text-right"><?=money($d['mass'],1)?></td>
         </tr>
@@ -2164,11 +2198,11 @@ elseif ($report==='sales_control'):
     <div style="padding:1rem 1.15rem">
     <table style="width:100%;font-size:0.78rem;border-collapse:collapse">
     <tr style="border-bottom:1px solid var(--border)">
-        <td colspan="3" style="padding:4px 0;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted)">Description</td>
-        <td style="text-align:right;padding:4px 0;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted)">USD</td>
-        <td style="text-align:right;padding:4px 0;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted)">ZiG</td>
+        <td colspan="3" style="padding:4px 0;font-size:.78rem;color:var(--muted)">Description</td>
+        <td style="text-align:right;padding:4px 0;font-size:.78rem;color:var(--muted)">USD</td>
+        <td style="text-align:right;padding:4px 0;font-size:.78rem;color:var(--muted)">ZiG</td>
     </tr>
-    <tr><td colspan="3" style="padding:6px 0 2px;font-size:0.68rem;color:var(--muted);text-transform:uppercase">Statutory Deductions</td><td colspan="2"></td></tr>
+    <tr><td colspan="3" style="padding:6px 0 2px;font-size:.78rem;color:var(--muted);">Statutory Deductions</td><td colspan="2"></td></tr>
     <?php foreach ($sc['levies'] as $n=>$v):?>
     <tr style="border-bottom:1px solid rgba(26,18,8,0.04)">
         <td colspan="3" style="padding:3px 0"><?=htmlspecialchars($n)?></td>
@@ -2176,7 +2210,7 @@ elseif ($report==='sales_control'):
         <td style="text-align:right;font-family:monospace"><?=money($v['zwl'])?></td>
     </tr>
     <?php endforeach;?>
-    <tr><td colspan="3" style="padding:6px 0 2px;font-size:0.68rem;color:var(--muted);text-transform:uppercase">Stop Order & Invoice Deductions</td><td colspan="2"></td></tr>
+    <tr><td colspan="3" style="padding:6px 0 2px;font-size:.78rem;color:var(--muted);">Stop Order & Invoice Deductions</td><td colspan="2"></td></tr>
     <?php if(!$sc['stoporders']):?>
     <tr><td colspan="3" style="padding:3px 0;color:var(--muted)">None deducted</td><td style="text-align:right;font-family:monospace">0.00</td><td style="text-align:right;font-family:monospace">0.00</td></tr>
     <?php endif;?>
@@ -2192,7 +2226,7 @@ elseif ($report==='sales_control'):
         <td style="text-align:right;font-family:monospace"><?=money($sc['net']['usd'])?></td>
         <td style="text-align:right;font-family:monospace"><?=money($sc['net']['zwl'])?></td>
     </tr>
-    <tr style="border-top:1px solid var(--border);font-weight:500;background:var(--cream)">
+    <tr style="border-top:1px solid var(--border);font-weight:500;background:var(--surface)">
         <td colspan="3" style="padding:5px 0">TOTAL</td>
         <td style="text-align:right;font-family:monospace"><?=money($sc['total']['usd'])?></td>
         <td style="text-align:right;font-family:monospace"><?=money($sc['total']['zwl'])?></td>
@@ -2340,7 +2374,7 @@ elseif ($report==='origination'):
         $gtl+=count($gb);$gtr+=$rej;$gts+=count($sold);$gtm+=$mass;$gtu+=$usd;
     ?>
     <tr>
-        <td><span class="badge badge-gold" style="font-size:0.62rem"><?=htmlspecialchars($gn)?></span></td>
+        <td><span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($gn)?></span></td>
         <td style="font-size:0.78rem"><?=htmlspecialchars($r0['gname'].' '.$r0['surname'])?></td>
         <td class="td-mono text-right"><?=count($gb)?></td>
         <td class="td-mono text-right <?=$rej>0?'text-danger':''?>"><?=$rej?></td>
@@ -2393,7 +2427,7 @@ elseif ($report==='grower_sched_usd'||$report==='grower_sched_zig'):
         $tg+=(int)$g['bales'];$tm+=$mass;$tgr+=$gross;$td+=$ded_c;$tn+=$net;
     ?>
     <tr>
-        <td><span class="badge badge-gold" style="font-size:0.62rem"><?=htmlspecialchars($gn)?></span></td>
+        <td><span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($gn)?></span></td>
         <td style="font-size:0.8rem"><?=htmlspecialchars($g['gname'].' '.$g['surname'])?></td>
         <td style="font-size:0.72rem;color:var(--muted)"><?=$bk?htmlspecialchars($bk['bank_name'].' · '.$bk['account_num']):'<span style="color:var(--danger)">No bank details</span>'?></td>
         <td class="td-mono text-right"><?=(int)$g['bales']?></td>
@@ -2436,7 +2470,7 @@ elseif ($report==='bank_summary'):
         $tu+=$net;$tz+=$net_zig;
     ?>
     <tr <?=$bk?'':' style="background:#fff8ee"'?>>
-        <td><span class="badge badge-gold" style="font-size:0.62rem"><?=htmlspecialchars($gn)?></span></td>
+        <td><span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($gn)?></span></td>
         <td style="font-size:0.8rem"><?=htmlspecialchars($g['gname'].' '.$g['surname'])?></td>
         <td style="font-size:0.75rem"><?=$bk?htmlspecialchars($bk['bank_name']):'<span style="color:var(--danger);font-size:0.7rem">⚠ Missing</span>'?></td>
         <td style="font-size:0.72rem;color:var(--muted)"><?=$bk?htmlspecialchars($bk['branch']):'—'?></td>
@@ -2500,7 +2534,7 @@ elseif ($report==='grower_sales_sum'):
         $tl+=count($gb);$ts+=count($sold);$tr+=$rej;$tm+=$mass;$tu+=$usd;$tz+=$zig;
     ?>
     <tr>
-        <td><span class="badge badge-gold" style="font-size:0.62rem"><?=htmlspecialchars($gn)?></span></td>
+        <td><span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($gn)?></span></td>
         <td style="font-size:0.8rem"><?=htmlspecialchars($r0['gname'].' '.$r0['surname'])?></td>
         <td class="td-muted" style="font-size:0.72rem"><?=htmlspecialchars($r0['farm_name']??'')?></td>
         <td class="td-mono text-right"><?=count($gb)?></td>

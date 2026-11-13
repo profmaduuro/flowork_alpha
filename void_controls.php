@@ -185,14 +185,14 @@ body.theme-dark .premium-tab-btn:hover {
     background: rgba(255, 255, 255, 0.04);
 }
 .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
     box-shadow: 0 4px 12px rgba(26, 18, 8, 0.15);
     font-weight: 600;
 }
 body.theme-light .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
 }
 body.theme-dark .premium-tab-btn.active {
     background: var(--gold);
@@ -262,7 +262,7 @@ body.theme-dark .premium-tab-btn.active {
             <?php foreach($pending_rows as $vr):?>
             <tr>
               <td class="td-mono" style="font-size:.72rem">#<?=$vr['id']?></td>
-              <td><span class="badge badge-gray" style="font-size:.6rem"><?=strtoupper($vr['void_type'])?></span></td>
+              <td><span class="badge badge-gray" style="font-size:.72rem"><?=strtoupper($vr['void_type'])?></span></td>
               <td class="td-mono" style="font-size:.75rem"><?=$vr['record_id']?></td>
               <td style="font-size:.75rem;max-width:180px"><?=htmlspecialchars($vr['reason'])?></td>
               <td style="font-size:.72rem"><?=htmlspecialchars($vr['reversed_by_name']??'—')?></td>
@@ -322,7 +322,7 @@ body.theme-dark .premium-tab-btn.active {
         <?php if(empty($tickets)):?>
         <div class="card-body text-center text-muted" style="padding:2rem">No tickets generated today.</div>
         <?php else:?>
-        <div class="table-wrap" style="max-height:500px;overflow-y:auto">
+        <div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto">
         <table id="tickets-tbl">
         <thead><tr>
           <th>ID</th><th>Barcode</th><th>Grower</th>
@@ -334,15 +334,15 @@ body.theme-dark .premium-tab-btn.active {
           <td class="td-mono" style="font-size:.72rem"><?=$tk['id']?></td>
           <td style="font-family:monospace;font-size:.72rem"><?=htmlspecialchars($tk['barcode'])?></td>
           <td>
-            <span class="badge badge-gold" style="font-size:.6rem"><?=htmlspecialchars($tk['grower_num'])?></span>
+            <span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($tk['grower_num'])?></span>
             <span style="font-size:.72rem;margin-left:3px"><?=htmlspecialchars($tk['name'].' '.$tk['surname'])?></span>
           </td>
           <td class="td-mono text-right"><?=number_format((float)$tk['mass'],1)?></td>
           <td>
             <?php if($tk['sold_id']):?>
-              <span class="badge badge-green" style="font-size:.6rem">Sold $<?=number_format((float)$tk['price']>10?(float)$tk['price']/100:(float)$tk['price'],4)?></span>
+              <span class="badge badge-green" style="font-size:.72rem">Sold $<?=number_format((float)$tk['price']>10?(float)$tk['price']/100:(float)$tk['price'],4)?></span>
             <?php else:?>
-              <span class="badge badge-gray" style="font-size:.6rem">Unsold</span>
+              <span class="badge badge-gray" style="font-size:.72rem">Unsold</span>
             <?php endif;?>
           </td>
           <td style="font-size:.68rem;color:var(--muted)"><?=date('H:i',strtotime($tk['created_at']))?></td>
@@ -362,17 +362,17 @@ body.theme-dark .premium-tab-btn.active {
         <?php if(empty($history_rows)):?>
         <div class="card-body text-center text-muted" style="padding:2rem">No voids recorded for <?=date('d M Y', strtotime($f_date))?>.</div>
         <?php else:?>
-        <div class="table-wrap" style="max-height:500px;overflow-y:auto"><table>
+        <div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto"><table>
         <thead><tr><th>#</th><th>Type</th><th>Record</th><th>Reason</th><th>Status</th><th>By</th></tr></thead>
         <tbody>
         <?php foreach($history_rows as $h):?>
         <tr>
           <td class="td-mono" style="font-size:.7rem">#<?=$h['id']?></td>
-          <td><span class="badge badge-gray" style="font-size:.6rem"><?=strtoupper($h['void_type'])?></span></td>
+          <td><span class="badge badge-gray" style="font-size:.72rem"><?=strtoupper($h['void_type'])?></span></td>
           <td class="td-mono" style="font-size:.7rem"><?=$h['record_id']?></td>
           <td style="font-size:.72rem"><?=htmlspecialchars($h['reason'])?></td>
           <td>
-            <span class="badge <?=$h['status']==='completed'?'badge-red':'badge-gray'?>" style="font-size:.58rem">
+            <span class="badge <?=$h['status']==='completed'?'badge-red':'badge-gray'?>" style="font-size:.72rem">
               <?=strtoupper($h['status'])?>
             </span>
           </td>

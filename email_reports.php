@@ -171,14 +171,14 @@ include "includes/layout.php";
 <style>
 .er-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
 @media(max-width:680px){.er-grid{grid-template-columns:1fr}}
-.er-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem}
+.er-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem}
 .er-card h3{margin:0 0 .85rem;font-size:.85rem;color:var(--gold);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
 .er-form-row{display:flex;flex-direction:column;gap:.22rem;margin-bottom:.75rem}
-.er-form-row label{font-size:.67rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.er-form-row label{font-size:.78rem;color:var(--muted);}
 .er-stat{display:inline-flex;align-items:center;gap:.6rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.55rem .9rem}
-.er-stat-val{font-size:1.4rem;font-weight:700;color:var(--gold);font-family:'Bebas Neue',monospace;line-height:1}
-.er-stat-lbl{font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
-.status-badge{display:inline-flex;align-items:center;gap:.3rem;padding:.2rem .6rem;border-radius:20px;font-size:.62rem;font-weight:600}
+.er-stat-val{font-size:1.19rem;font-weight:700;color:var(--gold);font-family:'DM Sans',sans-serif;line-height:1}
+.er-stat-lbl{font-size:.78rem;color:var(--muted);}
+.status-badge{display:inline-flex;align-items:center;gap:.3rem;padding:.2rem .6rem;border-radius:20px;font-size:.72rem;font-weight:600}
 .status-badge.success{background:rgba(60,150,60,.14);color:#2a8a2a;border:1px solid rgba(60,150,60,.3)}
 .status-badge.failed{background:rgba(190,30,30,.1);color:#991010;border:1px solid rgba(190,30,30,.25)}
 </style>
@@ -264,7 +264,7 @@ include "includes/layout.php";
       <div style="font-weight:600;color:var(--gold);margin-bottom:.3rem">⏰ Cron / Task Scheduler Setup</div>
       <div>To auto-send at 18:00 daily, add this to Windows Task Scheduler or cron:</div>
       <code style="display:block;margin-top:.4rem;background:#1a1208;padding:.4rem .6rem;border-radius:4px;font-size:.65rem;color:#a8d8a8;word-break:break-all">php <?=realpath('.')?>/cron_email.php</code>
-      <div style="margin-top:.4rem">Or via Linux cron: <code style="font-size:.64rem;background:#1a1208;padding:.15rem .4rem;border-radius:3px;color:#a8d8a8">0 18 * * * php /path/to/flowork/cron_email.php</code></div>
+      <div style="margin-top:.4rem">Or via Linux cron: <code style="font-size:.72rem;background:#1a1208;padding:.15rem .4rem;border-radius:3px;color:#a8d8a8">0 18 * * * php /path/to/flowork/cron_email.php</code></div>
     </div>
   </div>
 
@@ -274,15 +274,15 @@ include "includes/layout.php";
     <?php if(empty($history)):?>
     <div class="text-center text-muted" style="padding:2rem;font-size:.8rem">No reports sent yet.</div>
     <?php else:?>
-    <div style="overflow-x:auto;max-height:480px;overflow-y:auto">
+    <div style="overflow-x:auto;max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto">
       <table style="width:100%;border-collapse:collapse;font-size:.72rem">
         <thead>
-          <tr style="position:sticky;top:0;background:var(--ink)">
-            <th style="padding:.38rem .65rem;text-align:left;color:var(--muted);font-weight:500;font-size:.6rem;text-transform:uppercase">Date</th>
-            <th style="padding:.38rem .65rem;text-align:left;color:var(--muted);font-weight:500;font-size:.6rem;text-transform:uppercase">Report For</th>
-            <th style="padding:.38rem .65rem;text-align:left;color:var(--muted);font-weight:500;font-size:.6rem;text-transform:uppercase">Recipients</th>
-            <th style="padding:.38rem .65rem;text-align:left;color:var(--muted);font-weight:500;font-size:.6rem;text-transform:uppercase">Status</th>
-            <th style="padding:.38rem .65rem;text-align:left;color:var(--muted);font-weight:500;font-size:.6rem;text-transform:uppercase">By</th>
+          <tr style="position:sticky;top:0;background:var(--surface-2)">
+            <th style="padding:.38rem .65rem;text-align:left;color:var(--muted);font-weight:500;font-size:.78rem;">Date</th>
+            <th style="padding:.38rem .65rem;text-align:left;color:var(--muted);font-weight:500;font-size:.78rem;">Report For</th>
+            <th style="padding:.38rem .65rem;text-align:left;color:var(--muted);font-weight:500;font-size:.78rem;">Recipients</th>
+            <th style="padding:.38rem .65rem;text-align:left;color:var(--muted);font-weight:500;font-size:.78rem;">Status</th>
+            <th style="padding:.38rem .65rem;text-align:left;color:var(--muted);font-weight:500;font-size:.78rem;">By</th>
           </tr>
         </thead>
         <tbody>
@@ -316,20 +316,20 @@ include "includes/layout.php";
       <h1 style="color:#e8b84b;margin:0;font-size:20px">🌿 <?=htmlspecialchars($_SESSION['selling_point_name']??'Floor')?></h1>
       <p style="color:rgba(232,184,75,.6);margin:4px 0 0;font-size:12px">End of Day Report — <?=date('l d F Y')?></p>
     </div>
-    <div style="background:#fff;padding:20px">
+    <div style="background:var(--surface);padding:20px">
       <table width="100%" cellpadding="8" cellspacing="4">
         <tr>
-          <td style="background:#faf8f4;border-radius:6px;text-align:center;padding:12px">
-            <div style="font-size:28px;font-weight:700;color:#c8952a"><?=number_format((int)($qs_row['bales']??0))?></div>
-            <div style="font-size:10px;color:#888;text-transform:uppercase">Bales Sold</div>
+          <td style="background:var(--surface-2);border-radius:6px;text-align:center;padding:12px">
+            <div style="font-size:28px;font-weight:700;color:var(--accent-text)"><?=number_format((int)($qs_row['bales']??0))?></div>
+            <div style="font-size:.78rem;color:#888;">Bales Sold</div>
           </td>
-          <td style="background:#faf8f4;border-radius:6px;text-align:center;padding:12px">
-            <div style="font-size:28px;font-weight:700;color:#c8952a">$<?=number_format((float)($qs_row['usd']??0),0)?></div>
-            <div style="font-size:10px;color:#888;text-transform:uppercase">USD Value</div>
+          <td style="background:var(--surface-2);border-radius:6px;text-align:center;padding:12px">
+            <div style="font-size:28px;font-weight:700;color:var(--accent-text)">$<?=number_format((float)($qs_row['usd']??0),0)?></div>
+            <div style="font-size:.78rem;color:#888;">USD Value</div>
           </td>
-          <td style="background:#faf8f4;border-radius:6px;text-align:center;padding:12px">
-            <div style="font-size:28px;font-weight:700;color:#c8952a"><?=(int)($qs_row['growers']??0)?></div>
-            <div style="font-size:10px;color:#888;text-transform:uppercase">Growers</div>
+          <td style="background:var(--surface-2);border-radius:6px;text-align:center;padding:12px">
+            <div style="font-size:28px;font-weight:700;color:var(--accent-text)"><?=(int)($qs_row['growers']??0)?></div>
+            <div style="font-size:.78rem;color:#888;">Growers</div>
           </td>
         </tr>
       </table>

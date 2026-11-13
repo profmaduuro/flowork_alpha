@@ -240,14 +240,14 @@ body.theme-dark .premium-tab-btn:hover {
     background: rgba(255, 255, 255, 0.04);
 }
 .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
     box-shadow: 0 4px 12px rgba(26, 18, 8, 0.15);
     font-weight: 600;
 }
 body.theme-light .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
 }
 body.theme-dark .premium-tab-btn.active {
     background: var(--gold);
@@ -318,17 +318,17 @@ body.theme-dark .premium-tab-btn.active {
     <h4 style="margin:0 0 .75rem 0;font-size:.85rem;text-transform:uppercase;letter-spacing:.05em;color:var(--gold)">🌪️ Re-offer Conversion Funnel</h4>
     <div style="display:flex;justify-content:space-between;align-items:center;background:var(--cream-d);padding:.6rem 1rem;border-radius:6px;margin-bottom:.5rem">
       <div>
-        <div style="font-size:.58rem;color:var(--muted)">1. REJECTED</div>
+        <div style="font-size:.72rem;color:var(--muted)">1. REJECTED</div>
         <div style="font-size:1.1rem;font-weight:600"><?= $funnel_rejected ?></div>
       </div>
       <div style="color:var(--muted);font-size:.8rem">→</div>
       <div>
-        <div style="font-size:.58rem;color:var(--muted)">2. RE-OFFERED</div>
+        <div style="font-size:.72rem;color:var(--muted)">2. RE-OFFERED</div>
         <div style="font-size:1.1rem;font-weight:600;color:var(--gold)"><?= $funnel_reoffered ?></div>
       </div>
       <div style="color:var(--muted);font-size:.8rem">→</div>
       <div>
-        <div style="font-size:.58rem;color:var(--muted)">3. RE-SOLD</div>
+        <div style="font-size:.72rem;color:var(--muted)">3. RE-SOLD</div>
         <div style="font-size:1.1rem;font-weight:600;color:var(--leaf)"><?= $funnel_sold ?></div>
       </div>
     </div>
@@ -342,11 +342,11 @@ body.theme-dark .premium-tab-btn.active {
     <h4 style="margin:0 0 .75rem 0;font-size:.85rem;text-transform:uppercase;letter-spacing:.05em;color:var(--gold)">📈 Price Improvement Delta</h4>
     <div style="display:flex;justify-content:space-between;align-items:center;height:55px">
       <div style="flex:1;text-align:center;border-right:1px solid var(--border)">
-        <div style="font-size:.62rem;color:var(--muted)">AVG ORIGINAL PRICE</div>
+        <div style="font-size:.72rem;color:var(--muted)">AVG ORIGINAL PRICE</div>
         <div style="font-size:.9rem;font-weight:600">$<?= number_format($avg_orig, 4) ?></div>
       </div>
       <div style="flex:1;text-align:center">
-        <div style="font-size:.62rem;color:var(--muted)">AVG RE-OFFERED PRICE</div>
+        <div style="font-size:.72rem;color:var(--muted)">AVG RE-OFFERED PRICE</div>
         <div style="font-size:.9rem;font-weight:600;color:var(--leaf)">$<?= number_format($avg_new, 4) ?></div>
       </div>
     </div>
@@ -373,7 +373,7 @@ body.theme-dark .premium-tab-btn.active {
               <div style="height:6px;background:var(--border);border-radius:3px;flex:1;max-width:80px;position:relative;overflow:hidden">
                 <div style="position:absolute;top:0;left:0;height:100%;background:var(--gold);width:<?= $pct ?>%"></div>
               </div>
-              <span class="badge badge-gold" style="font-size:.58rem;padding:1px 5px"><?= $gb['cnt'] ?></span>
+              <span class="badge badge-gold" style="font-size:.72rem;padding:1px 5px"><?= $gb['cnt'] ?></span>
             </div>
           </div>
         <?php endforeach; ?>
@@ -453,7 +453,7 @@ body.theme-dark .premium-tab-btn.active {
         <?php if(empty($unsold)):?>
         <div class="card-body text-center text-muted" style="padding:2rem">No unsold bales today.</div>
         <?php else:?>
-        <div class="table-wrap" style="max-height:500px;overflow-y:auto">
+        <div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto">
             <table>
                 <thead>
                     <tr>
@@ -468,7 +468,7 @@ body.theme-dark .premium-tab-btn.active {
                 <?php foreach($unsold as $u):?>
                 <tr style="cursor:pointer" onclick="addToReOffer(<?=js_arg($u['barcode'])?>,<?=js_arg($u['ticket_id'])?>)">
                   <td style="font-family:monospace;font-size:.72rem"><?=htmlspecialchars($u['barcode'])?></td>
-                  <td><span class="badge badge-gold" style="font-size:.58rem"><?=htmlspecialchars($u['grower_num'])?></span></td>
+                  <td><span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($u['grower_num'])?></span></td>
                   <td class="td-mono text-right"><?=number_format((float)$u['mass'],1)?></td>
                   <td style="font-size:.7rem"><?=htmlspecialchars($u['grade']??'—')?></td>
                   <td style="font-size:.7rem;color:var(--muted)"><?=htmlspecialchars($u['loc_code']??'')?></td>
@@ -488,7 +488,7 @@ body.theme-dark .premium-tab-btn.active {
         <?php if(empty($history)):?>
         <div class="card-body text-center text-muted" style="padding:2rem">No re-offers processed today.</div>
         <?php else:?>
-        <div class="table-wrap" style="max-height:500px;overflow-y:auto">
+        <div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto">
             <table>
                 <thead>
                     <tr>
@@ -514,21 +514,21 @@ body.theme-dark .premium-tab-btn.active {
                 <tr>
                   <td style="font-family:monospace;font-size:.72rem"><?=htmlspecialchars($h['barcode'])?></td>
                   <td style="font-size:.72rem">
-                    <span class="badge badge-gold" style="font-size:.58rem"><?=htmlspecialchars($h['grower_num'])?></span>
+                    <span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($h['grower_num'])?></span>
                   </td>
                   <td style="font-size:.72rem">
                     <div style="font-weight:500">$<?=number_format((float)$h['original_price'],4)?></div>
-                    <div style="font-size:.6rem;color:var(--muted)"><?=htmlspecialchars($h['orig_grade']??'—')?></div>
+                    <div style="font-size:.72rem;color:var(--muted)"><?=htmlspecialchars($h['orig_grade']??'—')?></div>
                   </td>
                   <td style="font-size:.72rem">
                     <div style="font-weight:500;color:var(--leaf)">$<?=number_format((float)$h['re_offer_price'],4)?></div>
-                    <div style="font-size:.6rem;color:var(--muted)"><?=htmlspecialchars($h['new_grade']??'—')?></div>
+                    <div style="font-size:.72rem;color:var(--muted)"><?=htmlspecialchars($h['new_grade']??'—')?></div>
                   </td>
                   <td class="td-mono text-right" style="color:<?=$delta_color?>;font-weight:600">
                     <?=$delta_sign?>$<?=number_format($delta,4)?>
                   </td>
                   <td>
-                    <span class="badge <?=$status_color?>" style="font-size:.58rem"><?=strtoupper($h['status'])?></span>
+                    <span class="badge <?=$status_color?>" style="font-size:.72rem"><?=strtoupper($h['status'])?></span>
                   </td>
                   <td style="font-size:.7rem;color:var(--muted)"><?=htmlspecialchars($h['username']??'—')?></td>
                 </tr>

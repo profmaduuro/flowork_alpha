@@ -122,6 +122,22 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
     }
     $action = $_POST['action'] ?? '';
 
+    // System-wide switch: ask for codes at sign-in or not (admins / master users)
+    if ($action === 'set_system_2fa') {
+        if (empty($_SESSION['is_admin']) && !is_master_user()) {
+            $err = "Only an administrator can turn two-factor sign-in on or off for everyone.";
+        } else {
+            $on = ($_POST['system_2fa'] ?? '') === '1';
+            if (flowork_2fa_system_set($conn, $on)) {
+                audit_log($conn, (int)($_SESSION['selling_pointid'] ?? 0), $userid, 'parameters', $on ? 'enable_system_2fa' : 'disable_system_2fa', 0);
+                $msg = $on ? "✓ Two-factor sign-in is on: users who set it up are asked for a code again."
+                           : "✓ Two-factor sign-in is off: nobody is asked for a code. Phones stay paired, so you can turn it back on any time.";
+            } else {
+                $err = "Could not save the setting: " . $conn->error;
+            }
+        }
+    }
+
     if ($action==='generate_secret') {
         $secret = totp_secret();
         $codes  = make_backup_codes();
@@ -224,6 +240,30 @@ include "includes/layout.php";
 <?php if($msg):?><div class="alert alert-success"><?=htmlspecialchars($msg)?></div><?php endif;?>
 <?php if($err):?><div class="alert alert-danger"><?=htmlspecialchars($err)?></div><?php endif;?>
 
+<?php $sys_2fa_on = flowork_2fa_system_on($conn); $can_set_2fa = !empty($_SESSION['is_admin']) || is_master_user(); ?>
+<?php if(!$sys_2fa_on):?>
+<div class="alert alert-gold">Two-factor sign-in is <strong>turned off for everyone</strong>: nobody is asked for a code when they sign in, on the web or the mobile app.<?= $can_set_2fa ? ' You can turn it back on below.' : '' ?></div>
+<?php endif;?>
+<?php if($can_set_2fa):?>
+<div class="card mb-3">
+  <div class="card-head"><h3>Two-factor sign-in for everyone</h3>
+    <span class="badge <?= $sys_2fa_on ? 'badge-green' : 'badge-gray' ?>"><?= $sys_2fa_on ? 'On' : 'Off' ?></span></div>
+  <div class="card-body" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+    <p style="flex:1;min-width:260px;margin:0;color:var(--text-muted)">
+      <?= $sys_2fa_on
+        ? 'Users who set up an authenticator app are asked for a code at every sign-in, and administrators must set one up.'
+        : 'Off: sign-in needs only a username and password. Authenticator setups are kept, so turning it back on needs no re-pairing.' ?>
+    </p>
+    <form method="POST" style="margin:0" onsubmit="return confirm('<?= $sys_2fa_on ? 'Stop asking everyone for a two-factor code at sign-in?' : 'Ask for two-factor codes at sign-in again?' ?>')">
+      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
+      <input type="hidden" name="action" value="set_system_2fa">
+      <input type="hidden" name="system_2fa" value="<?= $sys_2fa_on ? '0' : '1' ?>">
+      <button class="btn <?= $sys_2fa_on ? 'btn-ghost' : 'btn-primary' ?>"><?= $sys_2fa_on ? 'Turn off for everyone' : 'Turn on for everyone' ?></button>
+    </form>
+  </div>
+</div>
+<?php endif;?>
+
 <div class="premium-tabs-nav" data-tabs="twofa">
   <button type="button" class="premium-tab-btn active" data-tab="status">🔐 <?=(!$fa || !$fa['enabled']) ? 'Set Up 2FA' : '2FA Status'?></button>
   <button type="button" class="premium-tab-btn" data-tab="codes">🔑 Backup Codes</button>
@@ -304,7 +344,7 @@ include "includes/layout.php";
 <?php
 $display_codes = isset($_SESSION['2fa_setup_codes']) ? $_SESSION['2fa_setup_codes'] : array_filter(explode(',',$fa['backup_codes']??''));
 foreach($display_codes as $code): if(!trim($code)) continue; ?>
-<div style="background:var(--ink);color:var(--gold);font-family:monospace;padding:.45rem .75rem;border-radius:6px;font-size:.85rem;text-align:center;letter-spacing:.1em">
+<div style="background:var(--surface-2);color:var(--text);font-family:monospace;padding:.45rem .75rem;border-radius:6px;font-size:.85rem;text-align:center;letter-spacing:.1em">
   <?=htmlspecialchars(strtoupper(trim($code)))?>
 </div>
 <?php endforeach;?>

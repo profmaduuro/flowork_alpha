@@ -648,16 +648,9 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
 
         $hdr=null; $ins=0; $upd=0; $skip=0; $errs=[];
 
-        // Ensure columns exist in internal_stop_order_amount
-        foreach (['growerid INT DEFAULT NULL',
-                  'sell_date DATE DEFAULT NULL',
-                  'reference VARCHAR(100) DEFAULT',
-                  'processed TINYINT DEFAULT 0'] as $_mc) {
-            $_mcn = explode(' ',$_mc)[0];
-            $_chk = $conn->query("SHOW COLUMNS FROM internal_stop_order_amount LIKE '$_mcn'");
-            if (!$_chk || $_chk->num_rows===0)
-                $conn->query("ALTER TABLE internal_stop_order_amount ADD COLUMN $_mc");
-        }
+        // Ensure columns exist in internal_stop_order_amount (shared with Creditor portal)
+        require_once __DIR__ . '/includes/stoporder_schema.php';
+        flowork_ensure_stoporder_amount_cols($conn);
 
         $_sea = $conn->query("SELECT id FROM seasons WHERE active=1 LIMIT 1");
         $seasonid = ($_sea&&$_sea!==true&&$_sea->num_rows)?(int)$_sea->fetch_assoc()['id']:0;
@@ -784,7 +777,7 @@ include "includes/layout.php";
     border:1px solid var(--border);border-radius:var(--radius);
     background:var(--cream-d);cursor:pointer;transition:border-color .12s,background .12s;
     user-select:none}
-.ft-card:hover{border-color:var(--gold);background:#fdf9f0}
+.ft-card:hover{border-color:var(--gold);background:var(--surface-2)}
 body.theme-dark .ft-card:hover{background:rgba(200,149,42,.12)}
 .ft-card.selected{border-color:var(--gold);background:var(--gold-bg);border-width:2px}
 .ft-icon{width:30px;height:30px;border-radius:5px;display:flex;align-items:center;
@@ -879,7 +872,7 @@ $sel_type = $_POST['file_type'] ?? '';
 ════════════════════════════════════════════════════════════════ -->
 <?php if($fm_upload): ?>
 <div class="card mb-3" style="border-left:4px solid var(--leaf)">
-<div class="card-head" style="background:var(--ink);color:var(--cream)">
+<div class="card-head" style="background:var(--surface-2);color:var(--text)">
     <div style="display:flex;align-items:center;gap:.5rem">
         <span>✓</span>
         <div>
@@ -978,8 +971,7 @@ $sel_type = $_POST['file_type'] ?? '';
 <div class="card-body">
 
 <!-- File type grid -->
-<div style="font-size:.6rem;font-weight:500;letter-spacing:.15em;text-transform:uppercase;
-            color:var(--muted);margin-bottom:.65rem">File type</div>
+<div style="font-size:.78rem;font-weight:500;color:var(--muted);margin-bottom:.65rem">File type</div>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:.45rem;margin-bottom:1.15rem">
 <?php foreach($file_types as $val=>$ft): ?>
 <label class="ft-card <?=$sel_type===$val?'selected':''?>" onclick="pickType('<?=$val?>', this)">
@@ -996,8 +988,7 @@ $sel_type = $_POST['file_type'] ?? '';
 <input type="hidden" name="action" value="upload_file">
 <input type="hidden" name="file_type" id="ftype" value="">
 
-<div style="font-size:.6rem;font-weight:500;letter-spacing:.15em;text-transform:uppercase;
-            color:var(--muted);margin-bottom:.65rem;margin-top:.25rem">File &amp; date</div>
+<div style="font-size:.78rem;font-weight:500;color:var(--muted);margin-bottom:.65rem;margin-top:.25rem">File &amp; date</div>
 <div class="form-row cols-2">
     <div class="form-group">
         <label>Sell Date</label>
@@ -1029,9 +1020,9 @@ $sel_type = $_POST['file_type'] ?? '';
 <div class="card-head">
     <h3>Encryption Keys</h3>
     <?php if($stored_aes_key): ?>
-    <span class="badge badge-green" style="font-size:.62rem">✓ Key stored</span>
+    <span class="badge badge-green" style="font-size:.72rem">✓ Key stored</span>
     <?php else: ?>
-    <span class="badge badge-red"   style="font-size:.62rem">No key set</span>
+    <span class="badge badge-red"   style="font-size:.72rem">No key set</span>
     <?php endif;?>
 </div>
 <div class="card-body" style="padding:.75rem 1.15rem">
@@ -1096,10 +1087,10 @@ foreach($file_types as $val=>$ft):?>
 <?php if($history&&$history->num_rows>0): while($r=$history->fetch_assoc()):?>
 <tr>
     <td><code style="font-size:.72rem"><?=htmlspecialchars($r['original_filename'])?></code></td>
-    <td><span class="badge badge-gray" style="font-size:.62rem"><?=htmlspecialchars($type_labels[$r['file_type']]??$r['file_type'])?></span></td>
+    <td><span class="badge badge-gray" style="font-size:.72rem"><?=htmlspecialchars($type_labels[$r['file_type']]??$r['file_type'])?></span></td>
     <td class="td-muted" style="font-size:.75rem"><?=$r['sell_date']?date('d M Y',strtotime($r['sell_date'])):'—'?></td>
     <td class="td-mono text-right"><?=number_format((int)$r['records_count'])?></td>
-    <td><span class="badge <?=$r['status']==='decoded'?'badge-green':'badge-gray'?>" style="font-size:.62rem"><?=htmlspecialchars($r['status'])?></span></td>
+    <td><span class="badge <?=$r['status']==='decoded'?'badge-green':'badge-gray'?>" style="font-size:.72rem"><?=htmlspecialchars($r['status'])?></span></td>
     <td class="td-muted" style="font-size:.72rem"><?=htmlspecialchars($r['username'])?></td>
     <td class="td-muted" style="font-size:.72rem"><?=date('d M H:i',strtotime($r['created_at']))?></td>
 </tr>

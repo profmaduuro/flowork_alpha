@@ -534,14 +534,13 @@ include "includes/layout.php";
 
 <style>
 /* ── State badges ─────────────────────────────────────────────────────── */
-.sb { display:inline-block;font-size:0.62rem;font-weight:600;letter-spacing:0.07em;
-      text-transform:uppercase;padding:2px 9px;border-radius:999px }
-.sb-none   { background:#f3f4f6;color:#6b7280 }
+.sb { display:inline-block;font-size:.78rem;font-weight:600;padding:2px 9px;border-radius:999px }
+.sb-none   { background:var(--surface-2);color:#6b7280 }
 body.theme-dark .sb-none { background:rgba(245,240,232,.08);color:#bdb3a3 }
-.sb-open   { background:#fef3c7;color:#92400e }
-.sb-split  { background:#ede9fe;color:#4c1d95 }
-.sb-closed { background:#d1fae5;color:#065f46 }
-.sb-ready  { background:#dcfce7;color:#14532d;border:1px solid #86efac }
+.sb-open   { background:var(--warn-tint);color:var(--warn-text) }
+.sb-split  { background:var(--info-tint);color:var(--info-text) }
+.sb-closed { background:var(--ok-tint);color:var(--ok-text) }
+.sb-ready  { background:var(--ok-tint);color:var(--ok-text);border:1px solid #86efac }
 
 /* ── Filter tabs ─────────────────────────────────────────────────────── */
 .ftabs { display:flex;gap:4px;flex-wrap:wrap;margin-bottom:0 }
@@ -549,34 +548,34 @@ body.theme-dark .sb-none { background:rgba(245,240,232,.08);color:#bdb3a3 }
          cursor:pointer;border:1px solid var(--border);background:var(--surface);
          color:var(--muted);transition:all 0.15s;user-select:none }
 .ftab:hover   { border-color:var(--gold);color:var(--gold) }
-.ftab.active  { background:var(--ink);color:var(--cream);border-color:var(--ink) }
+.ftab.active  { background:var(--primary-bg);color:var(--primary-text);border-color:var(--primary-bg) }
 
 /* ── Group rows ──────────────────────────────────────────────────────── */
 .grow { cursor:pointer;transition:background 0.1s }
-.grow:hover { background:#fafaf8 }
-.grow.sel   { background:#fffbeb;border-left:3px solid var(--gold) }
-.grow.g-ready { background:#f0fdf4 }
+.grow:hover { background:var(--surface-2) }
+.grow.sel   { background:var(--surface-2);border-left:3px solid var(--gold) }
+.grow.g-ready { background:var(--surface-2) }
 body.theme-dark .grow:hover   { background:rgba(245,240,232,.05) }
 body.theme-dark .grow.sel     { background:rgba(200,149,42,.14) }
 body.theme-dark .grow.g-ready { background:rgba(61,107,53,.18) }
-.grow.g-ready.sel { background:#dcfce7 }
+.grow.g-ready.sel { background:var(--surface-2) }
 
 /* ── Progress pill ───────────────────────────────────────────────────── */
 .prog-pill { display:inline-flex;align-items:center;gap:4px;
              font-size:0.7rem;font-weight:600;padding:2px 8px;
              border-radius:999px;white-space:nowrap }
-.prog-done { background:#dcfce7;color:#15803d }
-.prog-part { background:#fef3c7;color:#92400e }
-.prog-none { background:#f3f4f6;color:#6b7280 }
+.prog-done { background:var(--ok-tint);color:var(--ok-text) }
+.prog-part { background:var(--warn-tint);color:var(--warn-text) }
+.prog-none { background:var(--surface-2);color:#6b7280 }
 
 /* ── Step strip ──────────────────────────────────────────────────────── */
 .steps { display:flex;gap:0;margin-bottom:1rem;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border) }
-.step  { flex:1;padding:8px 6px;text-align:center;font-size:0.62rem;font-weight:500;
-         text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);
+.step  { flex:1;padding:8px 6px;text-align:center;font-size:.78rem;font-weight:500;
+         color:var(--muted);
          background:var(--surface);border-right:1px solid var(--border);position:relative }
 .step:last-child { border-right:none }
-.step.done  { background:#f0fdf4;color:#15803d }
-.step.active{ background:var(--ink);color:var(--cream) }
+.step.done  { background:var(--ok-tint);color:var(--ok-text) }
+.step.active{ background:var(--primary-bg);color:var(--primary-text) }
 .step .snum { display:block;font-size:1rem;font-weight:700;line-height:1;margin-bottom:2px }
 
 /* ── Print button ────────────────────────────────────────────────────── */
@@ -590,33 +589,33 @@ body.theme-dark .grow.g-ready { background:rgba(61,107,53,.18) }
 /* ── Search box ──────────────────────────────────────────────────────── */
 #grp-search { width:100%;padding:0.45rem 0.85rem;border:1px solid var(--border);
               border-radius:var(--radius);font-size:0.82rem;background:var(--surface);
-              color:var(--ink);outline:none }
+              color:var(--text);outline:none }
 #grp-search:focus { border-color:var(--gold) }
 
 /* ── Today's tickets table ───────────────────────────────────────────── */
 .today-row { cursor:pointer;transition:background 0.1s }
-.today-row:hover { background:#fafaf8 }
-.today-row.sel   { background:#fffbeb;border-left:3px solid var(--gold) }
+.today-row:hover { background:var(--surface-2) }
+.today-row.sel   { background:var(--surface-2);border-left:3px solid var(--gold) }
 .today-panel-row td { padding:0 !important }
 .today-panel-inner { padding:1rem 1.25rem;border-top:2px solid var(--gold) }
 
 .lot-chip { min-width:30px;height:30px;border-radius:5px;border:1px solid #e5e7eb;
-            background:#f3f4f6;display:inline-flex;align-items:center;justify-content:center;
+            background:var(--surface-2);display:inline-flex;align-items:center;justify-content:center;
             font-size:0.65rem;font-weight:700;color:#6b7280;
             position:relative;transition:background 0.15s,color 0.15s,border-color 0.15s;
             cursor:default }
 .lot-chip .lot-badge { position:absolute;top:-5px;right:-5px;background:#374151;color:#fff;
-                       border-radius:999px;font-size:0.48rem;padding:0 3px;line-height:1.5;
+                       border-radius:999px;font-size:.72rem;padding:0 3px;line-height:1.5;
                        font-weight:700 }
 
 .split-row-inner { display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;
-                   background:#fff;border:1px solid var(--border);
+                   background:var(--surface);border:1px solid var(--border);
                    border-radius:var(--radius);padding:0.5rem 0.75rem;
                    transition:border-color 0.15s }
 .split-row-inner:hover { border-color:#d1d5db }
 .split-num-input { width:56px;padding:0.28rem 0.4rem;border:1px solid var(--border);
                    border-radius:4px;font-size:0.85rem;text-align:center;font-weight:600;
-                   color:var(--ink);background:#fff;outline:none }
+                   color:var(--text);background:var(--surface);outline:none }
 .split-num-input:focus { border-color:var(--gold) }
 
 /* Premium Segmented / Capsule Tab Strip */
@@ -657,14 +656,14 @@ body.theme-dark .premium-tab-btn:hover {
     background: rgba(255, 255, 255, 0.04);
 }
 .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
     box-shadow: 0 4px 12px rgba(26, 18, 8, 0.15);
     font-weight: 600;
 }
 body.theme-light .premium-tab-btn.active {
-    background: var(--ink);
-    color: var(--gold-l);
+    background:var(--primary-bg);
+    color:var(--primary-text);
 }
 body.theme-dark .premium-tab-btn.active {
     background: var(--gold);
@@ -754,7 +753,7 @@ foreach ($groups as $g) {
         </div>
     </div>
 
-    <div class="table-wrap" style="max-height:620px;overflow-y:auto">
+    <div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto">
     <table id="groups-table">
         <thead style="position:sticky;top:0;z-index:1">
         <tr>
@@ -784,7 +783,7 @@ foreach ($groups as $g) {
 
             <td style="text-align:center">
                 <?php if ($g['loc_code']): ?>
-                <span style="font-family:'Bebas Neue',sans-serif;font-size:1.05rem;color:var(--gold)"><?= htmlspecialchars($g['loc_code']) ?></span>
+                <span style="font-family:'DM Sans',sans-serif;font-size:0.89rem;color:var(--gold);font-weight:600"><?= htmlspecialchars($g['loc_code']) ?></span>
                 <?php else: ?><span class="td-muted">—</span><?php endif; ?>
             </td>
 
@@ -876,10 +875,10 @@ if ($tk_cnt > 0) {
 ?>
 
 <!-- Grower identity bar -->
-<div style="background:var(--ink);color:var(--cream);border-radius:var(--radius) var(--radius) 0 0;padding:0.9rem 1.1rem">
+<div style="background:var(--surface-2);color:var(--text);border-radius:var(--radius) var(--radius) 0 0;padding:0.9rem 1.1rem">
     <div style="display:flex;align-items:flex-start;gap:0.75rem">
         <div style="flex:1">
-            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.15rem;color:var(--gold);letter-spacing:0.08em;line-height:1">
+            <div style="font-family:'DM Sans',sans-serif;font-size:0.98rem;color:var(--gold);line-height:1;font-weight:600">
                 <?= htmlspecialchars($sel_group['grower_num']) ?>
                 <?php if ($full_junus): ?><span style="font-size:0.65rem;background:#14532d;color:#86efac;padding:1px 7px;border-radius:999px;vertical-align:middle;margin-left:6px">✓ JUNUS COMPLETE</span><?php endif; ?>
             </div>
@@ -891,7 +890,7 @@ if ($tk_cnt > 0) {
         </div>
         <div style="text-align:right;flex-shrink:0">
             <div style="font-size:1.4rem;font-weight:700;line-height:1;color:#fff"><?= $junus_cnt ?><span style="font-size:0.8rem;color:rgba(255,255,255,0.45)">/<?= $bales_set ?></span></div>
-            <div style="font-size:0.62rem;color:rgba(245,240,232,0.45);letter-spacing:0.06em;text-transform:uppercase">bales junused</div>
+            <div style="font-size:.78rem;color:rgba(245,240,232,0.45);">bales junused</div>
         </div>
     </div>
 </div>
@@ -945,7 +944,7 @@ $bc_range = $conn->query("
                 <span style="margin-left:auto;opacity:0.4">▼</span>
             </summary>
 
-            <div style="margin-top:0.55rem;padding:0.85rem;background:#fffbeb;
+            <div style="margin-top:0.55rem;padding:0.85rem;background:var(--surface-2);
                         border:1px solid #f59e0b;border-radius:var(--radius)">
 
                 <p style="font-size:0.72rem;color:#92400e;margin:0 0 0.75rem;line-height:1.55">
@@ -961,25 +960,24 @@ $bc_range = $conn->query("
 
                     <!-- Row 1: last printed (with chip picker) -->
                     <div style="margin-bottom:0.65rem">
-                        <label style="font-size:0.65rem;font-weight:600;text-transform:uppercase;
-                                      color:#92400e;display:block;margin-bottom:4px">
+                        <label style="font-size:.78rem;font-weight:600;color:#92400e;display:block;margin-bottom:4px">
                             ① Last barcode that printed successfully
                         </label>
 
                         <!-- Chip list -->
                         <div style="display:flex;flex-wrap:wrap;gap:3px;max-height:80px;overflow-y:auto;
                                     padding:0.35rem;margin-bottom:0.4rem;
-                                    background:#fff;border:1px solid #fde68a;border-radius:5px">
+                                    background:var(--surface);border:1px solid #fde68a;border-radius:5px">
                             <?php foreach ($bc_list as $bc): ?>
                             <button type="button"
                                     class="bc-jam-chip"
                                     data-bc="<?= htmlspecialchars($bc['barcode']) ?>"
                                     data-seq="<?= (int)$bc['seq'] ?>"
                                     onclick="pickLastGood(this)"
-                                    style="background:#fff;border:1px solid #e5e7eb;border-radius:4px;
+                                    style="background:var(--surface);border:1px solid #e5e7eb;border-radius:4px;
                                            padding:2px 7px;font-family:monospace;font-size:0.67rem;
                                            cursor:pointer;color:#374151;white-space:nowrap">
-                                <span style="color:#9ca3af;font-size:0.58rem">#<?= $bc['seq'] ?>&nbsp;</span><?= htmlspecialchars($bc['barcode']) ?>
+                                <span style="color:#9ca3af;font-size:.72rem">#<?= $bc['seq'] ?>&nbsp;</span><?= htmlspecialchars($bc['barcode']) ?>
                             </button>
                             <?php endforeach; ?>
                         </div>
@@ -990,14 +988,13 @@ $bc_range = $conn->query("
                                oninput="this.value=this.value.toUpperCase();updateJamSummary()"
                                style="width:100%;padding:0.4rem 0.7rem;border:1px solid #f59e0b;
                                       border-radius:var(--radius);font-family:monospace;
-                                      font-size:0.88rem;letter-spacing:0.06em;background:#fff;
-                                      color:#1f2937;outline:none;box-sizing:border-box">
+                                      font-size:0.88rem;letter-spacing:0.06em;background:var(--info-tint);
+                                      color:var(--info-text);outline:none;box-sizing:border-box">
                     </div>
 
                     <!-- Row 2: new start barcode -->
                     <div style="margin-bottom:0.65rem">
-                        <label style="font-size:0.65rem;font-weight:600;text-transform:uppercase;
-                                      color:#92400e;display:block;margin-bottom:4px">
+                        <label style="font-size:.78rem;font-weight:600;color:#92400e;display:block;margin-bottom:4px">
                             ② New start barcode (first fresh barcode)
                         </label>
                         <input type="text" name="new_start_bc" id="jam-new-bc"
@@ -1005,8 +1002,8 @@ $bc_range = $conn->query("
                                oninput="this.value=this.value.toUpperCase();jamNewBcPreview();updateJamSummary()"
                                style="width:100%;padding:0.4rem 0.7rem;border:1px solid #f59e0b;
                                       border-radius:var(--radius);font-family:monospace;
-                                      font-size:0.88rem;letter-spacing:0.06em;background:#fff;
-                                      color:#1f2937;outline:none;box-sizing:border-box">
+                                      font-size:0.88rem;letter-spacing:0.06em;background:var(--info-tint);
+                                      color:var(--info-text);outline:none;box-sizing:border-box">
                         <div id="jam-new-bc-preview"
                              style="font-size:0.67rem;color:var(--muted);margin-top:3px;height:13px"></div>
                     </div>
@@ -1038,14 +1035,14 @@ $bc_range = $conn->query("
             <?php endif; ?>
         </div>
         <?php if ($missing > 0): ?>
-        <span class="badge badge-gold" style="font-size:0.6rem"><?= $missing ?> remaining</span>
+        <span class="badge badge-gold" style="font-size:.72rem"><?= $missing ?> remaining</span>
         <?php endif; ?>
     </div>
 
     <?php if ($tk_cnt === 0 || $missing > 0): ?>
     <div style="padding:0.75rem 1rem">
         <?php if ($missing > 0 && $next_bc_suggestion): ?>
-        <div style="background:#fffbeb;border:1px solid #f59e0b;border-radius:var(--radius);padding:0.5rem 0.75rem;font-size:0.78rem;margin-bottom:0.65rem;color:#92400e">
+        <div style="background:var(--warn-tint);border:1px solid #f59e0b;border-radius:var(--radius);padding:0.5rem 0.75rem;font-size:0.78rem;margin-bottom:0.65rem;color:var(--warn-text)">
             Last assigned: <code><?= htmlspecialchars($sel_group['last_barcode']) ?></code>
             &nbsp;·&nbsp; Next: <strong><?= htmlspecialchars($next_bc_suggestion) ?></strong>
         </div>
@@ -1109,7 +1106,7 @@ $bc_range = $conn->query("
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.5rem;margin-bottom:0.7rem">
     <?php for ($sid = 1; $sid <= $show_splits; $sid++): ?>
     <div>
-        <label style="font-size:0.62rem;font-weight:600;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:3px">Split <?= $sid ?></label>
+        <label style="font-size:.78rem;font-weight:600;color:var(--muted);display:block;margin-bottom:3px">Split <?= $sid ?></label>
         <input type="number" name="splits[<?= $sid ?>]" class="form-control split-qty"
                style="text-align:center;font-size:0.92rem;font-weight:600;padding:0.45rem"
                min="0" value="<?= $existing_splits[$sid] ?? 0 ?>" oninput="updateSplitTotal()">
@@ -1117,7 +1114,7 @@ $bc_range = $conn->query("
     <?php endfor; ?>
     </div>
 
-    <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.7rem;padding:0.4rem 0.75rem;background:var(--cream);border-radius:var(--radius);border:1px solid var(--border)">
+    <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.7rem;padding:0.4rem 0.75rem;background:var(--surface);border-radius:var(--radius);border:1px solid var(--border)">
         <span style="font-size:0.78rem;color:var(--muted)">Total:</span>
         <strong id="split-total">0</strong>
         <span style="font-size:0.78rem;color:var(--muted)">of <?= $junus_cnt ?></span>
@@ -1139,7 +1136,7 @@ $bc_range = $conn->query("
     </div>
 
     <?php if ($state === 'split' && !empty($sel_group['splits'])): ?>
-    <div style="padding:0.65rem 1rem;border-top:1px solid var(--border);background:#f0fdf4">
+    <div style="padding:0.65rem 1rem;border-top:1px solid var(--border);background:var(--surface-2)">
         <form method="POST" onsubmit="return confirm('Confirm splits and close this group?')">
             <input type="hidden" name="action" value="confirm_splits">
             <input type="hidden" name="tgid" value="<?= $tgid_sel ?>">
@@ -1170,7 +1167,7 @@ $bc_range = $conn->query("
 
 <!-- ── SECTION 4: CLOSED state note ── -->
 <?php if ($state === 'closed'): ?>
-<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:var(--radius);padding:0.65rem 1rem;font-size:0.78rem;color:#14532d">
+<div style="background:var(--ok-tint);border:1px solid #86efac;border-radius:var(--radius);padding:0.65rem 1rem;font-size:0.78rem;color:var(--ok-text)">
     ✓ Group is closed and locked. All splits confirmed. Use the reverse button above to re-open for editing.
 </div>
 <?php endif; ?>
@@ -1183,17 +1180,17 @@ $bc_range = $conn->query("
             z-index:9000;align-items:flex-start;justify-content:center;padding-top:4vh;
             overflow-y:auto">
   <div id="sm-card" onclick="event.stopPropagation()"
-       style="background:#fff;border-radius:12px;width:min(700px,96vw);
+       style="background:var(--surface);border-radius:12px;width:min(700px,96vw);
               display:flex;flex-direction:column;
               box-shadow:0 25px 70px rgba(0,0,0,0.4);margin-bottom:2rem">
 
     <!-- Header -->
-    <div style="background:var(--ink);color:var(--cream);padding:1rem 1.25rem;
+    <div style="background:var(--surface-2);color:var(--text);padding:1rem 1.25rem;
                 border-radius:12px 12px 0 0;display:flex;align-items:flex-start;gap:0.75rem">
       <div style="flex:1">
         <div id="sm-grower-num"
-             style="font-family:'Bebas Neue',sans-serif;font-size:1.35rem;
-                    color:var(--gold);letter-spacing:0.07em;line-height:1"></div>
+             style="font-family:'DM Sans',sans-serif;font-size:1.15rem;
+                    color:var(--gold);line-height:1;font-weight:600"></div>
         <div id="sm-grower-sub"
              style="font-size:0.72rem;color:rgba(245,240,232,0.6);margin-top:3px"></div>
       </div>
@@ -1206,18 +1203,16 @@ $bc_range = $conn->query("
     </div>
 
     <!-- Body -->
-    <div style="padding:1.1rem 1.25rem;overflow-y:auto;max-height:65vh">
+    <div style="padding:1.1rem 1.25rem;overflow-y:auto;max-height:calc(100vh - var(--top-h) - 2rem)">
 
       <!-- Visual lot bar -->
       <div style="margin-bottom:1rem">
-        <div style="font-size:0.65rem;font-weight:600;text-transform:uppercase;
-                    letter-spacing:0.07em;color:var(--muted);margin-bottom:6px">Lot map</div>
+        <div style="font-size:.78rem;font-weight:600;color:var(--muted);margin-bottom:6px">Lot map</div>
         <div id="sm-lot-bar" style="display:flex;flex-wrap:wrap;gap:4px"></div>
       </div>
 
       <!-- Split range rows -->
-      <div style="font-size:0.65rem;font-weight:600;text-transform:uppercase;
-                  letter-spacing:0.07em;color:var(--muted);margin-bottom:6px">Splits</div>
+      <div style="font-size:.78rem;font-weight:600;color:var(--muted);margin-bottom:6px">Splits</div>
       <div id="sm-split-rows" style="display:flex;flex-direction:column;gap:6px"></div>
 
       <!-- Add split + coverage -->
@@ -1231,13 +1226,13 @@ $bc_range = $conn->query("
         </button>
         <div id="sm-coverage"
              style="flex:1;padding:0.45rem 0.8rem;border-radius:var(--radius);font-size:0.78rem;
-                    font-weight:500;border:1px solid var(--border);background:var(--cream)"></div>
+                    font-weight:500;border:1px solid var(--border);background:var(--surface)"></div>
       </div>
     </div>
 
     <!-- Footer -->
     <div style="padding:0.85rem 1.25rem;border-top:1px solid var(--border);
-                background:#fafaf8;border-radius:0 0 12px 12px;
+                background:var(--surface-2);border-radius:0 0 12px 12px;
                 display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap">
       <button id="sm-save-btn"    onclick="saveModalSplits()"    class="btn btn-primary">💾 Save Splits</button>
       <button id="sm-confirm-btn" onclick="confirmModalSplits()" class="btn btn-gold" style="display:none">✓ Confirm &amp; Close</button>
@@ -1287,7 +1282,7 @@ $bc_range = $conn->query("
 <tr class="today-row" data-tgid="<?= $tid ?>" onclick="openSplitModal(<?= $tid ?>)">
     <td style="text-align:center">
         <?php if ($tg['loc_code']): ?>
-        <span style="font-family:'Bebas Neue',sans-serif;font-size:1rem;color:var(--gold)"><?= htmlspecialchars($tg['loc_code']) ?></span>
+        <span style="font-family:'DM Sans',sans-serif;font-size:0.85rem;color:var(--gold);font-weight:600"><?= htmlspecialchars($tg['loc_code']) ?></span>
         <?php else: ?><span class="td-muted">—</span><?php endif; ?>
     </td>
     <td class="fw-500 text-gold" style="font-size:0.8rem"><?= htmlspecialchars($tg['grower_num']) ?></td>
@@ -1297,7 +1292,7 @@ $bc_range = $conn->query("
     <td>
         <span class="sb sb-<?= $st ?>"><?= $st ?></span>
         <?php if (!empty($splits)): ?>
-        <span style="font-size:0.62rem;color:var(--muted);margin-left:4px"><?= count($splits) ?> split<?= count($splits)!==1?'s':'' ?></span>
+        <span style="font-size:.72rem;color:var(--muted);margin-left:4px"><?= count($splits) ?> split<?= count($splits)!==1?'s':'' ?></span>
         <?php endif; ?>
     </td>
     <td style="text-align:center" onclick="event.stopPropagation()">
@@ -1420,7 +1415,7 @@ function smRenderLotBar() {
              transition:background 0.15s,color 0.15s;user-select:none`;
         chip.innerHTML = `<span>${l.lot}</span>`;
         if (l.bales > 1)
-            chip.innerHTML += `<span style="font-size:0.5rem;opacity:0.85">${l.bales}×</span>`;
+            chip.innerHTML += `<span style="font-size:.72rem;opacity:0.85">${l.bales}×</span>`;
         el.appendChild(chip);
     });
 }

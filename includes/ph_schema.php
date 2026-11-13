@@ -14,11 +14,20 @@
 //
 // A bale's location then reads: TPZ · Willovale · Pallet 1001 · Line 1.
 
+require_once __DIR__ . '/schema_version.php';
+
 const PH_PALLET_CAPACITY = 12;   // bales per pallet, single buyer grade
+const PH_SCHEMA_VERSION  = 1;    // bump when ph_ensure_tables() changes
 
 function ph_ensure_tables(mysqli $c): void {
+    if (flowork_schema_is_current($c, 'packhouse', PH_SCHEMA_VERSION)) return;
+    // Mark the version only when every statement succeeded, so a failed
+    // CREATE/ALTER is retried on the next page load.
+    $ok  = true;
+    $run = function (string $sql) use ($c, &$ok) { if (!$c->query($sql)) $ok = false; };
+
     // Packing houses — neutral physical sites that store any buyer's tobacco
-    $c->query("CREATE TABLE IF NOT EXISTS ph_houses (
+    $run("CREATE TABLE IF NOT EXISTS ph_houses (
         id INT AUTO_INCREMENT PRIMARY KEY,
         code VARCHAR(20) NOT NULL UNIQUE,
         name VARCHAR(120) DEFAULT '',
@@ -28,7 +37,7 @@ function ph_ensure_tables(mysqli $c): void {
     )");
 
     // Lines within a packing house
-    $c->query("CREATE TABLE IF NOT EXISTS ph_lines (
+    $run("CREATE TABLE IF NOT EXISTS ph_lines (
         id INT AUTO_INCREMENT PRIMARY KEY,
         house_id INT NOT NULL,
         line_no VARCHAR(20) NOT NULL,
@@ -39,7 +48,7 @@ function ph_ensure_tables(mysqli $c): void {
     )");
 
     // Pallets — pallet_no comes from a physical tag; one buyer grade; max 12 bales
-    $c->query("CREATE TABLE IF NOT EXISTS ph_pallets (
+    $run("CREATE TABLE IF NOT EXISTS ph_pallets (
         id INT AUTO_INCREMENT PRIMARY KEY,
         pallet_no VARCHAR(40) NOT NULL UNIQUE,
         house_id INT NOT NULL,
@@ -54,7 +63,7 @@ function ph_ensure_tables(mysqli $c): void {
     )");
 
     // Reclassified bales — ph_barcode is the pre-printed packing-house label
-    $c->query("CREATE TABLE IF NOT EXISTS ph_bales (
+    $run("CREATE TABLE IF NOT EXISTS ph_bales (
         id INT AUTO_INCREMENT PRIMARY KEY,
         ph_barcode VARCHAR(100) NOT NULL UNIQUE,
         source_barcode VARCHAR(100) DEFAULT '',
@@ -72,7 +81,7 @@ function ph_ensure_tables(mysqli $c): void {
     )");
 
     // Pallet dispatch to the processing plant
-    $c->query("CREATE TABLE IF NOT EXISTS ph_dispatch (
+    $run("CREATE TABLE IF NOT EXISTS ph_dispatch (
         id INT AUTO_INCREMENT PRIMARY KEY,
         dispatch_no VARCHAR(40) NOT NULL UNIQUE,
         house_id INT NOT NULL,
@@ -88,7 +97,7 @@ function ph_ensure_tables(mysqli $c): void {
     )");
 
     // Which pallets are on which dispatch
-    $c->query("CREATE TABLE IF NOT EXISTS ph_dispatch_pallets (
+    $run("CREATE TABLE IF NOT EXISTS ph_dispatch_pallets (
         id INT AUTO_INCREMENT PRIMARY KEY,
         dispatch_id INT NOT NULL,
         pallet_id INT NOT NULL,
@@ -96,6 +105,8 @@ function ph_ensure_tables(mysqli $c): void {
         UNIQUE KEY uq_disp_pallet (dispatch_id, pallet_id),
         INDEX(dispatch_id), INDEX(pallet_id)
     )");
+
+    if ($ok) flowork_schema_mark($c, 'packhouse', PH_SCHEMA_VERSION);
 }
 
 // PHD-2026-0007 style dispatch numbers

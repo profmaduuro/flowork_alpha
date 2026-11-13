@@ -1,4 +1,27 @@
 /* flowork.js v4 — overlay spinner + rich toasts. No defer. */
+/* Opening a page shows it settled: one-off entrance animations (fade-in /
+   slide-up of cards and panels) are finished instantly when the page loads.
+   Endless ones (spinners, pulses) keep running, and animations started later
+   by the user (tab switches, pop-ups) play normally. */
+(function(){
+    function settle(){
+        if(!document.getAnimations) return;
+        document.getAnimations().forEach(function(a){
+            try{
+                if(typeof CSSAnimation==='undefined' || !(a instanceof CSSAnimation)) return;
+                var t=a.effect && a.effect.getComputedTiming && a.effect.getComputedTiming();
+                if(!t || t.iterations===Infinity) return;
+                var el=a.effect.target;
+                if(!el || !el.closest || !el.closest('.main')) return;
+                a.finish();
+            }catch(e){}
+        });
+    }
+    document.addEventListener('DOMContentLoaded', function(){
+        settle();
+        requestAnimationFrame(function(){ settle(); requestAnimationFrame(settle); });
+    });
+})();
 (function(){
     'use strict';
 
@@ -34,31 +57,38 @@
         label = document.getElementById('fw-lbl');
     }
 
-    function pStart(lbl){
+    // opts.barOnly: page navigation — keep the current page visible and show only
+    // the thin top bar (after 150ms, so fast pages show nothing at all).
+    // Otherwise (form submits, actions) the overlay appears only if the wait
+    // passes 900ms, so quick saves never flash it.
+    var barTimer;
+    function pStart(lbl, opts){
         mkOverlay();
-        clearInterval(barInt); clearTimeout(showTimer);
+        clearInterval(barInt); clearTimeout(showTimer); clearTimeout(barTimer);
         barPct = 0;
-        bar.style.opacity = '1';
         bar.style.transition = 'none';
         bar.style.width = '0%';
-        // tick progress bar
-        barInt = setInterval(function(){
-            barPct += Math.random()*9 + 2;
-            if(barPct > 82) barPct = 82;
-            bar.style.transition = 'width .15s ease';
-            bar.style.width = barPct + '%';
-        }, 130);
-        // show overlay after 450ms so fast loads don't flash
+        barTimer = setTimeout(function(){
+            bar.style.opacity = '1';
+            // tick progress bar
+            barInt = setInterval(function(){
+                barPct += Math.random()*9 + 2;
+                if(barPct > 82) barPct = 82;
+                bar.style.transition = 'width .15s ease';
+                bar.style.width = barPct + '%';
+            }, 130);
+        }, 150);
+        if (opts && opts.barOnly) return;
         showTimer = setTimeout(function(){
             if(label) label.textContent = lbl || 'Processing...';
             overlay.classList.add('fw-on');
-        }, 450);
+        }, 900);
     }
 
     function pDone(){
-        clearInterval(barInt); clearTimeout(showTimer); clearTimeout(_maxTimer);
+        clearInterval(barInt); clearTimeout(showTimer); clearTimeout(_maxTimer); clearTimeout(barTimer);
         if(overlay) overlay.classList.remove('fw-on');
-        if(bar){
+        if(bar && bar.style.opacity === '1'){
             bar.style.transition = 'width .2s ease';
             bar.style.width = '100%';
             setTimeout(function(){
@@ -96,7 +126,7 @@
         var h = a.getAttribute('href');
         if(!h || h[0]==='#' || h.indexOf('javascript:')=== 0 || h.indexOf('mailto:')===0) return;
         if(a.target==='_blank' || (a.dataset && a.dataset.actionUrl)) return;
-        try{ var u=new URL(a.href,location.origin); if(u.origin===location.origin) pStart('Loading...'); }catch(x){}
+        try{ var u=new URL(a.href,location.origin); if(u.origin===location.origin) pStart('Loading...', {barOnly:true}); }catch(x){}
     }, true);
 
 // Stop overlay when page finishes loading — multiple triggers for reliability
@@ -107,9 +137,9 @@
 // Safety net — never run more than 8 seconds
     var _maxTimer;
     var _origPStart = pStart;
-    pStart = function(lbl){
+    pStart = function(lbl, opts){
         clearTimeout(_maxTimer);
-        _origPStart(lbl);
+        _origPStart(lbl, opts);
         _maxTimer = setTimeout(pDone, 8000);
     };
 
@@ -312,12 +342,15 @@
         document.body.classList.add('theme-'+t);
         document.cookie='flowork_theme='+t+';path=/;max-age=31536000';
         var btn=document.getElementById('theme-toggle-btn');
-        if(btn) btn.innerHTML=(t==='dark')?'☀ Light':'☾ Dark';
-        toast('Switched to '+(t==='dark'?'🌙 Dark':'☀ Light')+' mode','info',2000);
+        if(btn){ var lbl=(t==='dark')?'Switch to light mode':'Switch to dark mode'; btn.setAttribute('aria-label',lbl); btn.title=lbl; }
+        toast('Switched to '+(t==='dark'?'dark':'light')+' mode','info',2000);
     };
 
     /* ─── KPI ANIMATION ─────────────────────────────────────────────── */
-    function animKPIs(){
+    // Counting KPI figures up from zero on every page load made numbers jump
+    // around; figures now show their value straight away.
+    function animKPIs(){ return; }
+    function animKPIsOld(){
         document.querySelectorAll('.kpi-value:not([data-fwa])').forEach(function(el){
             el.setAttribute('data-fwa','1');
             var raw=el.textContent.replace(/[^0-9.]/g,''), num=parseFloat(raw);

@@ -378,17 +378,17 @@ include "includes/layout.php";
 <div class="card-body" style="padding:.65rem 1.15rem">
 <form method="GET" style="display:flex;gap:.5rem;align-items:flex-end;flex-wrap:wrap">
   <div class="form-group" style="margin:0">
-    <label style="font-size:.62rem;display:block;margin-bottom:.2rem">From Date</label>
+    <label style="font-size:.72rem;display:block;margin-bottom:.2rem">From Date</label>
     <input type="date" name="date_from" class="form-control" value="<?=htmlspecialchars($date_from)?>"
            style="padding:.35rem .6rem;font-size:.82rem">
   </div>
   <div class="form-group" style="margin:0">
-    <label style="font-size:.62rem;display:block;margin-bottom:.2rem">To Date</label>
+    <label style="font-size:.72rem;display:block;margin-bottom:.2rem">To Date</label>
     <input type="date" name="date_to" class="form-control" value="<?=htmlspecialchars($date_to)?>"
            style="padding:.35rem .6rem;font-size:.82rem">
   </div>
   <div class="form-group" style="margin:0">
-    <label style="font-size:.62rem;display:block;margin-bottom:.2rem">Payment Method</label>
+    <label style="font-size:.72rem;display:block;margin-bottom:.2rem">Payment Method</label>
     <select name="method" class="form-control" style="padding:.35rem .55rem;font-size:.82rem;min-width:200px">
       <option value="">All Methods</option>
       <?php foreach($FORMAT_MAP as $m => $fmt_key):?>
@@ -454,16 +454,16 @@ include "includes/layout.php";
 <!-- ── Summary row ── -->
 <tr style="cursor:pointer;<?=$is_rev?'opacity:.5':''?>"
     onclick="toggleBatchPreview(<?=$b['id']?>)">
-  <td><span class="badge badge-blue" style="font-size:.62rem">#<?=$b['id']?></span></td>
+  <td><span class="badge badge-blue" style="font-size:.72rem">#<?=$b['id']?></span></td>
   <td style="font-size:.78rem;font-weight:500"><?=date('d M Y',strtotime($b['sell_date']))?></td>
   <td><span style="font-size:.8rem;font-weight:500"><?=htmlspecialchars($b['payment_method'])?></span></td>
   <td>
-    <span class="badge badge-gray" style="font-size:.6rem;background:var(--ink);color:var(--cream)">
+    <span class="badge badge-gray" style="font-size:.72rem;background:var(--surface-2);color:var(--text)">
       <?=htmlspecialchars($fmt_label)?>
     </span>
   </td>
   <td class="td-mono" style="font-size:.72rem"><?=htmlspecialchars($b['batch_ref']?:'—')?></td>
-  <td><span class="badge badge-gray" style="font-size:.62rem"><?=strtoupper($b['currency'])?></span></td>
+  <td><span class="badge badge-gray" style="font-size:.72rem"><?=strtoupper($b['currency'])?></span></td>
   <td class="td-mono text-right"><?=(int)$b['item_count']?></td>
   <td class="td-mono text-right"><?=(int)$b['grower_count']?></td>
   <td class="td-mono text-right fw-500">
@@ -475,9 +475,9 @@ include "includes/layout.php";
   </td>
   <td>
     <?php if($is_rev):?>
-    <span class="badge badge-red" style="font-size:.58rem" title="<?=htmlspecialchars($b['reversal_reason'])?>">↩ Reversed</span>
+    <span class="badge badge-red" style="font-size:.72rem" title="<?=htmlspecialchars($b['reversal_reason'])?>">↩ Reversed</span>
     <?php else:?>
-    <span class="badge badge-green" style="font-size:.58rem">✓ Active</span>
+    <span class="badge badge-green" style="font-size:.72rem">✓ Active</span>
     <?php endif;?>
   </td>
   <td style="white-space:nowrap" onclick="event.stopPropagation()">
@@ -503,20 +503,20 @@ include "includes/layout.php";
 
   <!-- Meta strip -->
   <div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-bottom:.85rem;
-              padding:.65rem 1rem;background:var(--ink);border-radius:var(--radius)">
-    <div><div style="font-size:.58rem;color:var(--cream-d);letter-spacing:.1em;text-transform:uppercase">Batch</div>
+              padding:.65rem 1rem;background:var(--surface-2);border-radius:var(--radius);color:var(--text)">
+    <div><div style="font-size:.78rem;color:var(--cream-d);">Batch</div>
          <div style="color:var(--gold);font-weight:700;font-size:.9rem">#<?=$b['id']?></div></div>
-    <div><div style="font-size:.58rem;color:var(--cream-d);letter-spacing:.1em;text-transform:uppercase">Sale Date</div>
+    <div><div style="font-size:.78rem;color:var(--cream-d);">Sale Date</div>
          <div style="color:#fff;font-size:.82rem"><?=date('d M Y',strtotime($b['sell_date']))?></div></div>
-    <div><div style="font-size:.58rem;color:var(--cream-d);letter-spacing:.1em;text-transform:uppercase">Method</div>
+    <div><div style="font-size:.78rem;color:var(--cream-d);">Method</div>
          <div style="color:#fff;font-size:.82rem"><?=htmlspecialchars($b['payment_method'])?></div></div>
-    <div><div style="font-size:.58rem;color:var(--cream-d);letter-spacing:.1em;text-transform:uppercase">Reference</div>
+    <div><div style="font-size:.78rem;color:var(--cream-d);">Reference</div>
          <div style="color:#fff;font-size:.82rem;font-family:monospace"><?=htmlspecialchars($b['batch_ref']?:'—')?></div></div>
-    <div><div style="font-size:.58rem;color:var(--cream-d);letter-spacing:.1em;text-transform:uppercase">File Format</div>
+    <div><div style="font-size:.78rem;color:var(--cream-d);">File Format</div>
          <div style="color:var(--gold);font-size:.82rem"><?=htmlspecialchars($fmt_label)?></div></div>
     <div style="margin-left:auto;text-align:right">
-      <div style="font-size:.58rem;color:var(--cream-d);letter-spacing:.1em;text-transform:uppercase">Total <?=strtoupper($b['currency'])?></div>
-      <div style="color:var(--gold);font-weight:700;font-size:1.1rem;font-family:'Bebas Neue',sans-serif">
+      <div style="font-size:.78rem;color:var(--cream-d);">Total <?=strtoupper($b['currency'])?></div>
+      <div style="color:var(--gold);font-weight:700;font-size:0.94rem;font-family:'DM Sans',sans-serif">
         <?=strtoupper($b['currency'])?> <?=number_format($prev_total,2)?>
       </div>
     </div>
@@ -534,7 +534,7 @@ include "includes/layout.php";
   <!-- Items table -->
   <div style="max-height:320px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius)">
   <table style="width:100%;border-collapse:collapse;font-size:.76rem">
-  <thead><tr style="background:var(--ink);color:var(--cream);position:sticky;top:0">
+  <thead><tr style="background:var(--surface-2);color:var(--text-muted);position:sticky;top:0">
     <th style="padding:5px 8px">#</th>
     <th style="padding:5px 8px">Grower #</th>
     <th style="padding:5px 8px">Name</th>
@@ -552,7 +552,7 @@ include "includes/layout.php";
   <tr style="border-bottom:1px solid var(--border);<?=!$ready?'background:#fff8f8':($seq%2===0?'background:var(--cream-d)':'')?>">
     <td style="padding:3px 8px;color:var(--muted)"><?=$seq?></td>
     <td style="padding:3px 8px">
-      <span class="badge badge-gold" style="font-size:.58rem"><?=htmlspecialchars($r['grower_num'])?></span>
+      <span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($r['grower_num'])?></span>
     </td>
     <td style="padding:3px 8px;font-weight:500"><?=htmlspecialchars(trim($r['name'].' '.$r['surname']))?></td>
     <td style="padding:3px 8px;font-size:.72rem">
@@ -569,9 +569,9 @@ include "includes/layout.php";
     </td>
     <td style="padding:3px 8px;text-align:center">
       <?php if($ready):?>
-        <span class="badge badge-green" style="font-size:.58rem">✓ Ready</span>
+        <span class="badge badge-green" style="font-size:.72rem">✓ Ready</span>
       <?php else:?>
-        <span class="badge badge-red" style="font-size:.58rem">
+        <span class="badge badge-red" style="font-size:.72rem">
           ✗ No <?=$is_mobile_method?'mobile':'account'?>
         </span>
       <?php endif;?>
@@ -579,7 +579,7 @@ include "includes/layout.php";
   </tr>
   <?php endforeach;?>
   </tbody>
-  <tfoot><tr style="background:var(--ink)">
+  <tfoot><tr style="background:var(--surface-2)">
     <td colspan="5" style="padding:4px 8px;color:var(--gold);font-size:.72rem;font-weight:600">
       TOTAL — <?=$seq?> item(s)
       <?php if(!empty($no_acct)):?>

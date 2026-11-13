@@ -376,12 +376,11 @@ include "includes/layout.php";
     max-height:320px; overflow-y:auto;
 }
 .audit-expand-panel {
-    background:#fff; border:1px solid var(--border); border-radius:6px;
+    background:var(--surface); border:1px solid var(--border); border-radius:6px;
     padding:.65rem .85rem; font-size:.73rem;
 }
 .audit-expand-panel h5 {
-    font-size:.57rem; font-weight:700; text-transform:uppercase;
-    letter-spacing:.09em; color:var(--muted); margin-bottom:.4rem;
+    font-size:.78rem; font-weight:700; color:var(--muted); margin-bottom:.4rem;
 }
 .audit-field-row { display:flex; gap:.5rem; padding:.22rem 0; border-bottom:1px solid var(--border); }
 .audit-field-row:last-child { border-bottom:none; }
@@ -413,15 +412,15 @@ include "includes/layout.php";
 <div class="card-body" style="padding:.65rem 1rem">
 <form method="GET" style="display:flex;gap:.5rem;align-items:flex-end;flex-wrap:wrap">
   <div class="form-group" style="margin:0">
-    <label style="font-size:.62rem">From</label>
+    <label style="font-size:.72rem">From</label>
     <input type="date" name="from" class="form-control" value="<?=htmlspecialchars((string)$f_from)?>" style="font-size:.8rem;padding:.35rem .6rem">
   </div>
   <div class="form-group" style="margin:0">
-    <label style="font-size:.62rem">To</label>
+    <label style="font-size:.72rem">To</label>
     <input type="date" name="to" class="form-control" value="<?=htmlspecialchars((string)$f_to)?>" style="font-size:.8rem;padding:.35rem .6rem">
   </div>
   <div class="form-group" style="margin:0">
-    <label style="font-size:.62rem">Floor</label>
+    <label style="font-size:.72rem">Floor</label>
     <select name="spid" class="form-control" style="font-size:.8rem;padding:.35rem .55rem">
       <option value="all" <?=$f_floor==='all'?'selected':''?>>All Floors</option>
       <?php foreach($selling_points as $sp):?>
@@ -430,7 +429,7 @@ include "includes/layout.php";
     </select>
   </div>
   <div class="form-group" style="margin:0">
-    <label style="font-size:.62rem">User</label>
+    <label style="font-size:.72rem">User</label>
     <select name="uid" class="form-control" style="font-size:.8rem;padding:.35rem .55rem">
       <option value="">All users</option>
       <?php foreach($filter_users as $u):?>
@@ -439,7 +438,7 @@ include "includes/layout.php";
     </select>
   </div>
   <div class="form-group" style="margin:0">
-    <label style="font-size:.62rem">Table</label>
+    <label style="font-size:.72rem">Table</label>
     <select name="tbl" class="form-control" style="font-size:.8rem;padding:.35rem .55rem">
       <option value="">All tables</option>
       <?php foreach($filter_tables as $t):?>
@@ -448,7 +447,7 @@ include "includes/layout.php";
     </select>
   </div>
   <div class="form-group" style="margin:0">
-    <label style="font-size:.62rem">Action</label>
+    <label style="font-size:.72rem">Action</label>
     <select name="act" class="form-control" style="font-size:.8rem;padding:.35rem .55rem">
       <option value="">All</option>
       <?php foreach($filter_actions as $a):?>
@@ -457,7 +456,7 @@ include "includes/layout.php";
     </select>
   </div>
   <div class="form-group" style="margin:0">
-    <label style="font-size:.62rem">Search</label>
+    <label style="font-size:.72rem">Search</label>
     <input type="text" name="q" class="form-control" value="<?=htmlspecialchars($f_search)?>" placeholder="Note or table..." style="font-size:.8rem;padding:.35rem .6rem;width:140px">
   </div>
   <button type="submit" class="btn btn-primary btn-sm">Filter</button>
@@ -476,9 +475,9 @@ include "includes/layout.php";
 
 <!-- Legend -->
 <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.75rem;font-size:.68rem;color:var(--muted)">
-  <span style="font-size:.6rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em">Color guide:</span>
+  <span style="font-size:.78rem;font-weight:600;">Color guide:</span>
   <span style="background:rgba(61,107,53,.1);border:1px solid rgba(61,107,53,.25);border-radius:3px;padding:2px 8px;color:#3d6b35">● Create / Add</span>
-  <span style="background:rgba(200,149,42,.1);border:1px solid rgba(200,149,42,.25);border-radius:3px;padding:2px 8px;color:#92650e">● Update / Edit</span>
+  <span style="background:rgba(200,149,42,.1);border:1px solid rgba(200,149,42,.25);border-radius:3px;padding:2px 8px;color:var(--warn-text)">● Update / Edit</span>
   <span style="background:rgba(192,58,43,.1);border:1px solid rgba(192,58,43,.25);border-radius:3px;padding:2px 8px;color:#c03a2b">● Delete / Void</span>
   <span style="color:var(--muted);font-style:italic">· Click any row to expand diff details</span>
 </div>
@@ -529,14 +528,14 @@ include "includes/layout.php";
 <tr class="audit-row" style="background:<?=$rowbg?>" onclick="toggleExpand('<?=$row_id?>')" title="Click to expand details">
   <td class="td-mono" style="font-size:.7rem;white-space:nowrap"><?=date('Y-m-d H:i:s',strtotime($r['created_at']))?></td>
   <td style="font-size:.78rem;font-weight:500"><?=htmlspecialchars($r['username']??'System')?></td>
-  <td><span class="badge <?=$badge?>" style="font-size:.6rem"><?=strtoupper(htmlspecialchars($r['action']))?></span></td>
+  <td><span class="badge <?=$badge?>" style="font-size:.72rem"><?=strtoupper(htmlspecialchars($r['action']))?></span></td>
   <td style="font-size:.72rem;font-family:monospace;color:var(--muted)"><?=htmlspecialchars($target)?></td>
   <td style="font-size:.72rem;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
       title="<?=htmlspecialchars(get_audit_summary($r))?>"><?=htmlspecialchars(get_audit_summary($r))?></td>
   <td style="font-size:.68rem;color:var(--muted)"><?=htmlspecialchars($r['ip_address'] ?: '—')?></td>
   <td style="text-align:center">
     <?php if($has_diff):?>
-    <span class="badge badge-gold" style="font-size:.58rem;cursor:pointer;padding:2px 6px" title="Click row to expand details">Details</span>
+    <span class="badge badge-gold" style="font-size:.72rem;cursor:pointer;padding:2px 6px" title="Click row to expand details">Details</span>
     <?php else:?>
     <span style="font-size:.65rem;color:var(--border)">—</span>
     <?php endif;?>
@@ -554,7 +553,7 @@ include "includes/layout.php";
     <?php if(!$all_keys && !$has_diff):?>
     <div style="color:var(--muted);font-size:.78rem;font-style:italic">No field detail recorded for this entry.</div>
     <?php else:?>
-    <div style="font-size:.67rem;color:var(--muted);margin-bottom:.45rem;font-weight:600;text-transform:uppercase;letter-spacing:.07em">
+    <div style="font-size:.78rem;color:var(--muted);margin-bottom:.45rem;font-weight:600;">
       <?=strtoupper($r['action'])?> on <code style="font-size:.68rem"><?=htmlspecialchars($r['table_name'])?></code>
       · Record #<?=$r['record_id']??'—'?>
       · <?=date('d/m/Y H:i:s',strtotime($r['created_at']))?>
@@ -596,14 +595,14 @@ include "includes/layout.php";
         <h5>Raw JSON</h5>
         <?php if($old_data):?>
         <div style="margin-bottom:.35rem">
-          <div style="font-size:.57rem;color:#c03a2b;font-weight:700;margin-bottom:.2rem">BEFORE</div>
-          <pre style="font-size:.62rem;white-space:pre-wrap;word-break:break-all;color:var(--muted);max-height:120px;overflow-y:auto"><?=htmlspecialchars(json_encode($old_data,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE))?></pre>
+          <div style="font-size:.72rem;color:#c03a2b;font-weight:700;margin-bottom:.2rem">BEFORE</div>
+          <pre style="font-size:.72rem;white-space:pre-wrap;word-break:break-all;color:var(--muted);max-height:120px;overflow-y:auto"><?=htmlspecialchars(json_encode($old_data,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE))?></pre>
         </div>
         <?php endif;?>
         <?php if($new_data):?>
         <div>
-          <div style="font-size:.57rem;color:#3d6b35;font-weight:700;margin-bottom:.2rem">AFTER</div>
-          <pre style="font-size:.62rem;white-space:pre-wrap;word-break:break-all;color:var(--muted);max-height:120px;overflow-y:auto"><?=htmlspecialchars(json_encode($new_data,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE))?></pre>
+          <div style="font-size:.72rem;color:#3d6b35;font-weight:700;margin-bottom:.2rem">AFTER</div>
+          <pre style="font-size:.72rem;white-space:pre-wrap;word-break:break-all;color:var(--muted);max-height:120px;overflow-y:auto"><?=htmlspecialchars(json_encode($new_data,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE))?></pre>
         </div>
         <?php endif;?>
         <?php if(!$old_data && !$new_data):?>
@@ -635,7 +634,7 @@ include "includes/layout.php";
 
 <!-- Legacy diff modal (kept for backward compatibility / keyboard shortcut) -->
 <div id="diff-modal" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.55);align-items:center;justify-content:center">
-  <div style="background:var(--cream);border-radius:10px;padding:1.5rem;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;border:1px solid var(--border)">
+  <div style="background:var(--surface);border-radius:10px;padding:1.5rem;max-width:600px;width:90%;max-height:calc(100vh - var(--top-h) - 2rem);overflow-y:auto;border:1px solid var(--border)">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
       <h3 id="diff-title" style="font-size:.9rem;margin:0">Change Details</h3>
       <button onclick="document.getElementById('diff-modal').style.display='none'" class="btn btn-ghost btn-sm">✕</button>
