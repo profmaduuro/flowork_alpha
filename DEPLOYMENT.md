@@ -65,7 +65,25 @@ C:\xampp\apache\bin\openssl.exe x509 -req -in server.csr -CA ca.crt -CAkey ca.ke
 
 Edit `server.ext` first if the address changed, then restart Apache. Devices need nothing new.
 
-## 5. Still to do on this server (needs an administrator)
+## 5. Online server (VPS) with Docker
+
+Caddy (HTTPS, Let's Encrypt) → PHP/Apache app → MariaDB 10.11, all from `docker-compose.yml`. A Linux VPS (Ubuntu 24.04, 2 GB RAM or more) with a domain name pointed at it.
+
+1. **DNS:** an A record such as `flowork.example.com` → the VPS's IP address.
+2. **Firewall:** allow only 22, 80 and 443 (`ufw allow OpenSSH && ufw allow 80,443/tcp && ufw enable`). Docker publishes the database, app and phpMyAdmin on `127.0.0.1` only.
+3. **Install Docker** (`curl -fsSL https://get.docker.com | sh`) and get the code: `git clone https://github.com/profmaduuro/flowork_alpha.git /opt/flowork && cd /opt/flowork`.
+4. **`.env`:** `cp .env.example .env`, then set `APP_ENV=production`, `FLOWORK_DOMAIN`, `MYSQL_ROOT_PASSWORD`, `FLOWORK_DB_PASSWORD`, `BACKUP_PASSPHRASE` and new values for `SETUP_KEY`/`BACKUP_TOKEN`/`SYSCHECK_KEY` (`openssl rand -hex 24`). `chmod 600 .env`. Carry over `includes/timb_key.php` (or `TIMB_ENC_KEY`) from the floor PC, or the saved TIMB logins must be entered again.
+5. **Start:** `docker compose up -d --build`. Caddy gets the certificate within a minute (`docker compose logs web`).
+6. **Database**, one of:
+   - new install: `docker compose exec app php maintenance/setup_database.php` (prints one-time passwords);
+   - move the floor PC's data: on the PC `C:\xampp\mysql\bin\mysqldump.exe --single-transaction --routines -u root king > king.sql`, copy it to the VPS by `scp`, then `docker compose exec -T db mariadb -uroot -p"$MYSQL_ROOT_PASSWORD" king < king.sql`. Delete `king.sql` on both machines afterwards.
+7. **Uploads:** copy the PC's `uploads/` folder (logos, documents) to `/opt/flowork/uploads/`.
+8. **Backups:** cron on the VPS, e.g. `30 23 * * * cd /opt/flowork && docker compose exec -T app php maintenance/scheduled_backup.php >> backups/scheduled_backup.log 2>&1`, and copy `backups/` off the server (another machine or cloud storage).
+9. **Check:** `https://<domain>/.env`, `/maintenance/` and `/scratch/` return 403; log in, set up 2FA, change the one-time passwords; RELEASE_CHECKLIST.md sections 2–6.
+
+Updates: `cd /opt/flowork && git pull && docker compose up -d --build`. phpMyAdmin: `ssh -L 8081:127.0.0.1:8081 user@vps`, then open `http://localhost:8081`.
+
+## 6. Still to do on this server (needs an administrator)
 
 - **Restart Apache** (section 2, step 1).
 - **Backups:** copy `BACKUP_PASSPHRASE` from `.env` to a safe place off this PC; point `BACKUP_COPY_DIR` at an external drive or cloud folder when one is available (today: `C:\FloworkBackups`, same disk); in Task Scheduler set `\Flowork\Nightly backup` to "Run whether user is logged on or not".

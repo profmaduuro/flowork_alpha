@@ -1,29 +1,30 @@
-version: '3.8'
-
-# Only nginx (port 80) is reachable from the network. Everything else is
+# Only Caddy (ports 80/443, HTTPS) is reachable from the network. Everything else is
 # either internal to the compose network or bound to 127.0.0.1 for local
 # debugging. Passwords come from .env (see .env.example) — compose refuses to
 # start if they are missing instead of falling back to known defaults.
 
 services:
 
-  # ── MySQL Database ────────────────────────────────────────────────────────
+  # ── Database ──────────────────────────────────────────────────────────────
+  # MariaDB, like XAMPP: the app uses MariaDB-only SQL (e.g. ADD COLUMN IF NOT
+  # EXISTS), which MySQL 8 rejects. A dump from XAMPP (MariaDB 10.4) imports as is.
   db:
-    image: mysql:8.0
+    image: mariadb:10.11
     container_name: flowork_db
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in .env}
-      MYSQL_DATABASE: king
-      MYSQL_USER: flowork
-      MYSQL_PASSWORD: ${FLOWORK_DB_PASSWORD:?set FLOWORK_DB_PASSWORD in .env}
+      MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in .env}
+      MARIADB_DATABASE: king
+      MARIADB_USER: flowork
+      MARIADB_PASSWORD: ${FLOWORK_DB_PASSWORD:?set FLOWORK_DB_PASSWORD in .env}
     volumes:
       - db_data:/var/lib/mysql
       - ./docker/mysql/conf.d:/etc/mysql/conf.d
     ports:
-      - "127.0.0.1:3307:3306"   # this machine only (MySQL Workbench etc.)
+      - "127.0.0.1:3307:3306"   # this machine only (SSH tunnel, MySQL Workbench etc.)
+    networks: [flowork]
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p\"$$MYSQL_ROOT_PASSWORD\""]
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -42,6 +43,9 @@ services:
       DB_USER: flowork
       DB_PASS: ${FLOWORK_DB_PASSWORD:?set FLOWORK_DB_PASSWORD in .env}
       APP_ENV: ${DOCKER_APP_ENV:-production}
+      # Requests come through Caddy (fixed address below), which sends the
+      # client's address in X-Forwarded-For. Login rate limits use it.
+      TRUSTED_PROXIES: 172.28.0.10
       # These container variables win over the mounted .env (see includes/env_loader.php).
       FLOWORK_TRUST_PROCESS_ENV: "1"
     volumes:
@@ -49,6 +53,7 @@ services:
       - ./docker/app/php.ini:/usr/local/etc/php/conf.d/custom.ini
     ports:
       - "127.0.0.1:8080:80"     # direct access for debugging, this machine only
+    networks: [flowork]
 
   # ── Redis (not used by the app yet; internal only) ────────────────────────
   redis:
@@ -57,24 +62,33 @@ services:
     restart: unless-stopped
     volumes:
       - redis_data:/data
+    networks: [flowork]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # ── Nginx Reverse Proxy (the only public entry point) ─────────────────────
+  # ── Caddy: HTTPS and the only public entry point ──────────────────────────
+  # Gets a Let's Encrypt certificate for FLOWORK_DOMAIN (see docker/caddy/Caddyfile).
   web:
-    image: nginx:alpine
+    image: caddy:2.8.4-alpine
     container_name: flowork_web
     restart: unless-stopped
     depends_on:
       - app
+    environment:
+      FLOWORK_DOMAIN: ${FLOWORK_DOMAIN:-localhost}
     ports:
-      - "80:80"     # Main entry point http://localhost
+      - "80:80"
+      - "443:443"
     volumes:
-      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-      - .:/var/www/html:ro
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data        # certificates: keep this volume
+      - caddy_config:/config
+    networks:
+      flowork:
+        ipv4_address: 172.28.0.10
 
   # ── phpMyAdmin (asks for a login; this machine only) ──────────────────────
   phpmyadmin:
@@ -86,10 +100,21 @@ services:
     environment:
       PMA_HOST: db
     ports:
-      - "127.0.0.1:8081:80"   # http://localhost:8081
+      - "127.0.0.1:8081:80"   # http://localhost:8081 (on a VPS: through an SSH tunnel)
+    networks: [flowork]
+
+networks:
+  flowork:
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24
 
 volumes:
   db_data:
     driver: local
   redis_data:
+    driver: local
+  caddy_data:
+    driver: local
+  caddy_config:
     driver: local

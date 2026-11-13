@@ -1,0 +1,26 @@
+# Public entry point. Caddy gets and renews a Let's Encrypt certificate for
+# FLOWORK_DOMAIN by itself (ports 80 and 443 must reach this server, and the
+# domain's DNS A record must point at it). Plain HTTP redirects to HTTPS.
+# With FLOWORK_DOMAIN unset it serves https://localhost with a local certificate.
+
+{$FLOWORK_DOMAIN:localhost} {
+	encode gzip
+
+	# Never serve command-line tools, scratch work, tests, backups, dotfiles
+	# (.env, .git) or dumps, whatever Apache's .htaccess handling is set to.
+	@blocked path_regexp blocked ^/(maintenance|scratch|tests|backups|docker)(/|$)|/\.|\.(sql|gz|zip|log|bak|yml|md|enc)$
+	respond @blocked 403
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+
+	# Caddy sends the client's own address in X-Forwarded-For (it ignores one
+	# sent by the client) and X-Forwarded-Proto: https, which the app needs for
+	# Secure session cookies. The app trusts it via TRUSTED_PROXIES.
+	reverse_proxy app:80 {
+		# Server-Sent Events (notification bell): pass data on at once
+		flush_interval -1
+	}
+}

@@ -24,8 +24,10 @@ Start from `.env.example`. The real `.env` never goes into git.
 
 - [ ] `MYSQL_ROOT_PASSWORD` and `FLOWORK_DB_PASSWORD` are set in `.env` to two different, strong random values. Compose refuses to start without them.
 - [ ] `DOCKER_APP_ENV=production` (or unset; production is the default).
-- [ ] `TRUSTED_PROXIES` is set to the IP address of the nginx container (`docker inspect flowork_web`). Without it every client shares one login rate-limit bucket. Never list addresses that clients can reach directly.
-- [ ] Only nginx is reachable from the network. MySQL (3307) and the app (8080) stay bound to `127.0.0.1`.
+- [ ] `FLOWORK_DOMAIN` is set, its DNS A record points at the server, and ports 80 and 443 are open, so Caddy can get the HTTPS certificate.
+- [ ] Compose sets `TRUSTED_PROXIES` to Caddy's fixed address (172.28.0.10). Two failed logins from different networks are counted separately (one shared bucket means it is wrong).
+- [ ] Only Caddy (80, 443) is reachable from the network. The database (3307), the app (8080) and phpMyAdmin (8081) stay bound to `127.0.0.1`; reach them through an SSH tunnel. The VPS firewall allows only 22, 80 and 443.
+- [ ] The database is MariaDB (as on XAMPP). Do not switch it to MySQL: the app uses MariaDB-only SQL.
 
 Without Docker: leave `TRUSTED_PROXIES` empty unless a reverse proxy or load balancer sits in front, and then list only that proxy's address.
 
@@ -48,7 +50,7 @@ Without Docker: leave `TRUSTED_PROXIES` empty unless a reverse proxy or load bal
 
 ## 6. After going live
 
-- [ ] `maintenance/` and `scratch/` return 403 over HTTP (both have a deny-all `.htaccess`; on nginx, deny them in the server block). Run those scripts only from the command line, e.g. `php maintenance/setup_database.php`.
+- [ ] `maintenance/` and `scratch/` return 403 over HTTP (both have a deny-all `.htaccess`; in Docker, Caddy also blocks them). Run those scripts only from the command line, e.g. `php maintenance/setup_database.php`.
 - [ ] On a new install, `php maintenance/setup_database.php` prints a one-time password for `sysadmin` and for the platform `developer` account. Log in and change both.
 - [ ] Change the passwords of any default or shared accounts. Remove test users.
 - [ ] Watch the PHP error log for the first day of trading.
