@@ -374,10 +374,22 @@ tr.is-done .dash-grower .name { color: var(--text-soft); font-weight: 400; }
 .dash-heatmap { width: 100%; border-collapse: collapse; font-size: .85rem; }
 .dash-heatmap th { padding: .55rem .6rem; text-align: center; font-size: .78rem; font-weight: 500; color: var(--text-muted); border-bottom: 1px solid var(--line); white-space: nowrap; max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
 .dash-heatmap th:first-child { text-align: left; }
-.dash-heatmap td { padding: .45rem .6rem; text-align: center; border-bottom: 1px solid var(--line); }
+.dash-heatmap td { padding: .25rem .6rem; text-align: center; border-bottom: 1px solid var(--line); white-space: nowrap; }
 .dash-heatmap td:first-child { text-align: left; }
+.dash-heatmap td:first-child .badge { font-size: .72rem; padding: .05rem .45rem; }
 .dash-heatmap .hm-price { font-weight: 600; font-variant-numeric: tabular-nums; }
-.dash-heatmap .hm-cnt { font-size: .75rem; color: var(--text-muted); }
+.dash-heatmap .hm-cnt { font-size: .72rem; color: var(--text-muted); margin-left: .35rem; }
+.dash-heatmap thead th { position: sticky; top: 0; background: var(--surface, var(--card, #fff)); z-index: 1; }
+.dash-heat-scroll { max-height: 420px; overflow: auto; padding: .5rem 1rem; }
+.dash-heat-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: .4rem; }
+.hm-tile { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 0 .35rem; padding: .35rem .5rem; border-radius: 6px; border: 1px solid var(--line); }
+.hm-tile .hm-grade { font-size: .72rem; font-weight: 600; letter-spacing: .02em; }
+.hm-tile .hm-price { font-weight: 600; font-variant-numeric: tabular-nums; font-size: .85rem; text-align: right; }
+.hm-tile .hm-cnt { grid-column: 1 / -1; font-size: .68rem; color: var(--text-muted); }
+.hm-tile.hm-low  { background: var(--bad-tint); }  .hm-tile.hm-low .hm-price  { color: var(--bad-text); }
+.hm-tile.hm-mid  { background: var(--warn-tint); } .hm-tile.hm-mid .hm-price  { color: var(--warn-text); }
+.hm-tile.hm-high { background: var(--ok-tint); }   .hm-tile.hm-high .hm-price { color: var(--ok-text); }
+.dash-heat-foot { padding: .45rem 1rem .7rem; font-size: .72rem; color: var(--text-muted); border-top: 1px solid var(--line); }
 .dash-heatmap .hm-low  { background: var(--bad-tint); }  .dash-heatmap .hm-low .hm-price  { color: var(--bad-text); }
 .dash-heatmap .hm-mid  { background: var(--warn-tint); } .dash-heatmap .hm-mid .hm-price  { color: var(--warn-text); }
 .dash-heatmap .hm-high { background: var(--ok-tint); }   .dash-heatmap .hm-high .hm-price { color: var(--ok-text); }
@@ -838,7 +850,27 @@ function dash_tools(string $chart, string $file, string $card, string $title, bo
         <button type="button" class="btn btn-ghost btn-sm btn-icon" onclick="printCard('card-price-heatmap','Price Heatmap')" title="Print the price table or save as PDF" aria-label="Print the price table or save as PDF"><?=dash_icon('printer')?></button>
       </div>
     </div>
-    <div style="overflow-x:auto;padding:.75rem 1rem">
+    <?php if(count($hm_buyers) === 1):
+      // One buyer: a grid of grade tiles instead of a one-column table, so 50+
+      // grades fit in a few rows.
+    ?>
+    <div class="dash-heat-scroll">
+      <div class="dash-heat-tiles">
+        <?php foreach($hm_grades as $g):
+          $cell = $hm_data[$g][$hm_buyers[0]] ?? null; if(!$cell) continue;
+          $intensity = ($cell['price'] - $hm_min) / $hm_range;
+          $band = $intensity < 0.35 ? 'hm-low' : ($intensity < 0.7 ? 'hm-mid' : 'hm-high');
+        ?>
+        <div class="hm-tile <?=$band?>" title="<?=htmlspecialchars($g)?> · <?=htmlspecialchars($hm_buyers[0])?>">
+          <span class="hm-grade"><?=htmlspecialchars($g)?></span>
+          <span class="hm-price">$<?=number_format($cell['price'],2)?></span>
+          <span class="hm-cnt"><?=$cell['cnt']?> bale<?=$cell['cnt']!=1?'s':''?></span>
+        </div>
+        <?php endforeach;?>
+      </div>
+    </div>
+    <?php else:?>
+    <div class="dash-heat-scroll">
       <table class="dash-heatmap">
         <thead>
           <tr>
@@ -862,8 +894,8 @@ function dash_tools(string $chart, string $file, string $card, string $title, bo
             ?>
             <td class="<?=$band?>">
               <?php if($cell):?>
-              <div class="hm-price">$<?=number_format($cell['price'],2)?></div>
-              <div class="hm-cnt"><?=$cell['cnt']?> bale<?=$cell['cnt']!=1?'s':''?></div>
+              <span class="hm-price">$<?=number_format($cell['price'],2)?></span>
+              <span class="hm-cnt"><?=$cell['cnt']?></span>
               <?php else:?>
               <span style="color:var(--text-muted)">—</span>
               <?php endif;?>
@@ -874,7 +906,10 @@ function dash_tools(string $chart, string $file, string $card, string $title, bo
         </tbody>
       </table>
     </div>
+    <?php endif;?>
+    <div class="dash-heat-foot"><?=count($hm_grades)?> grade<?=count($hm_grades)!=1?'s':''?> · <?=count($hm_buyers)?> buyer<?=count($hm_buyers)!=1?'s':''?><?=count($hm_buyers)>1?' · figure after the price is the number of bales':''?></div>
   </div>
+  <script>window.FW_HEATMAP = <?=json_encode(array_map(fn($r)=>[$r['grade'],$r['buyer'],round((float)$r['avg_price'],2),(int)$r['cnt']], $price_heatmap))?>;</script>
   <?php endif;?>
 
 </div><!-- end #tab-analytics -->
@@ -1270,21 +1305,12 @@ function exportChartCSV(chartId, filename) {
 
 // Export Heatmap Table from DOM to CSV
 function exportHeatmapCSV() {
-  var table = document.querySelector('#card-price-heatmap table');
-  if (!table) return;
-  
-  var csv = [];
-  var rows = table.querySelectorAll('tr');
-  for (var i = 0; i < rows.length; i++) {
-    var row = [], cols = rows[i].querySelectorAll('td, th');
-    for (var j = 0; j < cols.length; j++) {
-      var cleanText = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, " ").trim();
-      cleanText = cleanText.replace(/"/g, '""');
-      row.push('"' + cleanText + '"');
-    }
-    csv.push(row.join(","));
-  }
-  
+  var data = window.FW_HEATMAP || [];
+  if (!data.length) return;
+  var q = function(v){ return '"' + String(v).replace(/"/g, '""') + '"'; };
+  var csv = ['"Grade","Buyer","Avg price $/kg","Bales"'];
+  data.forEach(function(r){ csv.push([q(r[0]), q(r[1]), r[2].toFixed(2), r[3]].join(',')); });
+
   var blob = new Blob([csv.join("\r\n")], { type: 'text/csv;charset=utf-8;' });
   var link = document.createElement("a");
   link.href = URL.createObjectURL(blob);

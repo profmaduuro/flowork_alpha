@@ -180,38 +180,61 @@ include "includes/layout.php";
   </div>
 </div>
 
-<!-- PERIOD activity strip -->
-<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem;margin-bottom:.75rem">
-<?php
-$today_kpis = [
-    ['Ticketed',     number_format((int)($ticketed['ticketed']??0)), 'bales on floor'],
-    ['Growers Sold', number_format((int)($season['growers']??0)), ''],
-    ['Buyers',       number_format((int)($season['buyers']??0)), ''],
-    ['Selling Days', number_format((int)($season['sell_days']??0)), ''],
-];
-foreach($today_kpis as $k):?>
-<div style="background:var(--cream-d);border:1px solid var(--border);border-radius:var(--radius);padding:.65rem .85rem">
-  <div style="font-size:.78rem;font-weight:600;color:var(--muted)"><?=$k[0]?></div>
-  <div style="font-size:1.1rem;font-weight:700;font-family:'DM Sans',sans-serif;color:var(--gold);margin-top:2px"><?=$k[1]?></div>
-  <?php if($k[2]):?><div style="font-size:.65rem;color:var(--muted)"><?=$k[2]?></div><?php endif;?>
-</div>
-<?php endforeach;?>
-</div>
+<style>
+.md-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:.6rem}
+.md-kpis .kpi-sub{min-height:1em}
+.md-strip{display:flex;flex-wrap:wrap;gap:0;margin-bottom:1.1rem;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);overflow:hidden}
+.md-strip .it{flex:1 1 120px;padding:.55rem .9rem;border-right:1px solid var(--line);min-width:0}
+.md-strip .it:last-child{border-right:0}
+.md-strip .lb{font-size:.7rem;color:var(--muted);font-weight:600;white-space:nowrap}
+.md-strip .vl{font-size:1rem;font-weight:700;font-variant-numeric:tabular-nums;margin-top:1px;white-space:nowrap}
+.md-strip .vl small{font-size:.7rem;font-weight:500;color:var(--muted);margin-left:.25rem}
+.md-strip a.it{color:inherit;text-decoration:none}
+.md-strip a.it:hover{background:var(--cream-d)}
+.md-row{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:1rem;margin-bottom:1rem;align-items:stretch}
+.md-row>.card{display:flex;flex-direction:column;min-width:0}
+.md-buyers{padding:.4rem 1rem .8rem;overflow:auto;max-height:260px}
+.md-buyer{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.15rem .75rem;padding:.5rem 0;border-bottom:1px solid var(--line)}
+.md-buyer:last-child{border-bottom:0}
+.md-buyer .nm{font-size:.82rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.md-buyer .usd{font-size:.82rem;font-weight:600;font-variant-numeric:tabular-nums;text-align:right}
+.md-buyer .bar{grid-column:1/-1;height:5px;background:var(--cream-d);border-radius:3px;overflow:hidden}
+.md-buyer .bar span{display:block;height:100%;background:var(--gold);border-radius:3px}
+.md-buyer .meta{grid-column:1/-1;font-size:.7rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.md-empty{padding:2rem 1rem;text-align:center;color:var(--muted);font-size:.82rem}
+.md-grades{max-height:380px;overflow:auto}
+.md-grades table{width:100%}
+.md-grades thead th{position:sticky;top:0;background:var(--surface);z-index:1}
+.md-grades td,.md-grades th{padding-top:.3rem;padding-bottom:.3rem}
+.md-grades .share{display:flex;align-items:center;gap:.5rem;justify-content:flex-end}
+.md-grades .share .bar{width:90px;height:5px;background:var(--cream-d);border-radius:3px;overflow:hidden}
+.md-grades .share .bar span{display:block;height:100%;background:var(--leaf)}
+.md-grades .share em{font-style:normal;font-size:.72rem;color:var(--muted);width:3.2em;text-align:right;font-variant-numeric:tabular-nums}
+.md-foot{padding:.45rem 1rem .6rem;font-size:.72rem;color:var(--muted);border-top:1px solid var(--line)}
+@media (max-width:1000px){.md-kpis{grid-template-columns:repeat(2,1fr)}.md-row{grid-template-columns:1fr}}
+@media (max-width:560px){.md-grades .share .bar{display:none}}
+</style>
 
-<!-- PERIOD KPIs -->
-<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1.25rem">
 <?php
-$usd_curr = (float)($season['usd']??0);
-$usd_prev = (float)($prev_season['usd']??0);
+$usd_curr   = (float)($season['usd']??0);
+$usd_prev   = (float)($prev_season['usd']??0);
 $bales_curr = (int)($season['bales_sold']??0);
 $bales_prev = (int)($prev_season['bales_sold']??0);
-$season_kpis = [
-    ['Bales Sold',    number_format($bales_curr),  arrow(pct($bales_curr,$bales_prev)).' vs '.$yr_prev],
-    ['Mass',          number_format((float)($season['mass']??0),0).' kg', ''],
-    ['USD Value',     '$'.number_format($usd_curr,0), arrow(pct($usd_curr,$usd_prev)).' vs '.$yr_prev.($zig_rate>0?' · ZiG '.number_format($usd_curr*$zig_rate,0):'')],
-    ['Avg Price $/kg',           '$'.number_format((float)($season['avg_price']??0),4), 'Hi $'.number_format((float)($season['hi_price']??0),4)],
+$mass_curr  = (float)($season['mass']??0);
+$mass_prev  = (float)($prev_season['mass']??0);
+$tick_n     = (int)($ticketed['ticketed']??0);
+// "vs last year" only when last year had sales in the same range
+$vs = fn($a,$b)=>$b>0 ? arrow(pct($a,$b)).' vs '.$yr_prev : '<span style="color:var(--muted)">No sales in '.$yr_prev.' to compare</span>';
+$kpis = [
+    ['Bales sold',     number_format($bales_curr),            $vs($bales_curr,$bales_prev)],
+    ['USD value',      '$'.number_format($usd_curr,0),        $vs($usd_curr,$usd_prev)],
+    ['Mass',           number_format($mass_curr,0).' kg',     $vs($mass_curr,$mass_prev)],
+    ['Avg price $/kg', '$'.number_format((float)($season['avg_price']??0),2), 'Highest $'.number_format((float)($season['hi_price']??0),2)],
 ];
-foreach($season_kpis as $k):?>
+?>
+<!-- Main figures for the period -->
+<div class="md-kpis">
+<?php foreach($kpis as $k):?>
 <div class="kpi-card" style="--kpi-color:var(--gold)">
   <div class="kpi-label"><?=$k[0]?></div>
   <div class="kpi-value"><?=$k[1]?></div>
@@ -220,72 +243,86 @@ foreach($season_kpis as $k):?>
 <?php endforeach;?>
 </div>
 
-<!-- Charts row -->
-<div class="grid-2" style="align-items:start;gap:1rem;margin-bottom:1rem">
-
-<!-- 14-day trend -->
-<div class="card">
-<div class="card-head"><h3><?=htmlspecialchars($trend_title)?></h3></div>
-<div class="card-body" style="padding:.75rem"><div style="position:relative;height:180px"><canvas id="trendChart"></canvas></div></div>
+<!-- Smaller counts -->
+<div class="md-strip">
+  <div class="it"><div class="lb">Ticketed</div><div class="vl"><?=number_format($tick_n)?><small>bales</small></div></div>
+  <div class="it"><div class="lb">Sold of ticketed</div><div class="vl"><?=$tick_n>0?round(min(100,$bales_curr/$tick_n*100)).'%':'—'?></div></div>
+  <div class="it"><div class="lb">Growers sold</div><div class="vl"><?=number_format((int)($season['growers']??0))?></div></div>
+  <div class="it"><div class="lb">Buyers</div><div class="vl"><?=number_format((int)($season['buyers']??0))?></div></div>
+  <div class="it"><div class="lb">Selling days</div><div class="vl"><?=number_format((int)($season['sell_days']??0))?></div></div>
+  <a class="it" href="payments.php" title="Open Payments"><div class="lb">Pending payments</div><div class="vl"><?=number_format((int)($pend_pay['c']??0))?><small>$<?=number_format((float)($pend_pay['amt']??0),0)?></small></div></a>
+  <?php if($zig_rate>0):?>
+  <div class="it"><div class="lb">Value in ZiG</div><div class="vl"><?=number_format($usd_curr*$zig_rate,0)?><small>@ <?=number_format($zig_rate,4)?></small></div></div>
+  <?php endif;?>
 </div>
 
-<!-- Buyer share -->
-<div class="card">
-<div class="card-head"><h3>Buyer Share — <?=htmlspecialchars($per_label)?></h3></div>
-<div class="card-body" style="padding:.75rem"><div style="position:relative;height:180px"><canvas id="buyerChart"></canvas></div></div>
-</div>
-
-</div>
-
-<!-- Bottom tables -->
-<div class="grid-2" style="align-items:start;gap:1rem">
-
-<!-- Top buyers -->
-<div class="card">
-<div class="card-head"><h3>Top Buyers — <?=htmlspecialchars($per_label)?></h3></div>
-<div class="table-wrap"><table>
-<thead><tr><th>Buyer</th><th class="text-right">Bales</th><th class="text-right">USD Value</th></tr></thead>
-<tbody>
-<?php $total_buyer_usd = array_sum(array_column($top_buyers,'usd'))?:1;
-foreach($top_buyers as $b):
-    $pct_share = round($b['usd']/$total_buyer_usd*100,1);
-?>
-<tr>
-  <td>
-    <div style="font-size:.78rem;font-weight:500"><?=htmlspecialchars($b['buyer'])?></div>
-    <div style="height:4px;background:var(--cream-d);border-radius:2px;margin-top:3px;width:100%">
-      <div style="height:4px;width:<?=$pct_share?>%;background:var(--gold);border-radius:2px"></div>
+<!-- Revenue trend + buyers -->
+<div class="md-row">
+  <div class="card">
+    <div class="card-head"><h3><?=htmlspecialchars($trend_title)?></h3></div>
+    <div class="card-body" style="padding:.75rem;flex:1">
+      <?php if($trend):?>
+      <div style="position:relative;height:240px"><canvas id="trendChart"></canvas></div>
+      <?php else:?>
+      <div class="md-empty">No sales in this range.</div>
+      <?php endif;?>
     </div>
-  </td>
-  <td class="td-mono text-right"><?=number_format((int)$b['bales'])?></td>
-  <td class="td-mono text-right fw-500">$<?=number_format((float)$b['usd'],0)?><br><span style="font-size:.65rem;color:var(--muted)"><?=$pct_share?>%</span></td>
-</tr>
-<?php endforeach;?>
-</tbody>
-</table></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h3>Buyers</h3></div>
+    <?php if($top_buyers):
+      $total_buyer_usd = array_sum(array_column($top_buyers,'usd')) ?: 1;
+    ?>
+    <div class="md-buyers">
+      <?php foreach($top_buyers as $b):
+        $sh = round((float)$b['usd']/$total_buyer_usd*100,1);
+      ?>
+      <div class="md-buyer">
+        <span class="nm" title="<?=htmlspecialchars($b['buyer'])?>"><?=htmlspecialchars($b['buyer'])?></span>
+        <span class="usd">$<?=number_format((float)$b['usd'],0)?></span>
+        <div class="bar"><span style="width:<?=$sh?>%"></span></div>
+        <span class="meta"><?=$sh?>% of value · <?=number_format((int)$b['bales'])?> bales</span>
+      </div>
+      <?php endforeach;?>
+    </div>
+    <?php else:?>
+    <div class="md-empty">No buyer purchases in this range.</div>
+    <?php endif;?>
+  </div>
 </div>
 
 <!-- Grade breakdown -->
-<div class="card">
-<div class="card-head"><h3>Grade Breakdown — <?=htmlspecialchars($per_label)?></h3></div>
-<div class="table-wrap"><table>
-<thead><tr>
-  <th>Grade</th><th class="text-right">Bales</th>
-  <th class="text-right">Mass (kg)</th><th class="text-right">Avg $/kg</th>
-</tr></thead>
-<tbody>
-<?php foreach($grades as $gr):?>
-<tr>
-  <td><span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($gr['grade'])?></span></td>
-  <td class="td-mono text-right"><?=number_format((int)$gr['bales'])?></td>
-  <td class="td-mono text-right"><?=number_format((float)$gr['mass'],0)?></td>
-  <td class="td-mono text-right">$<?=number_format((float)$gr['avg_price'],4)?></td>
-</tr>
-<?php endforeach;?>
-</tbody>
-</table></div>
-</div>
-
+<div class="card" style="margin-bottom:1rem">
+  <div class="card-head"><h3>Grade breakdown</h3></div>
+  <?php if($grades):
+    $g_mass = array_sum(array_map(fn($g)=>(float)$g['mass'],$grades)) ?: 1;
+    $g_top5 = array_sum(array_map(fn($g)=>(float)$g['mass'],array_slice($grades,0,5)));
+    $g_max  = max(array_map(fn($g)=>(float)$g['mass'],$grades)) ?: 1;   // longest bar = biggest grade
+  ?>
+  <div class="md-grades table-wrap">
+    <table>
+      <thead><tr>
+        <th>Grade</th><th class="text-right">Bales</th><th class="text-right">Mass (kg)</th>
+        <th class="text-right">Share of mass</th><th class="text-right">Avg $/kg</th>
+      </tr></thead>
+      <tbody>
+      <?php foreach($grades as $gr): $gs = round((float)$gr['mass']/$g_mass*100,1); ?>
+      <tr>
+        <td><span class="badge badge-gold" style="font-size:.72rem"><?=htmlspecialchars($gr['grade'])?></span></td>
+        <td class="td-mono text-right"><?=number_format((int)$gr['bales'])?></td>
+        <td class="td-mono text-right"><?=number_format((float)$gr['mass'],0)?></td>
+        <td><div class="share"><span class="bar"><span style="width:<?=round((float)$gr['mass']/$g_max*100,1)?>%"></span></span><em><?=$gs?>%</em></div></td>
+        <td class="td-mono text-right">$<?=number_format((float)$gr['avg_price'],2)?></td>
+      </tr>
+      <?php endforeach;?>
+      </tbody>
+    </table>
+  </div>
+  <div class="md-foot"><?=count($grades)?> grades · the top 5 make up <?=round($g_top5/$g_mass*100)?>% of the mass</div>
+  <?php else:?>
+  <div class="md-empty">No graded sales in this range.</div>
+  <?php endif;?>
 </div>
 
 <!-- Quick links -->
@@ -306,26 +343,33 @@ foreach($top_buyers as $b):
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
+<?php
+// Every calendar day in the range (up to two months) gets a bar, so a single
+// selling day sits among its neighbours instead of one bar filling the chart.
+$trend_by = array_column($trend, null, 'dt');
+$trend_days = [];
+$span = (strtotime($date_to) - strtotime($trend_from)) / 86400;
+if ($span <= 62) {
+    for ($t = strtotime($trend_from); $t <= strtotime($date_to); $t += 86400) $trend_days[] = date('Y-m-d', $t);
+} else {
+    $trend_days = array_column($trend, 'dt');
+}
+?>
 // Trend chart
-var trendLabels = <?=json_encode(array_map(fn($r)=>date('d M',strtotime($r['dt'])),$trend))?>;
-var trendData   = <?=json_encode(array_map(fn($r)=>(float)$r['usd'],$trend))?>;
-new Chart(document.getElementById('trendChart'),{
+var trendCanvas = document.getElementById('trendChart');
+if (trendCanvas) {
+  var trendLabels = <?=json_encode(array_map(fn($d)=>date('d M',strtotime($d)),$trend_days))?>;
+  var trendData   = <?=json_encode(array_map(fn($d)=>(float)($trend_by[$d]['usd'] ?? 0),$trend_days))?>;
+  var trendBales  = <?=json_encode(array_map(fn($d)=>(int)($trend_by[$d]['bales'] ?? 0),$trend_days))?>;
+  new Chart(trendCanvas,{
     type:'bar',
-    data:{ labels:trendLabels, datasets:[{ label:'USD Value', data:trendData, backgroundColor:'rgba(200,149,42,.75)', borderRadius:4 }] },
-    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
-        scales:{ x:{grid:{display:false},ticks:{font:{size:9}}},
-                 y:{ticks:{callback:function(v){return '$'+Math.round(v/1000)+'k';},font:{size:9}},grid:{color:'rgba(128,128,128,.08)'}} } }
-});
-// Buyer donut
-var buyerLabels = <?=json_encode(array_column($top_buyers,'buyer'))?>;
-var buyerData   = <?=json_encode(array_map(fn($b)=>(float)$b['usd'],$top_buyers))?>;
-var buyerColors = ['#c8952a','#3d6b35','#e8b84b','#6a9b5f','#a07020','#2d5a25','#d4a84b','#4a7d3a'];
-new Chart(document.getElementById('buyerChart'),{
-    type:'doughnut',
-    data:{ labels:buyerLabels, datasets:[{ data:buyerData, backgroundColor:buyerColors, borderWidth:2 }] },
-    options:{ responsive:true, maintainAspectRatio:false,
-        plugins:{ legend:{ position:'right', labels:{ font:{size:9}, boxWidth:10, padding:8 } } } }
-});
+    data:{ labels:trendLabels, datasets:[{ label:'USD value', data:trendData, backgroundColor:'rgba(200,149,42,.8)', borderRadius:4, maxBarThickness:36 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false},
+        tooltip:{ callbacks:{ label:function(c){ return '$'+Math.round(c.parsed.y).toLocaleString()+' · '+trendBales[c.dataIndex]+' bales'; } } } },
+        scales:{ x:{grid:{display:false},ticks:{font:{size:10},maxRotation:0,autoSkip:true}},
+                 y:{beginAtZero:true,ticks:{callback:function(v){return v>=1000?'$'+Math.round(v/1000)+'k':'$'+v;},font:{size:10}},grid:{color:'rgba(128,128,128,.1)'}} } }
+  });
+}
 </script>
 
 <?php include "includes/layout_end.php"; ?>
