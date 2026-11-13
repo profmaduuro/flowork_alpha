@@ -381,7 +381,7 @@ function markSelectedPrinted() {
         headers: {'Content-Type':'application/x-www-form-urlencoded'},
         body: 'action=mark_many_printed&ids=' + ids.join(',')
     }).then(r=>r.json()).then(d=>{
-        if (d.ok) location.reload();
+        if (d.ok) fwReload();
     });
 }
 </script>

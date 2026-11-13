@@ -1113,7 +1113,7 @@ function retrySubmission(logId) {
     .then(d => {
         if (d.ok) {
             toast('✓ Retry Successful: Reference ' + d.ref);
-            setTimeout(() => location.reload(), 1000);
+            setTimeout(fwReload, 1000);
         } else {
             btn.disabled = false;
             btn.textContent = '⟳ Retry';

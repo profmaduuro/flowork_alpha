@@ -1060,7 +1060,7 @@ async function saveAddBuyerMark() {
     closeBuyer();
     toast('Buyer mark added');
     // Refresh page to show the newly added buyer mark in the main table list
-    setTimeout(() => { window.location.reload(); }, 500);
+    setTimeout(fwReload, 500);
 }
 
 // ── Edit buyer ──

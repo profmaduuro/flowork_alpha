@@ -26,6 +26,8 @@ if (!empty($_POST['toggle_theme'])) {
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<style>.fw-preload *,.fw-preload *::before,.fw-preload *::after{transition:none!important}</style>
+<script>document.documentElement.classList.add('fw-preload');</script>
 <?= csrf_js() ?>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title><?= htmlspecialchars($page_title) ?> — Flowork</title>
@@ -108,33 +110,15 @@ function toggleNavGroup(el){
   }
 }
 document.addEventListener('DOMContentLoaded',function(){
-  // Restore sidebar collapsed state
-  try{
-    if(localStorage.getItem('sb_collapsed')==='1'){
-      document.body.classList.add('sb-collapsed');
-    }
-  }catch(e){}
+  // Transitions back on once the restored page has painted
+  requestAnimationFrame(function(){ requestAnimationFrame(function(){
+    document.documentElement.classList.remove('fw-preload');
+  }); });
   // Add data-label tooltips to nav items for collapsed mode
   document.querySelectorAll('.nav-item').forEach(function(a){
     a.setAttribute('data-label', a.textContent.replace(/\s+/g,' ').trim());
   });
-  // Determine which group to open:
-  // 1) Group with the active page always wins
-  // 2) Otherwise restore the last-opened group from localStorage
-  var activeGroup=null;
-  var savedGroup=null;
-  try{savedGroup=localStorage.getItem('nav_open_group');}catch(e){}
-  document.querySelectorAll('.nav-group').forEach(function(g){
-    g.classList.remove('open');
-    if(g.querySelector('.nav-item.active')){
-      activeGroup=g;
-    }
-  });
-  var groupToOpen=activeGroup;
-  if(!groupToOpen && savedGroup){
-    groupToOpen=document.querySelector('.nav-group[data-group="'+savedGroup+'"]');
-  }
-  if(groupToOpen) groupToOpen.classList.add('open');
+  // The open section was restored right after the menu markup (no animation).
   // On nav-item click, save which group it belongs to so it stays open after navigation
   document.querySelectorAll('.nav-item').forEach(function(a){
     a.addEventListener('click',function(){
@@ -156,7 +140,7 @@ document.addEventListener('DOMContentLoaded',function(){
 <script src="<?= APP_BASE ?>/includes/pay_ui.js?v=4"></script>
 <?php endif; ?>
 <script>window.APP_BASE = '<?= APP_BASE ?>';</script>
-<script src="<?= APP_BASE ?>/includes/flowork.js?v=10"></script>
+<script src="<?= APP_BASE ?>/includes/flowork.js?v=11"></script>
 <script>
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('<?= APP_BASE ?>/sw.js').catch(() => {});
@@ -164,6 +148,7 @@ if ('serviceWorker' in navigator) {
 </script>
 </head>
 <body class="theme-<?= $theme ?> page-<?= htmlspecialchars($active_page ?? '') ?>">
+<script>try{if(localStorage.getItem('sb_collapsed')==='1'&&innerWidth>900)document.body.classList.add('sb-collapsed');}catch(e){}</script>
 <!-- TOPBAR -->
 <div class="topbar">
   <!-- Desktop: collapse/expand sidebar -->
@@ -937,6 +922,19 @@ if ('serviceWorker' in navigator) {
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M8 2v10M4 8l4 4 4-4M2 14h12"/></svg> Install Flowork app
   </button>
 </div>
+<script>
+// Restore the menu as it was (open section, scroll position) before the page
+// paints, so it does not visibly change on every page load.
+(function(){
+  var sb=document.getElementById('sidebar'); if(!sb) return;
+  var saved=null; try{saved=localStorage.getItem('nav_open_group');}catch(e){}
+  var act=sb.querySelector('.nav-item.active'), g=act?act.closest('.nav-group'):null;
+  if(!g && saved) g=sb.querySelector('.nav-group[data-group="'+saved+'"]');
+  if(g) g.classList.add('open');
+  try{var y=sessionStorage.getItem('fw_sb_scroll'); if(y) sb.scrollTop=+y;}catch(e){}
+  window.addEventListener('pagehide',function(){ try{sessionStorage.setItem('fw_sb_scroll',sb.scrollTop);}catch(e){} });
+})();
+</script>
 
 <!-- Real-Time SSE Listener -->
 <script>
@@ -1060,17 +1058,6 @@ if ('serviceWorker' in navigator) {
     if(gMode && navMap[key]){ window.location.href=window.APP_BASE+'/'+navMap[key]; gMode=false; return; }
   });
   kbOv.addEventListener('click', function(e){ if(e.target===this) this.style.display='none'; });
-})();
-</script>
-<script>
-// Keep the sidebar's scroll position from page to page.
-(function(){
-  var sb = document.getElementById('sidebar');
-  if (!sb) return;
-  try { var y = sessionStorage.getItem('fw_sb_scroll'); if (y) sb.scrollTop = +y; } catch(e){}
-  window.addEventListener('pagehide', function(){
-    try { sessionStorage.setItem('fw_sb_scroll', sb.scrollTop); } catch(e){}
-  });
 })();
 </script>
 

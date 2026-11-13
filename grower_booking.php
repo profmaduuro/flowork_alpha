@@ -1316,7 +1316,7 @@ async function uploadTimbBooking(){
             return;
         }
         // Reload to show success msg & new bookings
-        location.reload();
+        fwReload();
     } catch(e) {
         btn.disabled = false; btn.textContent = '🔓 Decrypt & Book Growers';
         msgEl.innerHTML = '<span style="color:var(--danger)">✕ '+xe(e.message)+'</span>';

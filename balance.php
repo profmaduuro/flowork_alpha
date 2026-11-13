@@ -1686,7 +1686,7 @@ function doReverse(){
             document.getElementById('rev-val').value = '';
             res.innerHTML = '<span style="color:var(--leaf);font-weight:600">&#10003; ' + xe(d.msg) + '</span>';
             if(typeof fw !== 'undefined') fw.toast(d.msg, 'success');
-            setTimeout(function(){ location.reload(); }, 1800);
+            setTimeout(fwReload, 1800);
         } else {
             res.innerHTML = '<span style="color:var(--danger)">&#10005; ' + xe(d.error||'Failed') + '</span>';
         }

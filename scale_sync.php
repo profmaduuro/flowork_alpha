@@ -342,7 +342,7 @@ function pollQueue(){
             if (liveBadge) liveBadge.textContent='Updated '+new Date().toLocaleTimeString();
             
             if(d.count > 0 && sessionStorage.getItem('active_sync_tab') === 'queue') {
-                location.reload();
+                fwReload();
             }
         }).catch(()=>{});
 }

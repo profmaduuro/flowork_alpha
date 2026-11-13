@@ -882,7 +882,7 @@ async function uploadTimbSo(){
             msgEl.innerHTML='<span style="color:var(--danger)">✕ '+xe(d.error)+'</span>';
             return;
         }
-        location.reload();
+        fwReload();
     } catch(e){
         btn.disabled=false; btn.textContent='🔓 Decrypt & Preview';
         msgEl.innerHTML='<span style="color:var(--danger)">✕ '+xe(e.message)+'</span>';
@@ -903,7 +903,7 @@ async function importTimbSo(){
         if (d.error){ alert(d.error); return; }
         msgEl.textContent = '✓ '+d.msg;
         if(window.fw&&fw.toast) fw.toast(d.msg,'success');
-        setTimeout(()=>location.reload(), 1300);
+        setTimeout(fwReload, 1300);
     } catch(e){
         btn.disabled=false;
         alert(e.message);

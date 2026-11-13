@@ -213,6 +213,13 @@
     };
 
     /* ─── GLOBAL fw ─────────────────────────────────────────────────── */
+    // Reload the page as a normal navigation: a same-URL replace keeps the smooth
+    // page transition and the menu as it is, where location.reload() flashes the
+    // whole screen. A URL with a #fragment would only scroll, so those reload.
+    window.fwReload = function(){
+        if (location.hash) { location.reload(); return; }
+        location.replace(location.href);
+    };
     window.fw = {
         base: function(){ return (window.APP_BASE||'').replace(/\/+$/,''); },
         toast: toast,
@@ -289,7 +296,7 @@
                 } else if(onOk==='toggle-row-dim'){
                     var r2=btn.closest('tr'); if(r2) r2.style.opacity=r2.style.opacity==='0.4'?'1':'0.4';
                 } else if(onOk==='reload'){
-                    setTimeout(function(){location.reload();},800);
+                    setTimeout(fwReload,800);
                 }
             }
         }).catch(function(){ pErr(); fw.spin(btn,false); toast('Network error — try again.','error'); });

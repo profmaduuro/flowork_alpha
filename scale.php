@@ -546,7 +546,7 @@ async function syncOfflineQueue() {
     
     if (successCount > 0) {
         // Quick reload to get updated totals and rows from server
-        window.location.reload();
+        fwReload();
     } else {
         syncBtn.disabled = false;
         syncBtn.textContent = 'Retry Sync';

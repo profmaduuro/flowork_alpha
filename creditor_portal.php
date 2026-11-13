@@ -684,7 +684,7 @@ function saveCreditor(id){
     fetch('creditor_portal.php?ajax=save_creditor',{method:'POST',body:fd,headers:{'X-Requested-With':'XMLHttpRequest'}})
     .then(function(r){return r.json();})
     .then(function(d){
-        if(d.ok){toast(d.msg);closeModal();setTimeout(function(){location.reload();},1000);}
+        if(d.ok){toast(d.msg);closeModal();setTimeout(fwReload,1000);}
         else toast(d.error,'error');
     });
 }
@@ -777,7 +777,7 @@ function saveSO(id){
     fetch('creditor_portal.php?ajax=save_stoporder',{method:'POST',body:fd,headers:{'X-Requested-With':'XMLHttpRequest'}})
     .then(function(r){return r.json();})
     .then(function(d){
-        if(d.ok){toast(d.msg);closeModal();setTimeout(function(){location.reload();},1000);}
+        if(d.ok){toast(d.msg);closeModal();setTimeout(fwReload,1000);}
         else toast(d.error,'error');
     });
 }
