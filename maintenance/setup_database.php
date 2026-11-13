@@ -1163,8 +1163,12 @@ if ($chk_admin && $chk_admin->num_rows === 0) {
     require_once dirname(__DIR__) . '/includes/password_helper.php';
     $admin_pass = bin2hex(random_bytes(9));
     $admin_hash = $conn->real_escape_string(flowork_password_hash($admin_pass));
-    if ($conn->query("INSERT INTO users (id,username,password,active,is_admin,role,created_at)
-                      VALUES (1,'sysadmin','$admin_hash',1,1,'admin',NOW())")) {
+    // sysadmin is the install's master user (all floors, can create other
+    // masters). Without one nobody could ever be made master: a floor admin
+    // may not grant it. provision_customer.php ties a customer's sysadmin to
+    // its floor instead.
+    if ($conn->query("INSERT INTO users (id,username,password,active,is_admin,is_master,role,selling_pointid,created_at)
+                      VALUES (1,'sysadmin','$admin_hash',1,1,1,'admin',0,NOW())")) {
         $results[] = "sysadmin login created with password: $admin_pass — copy it now, it is not shown again, and change it after the first login";
     } else {
         $errors[] = "❌ sysadmin seeding: ".$conn->error;

@@ -83,7 +83,7 @@ try {
     $end = date('Y-m-d', strtotime("+$months months"));
     $c->query("INSERT INTO flowork_subscriptions (selling_pointid, status, start_date, end_date) VALUES ($spid, 'Active', CURDATE(), '$end')")
         or throw new RuntimeException($c->error);
-    $c->query("UPDATE users SET selling_pointid=$spid WHERE username='sysadmin'");
+    $c->query("UPDATE users SET selling_pointid=$spid, is_master=0 WHERE username='sysadmin'");
     echo "Floor '$floor' ($code) created as id $spid, subscription active until $end.\n";
 
     // 4. The customer's .env
