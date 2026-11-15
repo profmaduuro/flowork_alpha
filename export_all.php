@@ -249,25 +249,38 @@ elseif ($page === 'eod') {
     if ($ccq && $ccq!==true) while($r=$ccq->fetch_assoc()) $cc_charges[]=(int)$r['id'];
 
     $cookie = session_name().'='.session_id();
-    // The sub-requests go to this same server over loopback HTTP. The browser's
-    // address (a LAN IP over HTTPS with the floor's self-signed certificate) fails
-    // certificate checks from here, so every report used to be dropped silently.
-    // .htaccess does not redirect 127.0.0.1 to HTTPS.
-    $base = 'http://127.0.0.1'
+    // The sub-requests repeat the browser's own request (same scheme, Host and
+    // path, so Apache picks the same virtual host / document root) but are always
+    // connected to this machine over loopback. A bare http://127.0.0.1/... lands on
+    // Apache's default site, which on a server where Flowork has its own vhost or
+    // domain has no eod_reports.php, so every report came back HTTP 404.
+    // Certificate checks are off because the connection is pinned to 127.0.0.1
+    // (the floor's LAN certificate is self-signed); the cookie never leaves the box.
+    $https  = !empty($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) !== 'off';
+    $port   = (int)($_SERVER['SERVER_PORT'] ?? 0) ?: ($https ? 443 : 80);
+    $host   = $_SERVER['HTTP_HOST'] ?? '';
+    if (!preg_match('/^[A-Za-z0-9.\-]+(:\d+)?$|^\[[0-9A-Fa-f:.]+\](:\d+)?$/', $host)) $host = '127.0.0.1';
+    $base = ($https ? 'https' : 'http') . '://' . $host
           . rtrim(str_replace('\\','/',dirname($_SERVER['PHP_SELF'])),'/') . '/eod_reports.php';
+    $connect_to = ["::127.0.0.1:$port"];   // any host/port in the URL -> this Apache
     session_write_close();   // release the lock so sub-requests can read the session
 
     $failed = []; $empty = [];
-    $fetch = function($url) use($cookie,&$failed){
+    $fetch = function($url) use($cookie,$connect_to,&$failed){
         $ch=curl_init($url);
         curl_setopt_array($ch,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_HEADER=>true,
-            CURLOPT_COOKIE=>$cookie,CURLOPT_TIMEOUT=>90,CURLOPT_FOLLOWLOCATION=>false]);
+            CURLOPT_COOKIE=>$cookie,CURLOPT_TIMEOUT=>90,CURLOPT_FOLLOWLOCATION=>false,
+            CURLOPT_CONNECT_TO=>$connect_to,
+            CURLOPT_SSL_VERIFYPEER=>false,CURLOPT_SSL_VERIFYHOST=>0]);
         $resp=curl_exec($ch);
         $hs=curl_getinfo($ch,CURLINFO_HEADER_SIZE); $code=curl_getinfo($ch,CURLINFO_HTTP_CODE);
         $cerr=curl_error($ch);
         curl_close($ch);
         $rep=preg_match('/[?&]report=([a-z_]+)/',$url,$rm)?$rm[1]:$url;
-        if($resp===false || $code!==200){ $failed[]="$rep: ".($resp===false?$cerr:"HTTP $code"); return null; }
+        if($resp===false || $code!==200){
+            $failed[]="$rep: ".($resp===false?$cerr:"HTTP $code")." (".preg_replace('/\?.*/','',$url).")";
+            return null;
+        }
         $headers=substr($resp,0,$hs); $body=substr($resp,$hs);
         // only accept real file downloads (must carry an attachment filename)
         if(!preg_match('/filename="([^"]+)"/i',$headers,$m)) return null;
