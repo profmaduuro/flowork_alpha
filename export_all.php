@@ -250,41 +250,57 @@ elseif ($page === 'eod') {
 
     $cookie = session_name().'='.session_id();
     // The sub-requests repeat the browser's own request (same scheme, Host and
-    // path, so Apache picks the same virtual host / document root) but are always
-    // connected to this machine over loopback. A bare http://127.0.0.1/... lands on
-    // Apache's default site, which on a server where Flowork has its own vhost or
-    // domain has no eod_reports.php, so every report came back HTTP 404.
-    // Certificate checks are off because the connection is pinned to 127.0.0.1
-    // (the floor's LAN certificate is self-signed); the cookie never leaves the box.
+    // path, so the web server picks the same site / document root) but are always
+    // connected to this machine. A bare http://127.0.0.1/... lands on Apache's
+    // default site, which on a server where Flowork has its own vhost or domain
+    // has no eod_reports.php, so every report came back HTTP 404.
+    // The connection goes first to SERVER_ADDR, the local address the browser's
+    // request arrived on (hosts that bind each site to the public IP do not serve
+    // it on 127.0.0.1), then to 127.0.0.1. Both are this server, so the session
+    // cookie never leaves the box, which is why certificate checks can be off
+    // (the floor's LAN certificate is self-signed).
     $https  = !empty($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) !== 'off';
     $port   = (int)($_SERVER['SERVER_PORT'] ?? 0) ?: ($https ? 443 : 80);
     $host   = $_SERVER['HTTP_HOST'] ?? '';
     if (!preg_match('/^[A-Za-z0-9.\-]+(:\d+)?$|^\[[0-9A-Fa-f:.]+\](:\d+)?$/', $host)) $host = '127.0.0.1';
     $base = ($https ? 'https' : 'http') . '://' . $host
           . rtrim(str_replace('\\','/',dirname($_SERVER['PHP_SELF'])),'/') . '/eod_reports.php';
-    $connect_to = ["::127.0.0.1:$port"];   // any host/port in the URL -> this Apache
+    $targets = [];
+    $saddr = $_SERVER['SERVER_ADDR'] ?? '';
+    if (filter_var($saddr, FILTER_VALIDATE_IP)) $targets[] = strpos($saddr, ':') !== false ? "[$saddr]" : $saddr;
+    $targets[] = '127.0.0.1';
+    $targets = array_values(array_unique($targets));
+    $target = null;          // the first target that answers is used for the rest
     session_write_close();   // release the lock so sub-requests can read the session
 
     $failed = []; $empty = [];
-    $fetch = function($url) use($cookie,$connect_to,&$failed){
-        $ch=curl_init($url);
-        curl_setopt_array($ch,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_HEADER=>true,
-            CURLOPT_COOKIE=>$cookie,CURLOPT_TIMEOUT=>90,CURLOPT_FOLLOWLOCATION=>false,
-            CURLOPT_CONNECT_TO=>$connect_to,
-            CURLOPT_SSL_VERIFYPEER=>false,CURLOPT_SSL_VERIFYHOST=>0]);
-        $resp=curl_exec($ch);
-        $hs=curl_getinfo($ch,CURLINFO_HEADER_SIZE); $code=curl_getinfo($ch,CURLINFO_HTTP_CODE);
-        $cerr=curl_error($ch);
-        curl_close($ch);
+    $dead = [];              // addresses that refused or timed out: not retried per report
+    $fetch = function($url) use($cookie,$targets,$port,&$target,&$dead,&$failed){
         $rep=preg_match('/[?&]report=([a-z_]+)/',$url,$rm)?$rm[1]:$url;
-        if($resp===false || $code!==200){
-            $failed[]="$rep: ".($resp===false?$cerr:"HTTP $code")." (".preg_replace('/\?.*/','',$url).")";
-            return null;
+        $tries=[];
+        foreach(($target!==null?[$target]:array_diff($targets,$dead)) as $t){
+            $ch=curl_init($url);
+            curl_setopt_array($ch,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_HEADER=>true,
+                CURLOPT_COOKIE=>$cookie,CURLOPT_TIMEOUT=>90,CURLOPT_CONNECTTIMEOUT=>10,
+                CURLOPT_FOLLOWLOCATION=>false,
+                CURLOPT_CONNECT_TO=>["::$t:$port"],   // any host/port in the URL -> this server
+                CURLOPT_SSL_VERIFYPEER=>false,CURLOPT_SSL_VERIFYHOST=>0]);
+            $resp=curl_exec($ch);
+            $hs=curl_getinfo($ch,CURLINFO_HEADER_SIZE); $code=curl_getinfo($ch,CURLINFO_HTTP_CODE);
+            $cerr=curl_error($ch);
+            curl_close($ch);
+            $tries[]="$t:$port ".($resp===false?$cerr:"HTTP $code");
+            if($resp===false && $code===0) $dead[]=$t;
+            if($resp===false || $code===404) continue;   // wrong site on this address, try the next
+            $target=$t;
+            if($code!==200) break;
+            $headers=substr($resp,0,$hs); $body=substr($resp,$hs);
+            // only accept real file downloads (must carry an attachment filename)
+            if(!preg_match('/filename="([^"]+)"/i',$headers,$m)) return null;
+            return [$m[1],$body];
         }
-        $headers=substr($resp,0,$hs); $body=substr($resp,$hs);
-        // only accept real file downloads (must carry an attachment filename)
-        if(!preg_match('/filename="([^"]+)"/i',$headers,$m)) return null;
-        return [$m[1],$body];
+        $failed[]="$rep: ".($tries?implode('; ',$tries):'no reachable address ('.implode(', ',$dead).')')." (".preg_replace('/\?.*/','',$url).")";
+        return null;
     };
     
     $filter_qs = "";
