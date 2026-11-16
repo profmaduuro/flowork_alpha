@@ -22,8 +22,8 @@ if (($_GET['template'] ?? '') === 'json') {
     header('Content-Type: application/json; charset=utf-8');
     header('Content-Disposition: attachment; filename="bale_import_template.json"');
     echo json_encode(['bales' => [
-        ['grower_num'=>'V123456','barcode'=>'650074101A','mass'=>112,'price'=>2.85,'timb_grade'=>'L1O','buyer'=>'BA1','buyer_grade'=>'','sale_code'=>'','sell_date'=>$today,'scale_barcode'=>'VL0076901','lot'=>1,'split'=>1],
-        ['grower_num'=>'V123456','barcode'=>'650074102B','mass'=>98,'price'=>null,'timb_grade'=>'','buyer'=>'','buyer_grade'=>'','sale_code'=>'R','sell_date'=>$today,'scale_barcode'=>'VL0076902','lot'=>2,'split'=>1],
+        ['grower_num'=>'V123456','barcode'=>'650074101A','mass'=>112,'price'=>2.85,'timb_grade'=>'L1O','buyer'=>'BA1','buyer_grade'=>'','sale_code'=>'','sell_date'=>$today,'scale_barcode'=>'VL0076901','lot'=>1,'split'=>1,'location'=>'A'],
+        ['grower_num'=>'V123456','barcode'=>'650074102B','mass'=>98,'price'=>null,'timb_grade'=>'','buyer'=>'','buyer_grade'=>'','sale_code'=>'R','sell_date'=>$today,'scale_barcode'=>'VL0076902','lot'=>2,'split'=>1,'location'=>'B'],
     ]], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
     exit;
 }
@@ -32,9 +32,9 @@ if (isset($_GET['template'])) {
     header('Content-Type: text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename="bale_import_template.csv"');
     $out = fopen('php://output', 'w');
-    fputcsv($out, ['grower_num','barcode','mass','price','timb_grade','buyer','buyer_grade','sale_code','sell_date','scale_barcode','lot','split']);
-    fputcsv($out, ['V123456','650074101A','112','2.85','L1O','BA1','','',$today,'VL0076901','1','1']);
-    fputcsv($out, ['V123456','650074102B','98','','','','','R',$today,'VL0076902','2','1']);
+    fputcsv($out, ['grower_num','barcode','mass','price','timb_grade','buyer','buyer_grade','sale_code','sell_date','scale_barcode','lot','split','location']);
+    fputcsv($out, ['V123456','650074101A','112','2.85','L1O','BA1','','',$today,'VL0076901','1','1','A']);
+    fputcsv($out, ['V123456','650074102B','98','','','','','R',$today,'VL0076902','2','1','B']);
     fclose($out);
     exit;
 }
@@ -172,6 +172,7 @@ if ($pending) {
             'zig_rate'            => (float)$opt['zig_rate'],
             'default_buyerid'     => $opt['default_buyer'],
             'default_buyer_label' => $buyer_label,
+            'default_locid'       => $opt['location'],
         ]);
         $sha = $conn->real_escape_string($pending['sha1']);
         $dup = $conn->query("SELECT id, created_at FROM bale_imports WHERE file_sha1='$sha' AND selling_pointid=$spid AND status='imported' LIMIT 1");
@@ -250,14 +251,16 @@ include "includes/layout.php";
   Each row is one bale. Needed: <strong>grower number</strong>, <strong>ticket barcode</strong>, <strong>mass</strong>;
   and for sold bales <strong>price</strong> (USD/kg, or cents), <strong>TIMB grade</strong> and <strong>buyer code</strong>.
   Rejected bales carry sale code R, CO or RO and need no price.
-  Optional: buyer grade (defaults to the TIMB grade), sell date, scale/TIMB tag, lot, group, split, sales rep.
+  Optional: buyer grade (defaults to the TIMB grade), sell date, scale/TIMB tag, lot, group, split, sales rep,
+  and <strong>bale location</strong> (the code or name of one of this floor's locations, e.g. A or B): each bale goes to its own location,
+  and bales without one go to the location you choose in the next step.
   Column names do not have to match: you choose which column is which in the next step.
   Comma, semicolon, tab and pipe separated files are all read.
   <br>JSON files: a list of bale records, e.g. <code>[{"grower_num":"V123456","barcode":"650074101A","mass":112,"price":2.85,…}]</code>,
   or the same list under a key such as <code>"bales"</code> or <code>"data"</code>. Each record's fields become the columns to match;
   nested fields such as <code>{"grower":{"num":…}}</code> show as <code>grower_num</code>.
   <br>TIMB bale files (<code>.v</code>, e.g. <code>VLBL0522.v</code>) are read as they are: the sell date is taken from the file name,
-  the ZiG rate from the file, and you choose the buyer, since the file has none.
+  the ZiG rate from the file, and you choose the buyer and the location, since the file has neither.
 </div>
 </div>
 </div>
@@ -311,18 +314,23 @@ include "includes/layout.php";
     </select>
     <div style="font-size:.68rem;color:var(--muted);margin-top:.25rem">The growers go onto this transporter's delivery note in Receiving. Growers already on a booked delivery note stay on it.</div>
   </div>
-  <?php if ($loc_opts): ?>
   <div class="form-group" style="margin:0">
-    <label for="bi-loc">Location</label>
+    <label for="bi-loc">Location for these bales</label>
+    <?php if ($loc_opts): ?>
     <select name="location" id="bi-loc" class="form-control">
-      <option value="0">— none —</option>
+      <option value="0">— no location —</option>
       <?php foreach ($loc_opts as $lo): ?>
       <option value="<?=(int)$lo['id']?>" <?=(int)$opt['location']===(int)$lo['id']?'selected':''?>><?=$h($lo['code'])?> · <?=$h($lo['name'])?></option>
       <?php endforeach; ?>
     </select>
-    <div style="font-size:.68rem;color:var(--muted);margin-top:.25rem">For the import or new transporter. EOD reports filtered by location find the bales here.</div>
+    <div style="font-size:.68rem;color:var(--muted);margin-top:.25rem"><?= ($map['location'] ?? -1) >= 0
+      ? 'For bales with no location in the file. Bales with one go to that location.'
+      : 'Every bale in the file goes to this location. To split them, add a location column to the file (A, B, …).' ?></div>
+    <?php else: ?>
+    <div class="form-control" style="background:var(--surface-3);color:var(--muted)">No locations on this floor</div>
+    <div style="font-size:.68rem;color:var(--muted);margin-top:.25rem">Add them under <a href="locations.php">Locations</a> to sort bales by location.</div>
+    <?php endif; ?>
   </div>
-  <?php endif; ?>
   <div class="form-group" id="bi-tp-new" style="margin:0;<?=$opt['transporter']==='new'?'':'display:none'?>">
     <label>New transporter</label>
     <div style="display:flex;gap:.4rem">
@@ -411,7 +419,7 @@ include "includes/layout.php";
 <div class="card-head"><h3>Growers going to Booking and Receiving</h3></div>
 <div class="table-wrap" style="max-height:calc(100vh - var(--top-h) - 2rem);overflow:auto"><table>
 <thead><tr><th>Grower</th><th>Name</th><th>Sell date</th><th class="text-right">Bales</th><th class="text-right">Rejected</th>
-  <th class="text-right">Mass (kg)</th><th class="text-right">Gross USD</th><th>Booking</th><th>Delivery note</th></tr></thead>
+  <th class="text-right">Mass (kg)</th><th class="text-right">Gross USD</th><th>Location</th><th>Booking</th><th>Delivery note</th></tr></thead>
 <tbody>
 <?php foreach($check['deliveries'] as $dv):?>
 <tr>
@@ -422,6 +430,7 @@ include "includes/layout.php";
   <td class="text-right"><?=$dv['rejected']?></td>
   <td class="text-right td-mono"><?=number_format($dv['mass'],0)?></td>
   <td class="text-right td-mono"><?=number_format($dv['usd'],2)?></td>
+  <td><?=$dv['loc_code'] !== '' ? '<span class="badge badge-gold">' . $h($dv['loc_code']) . '</span>' : '<span class="text-muted">—</span>'?></td>
   <td><?=$dv['booking'] ? '<span class="badge badge-green">Booked · bales updated</span>' : '<span class="badge badge-gray">Will book</span>'?></td>
   <td><?=$dv['delivery'] ? '<span class="badge badge-green">Booked note</span>' : $h($tp_label)?></td>
 </tr>

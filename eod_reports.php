@@ -146,7 +146,7 @@ function load_bales($conn, $date_f, $spid, $buyer_f, $loc_f, $ytd=false) {
         JOIN  growers g               ON g.id   = bj.growerid
         JOIN  transporter_growers tg2 ON tg2.id = bj.transporter_growersid
         LEFT JOIN transporter t       ON t.id   = tg2.transporterid
-        LEFT JOIN bale_locations bl   ON bl.id  = t.location_id
+        LEFT JOIN bale_locations bl   ON bl.id  = COALESCE(tg2.locationid, t.location_id)
         LEFT JOIN timb_grower_registry tgr
                                       ON tgr.grower_num     = g.grower_num
                                      AND tgr.selling_pointid = $spid

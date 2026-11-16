@@ -54,7 +54,7 @@ if (isset($_GET['ajax'])) {
             JOIN growers g ON g.id=bj.growerid
             LEFT JOIN transporter_growers tg ON tg.id=bj.transporter_growersid
             LEFT JOIN transporter t ON t.id=tg.transporterid
-            LEFT JOIN bale_locations bl ON bl.id=t.location_id OR bl.code=t.location
+            LEFT JOIN bale_locations bl ON bl.id=COALESCE(tg.locationid, t.location_id) OR (tg.locationid IS NULL AND t.location_id IS NULL AND bl.code=t.location)
             LEFT JOIN floor_summary fs ON fs.ticketsid=tk.id AND DATE(fs.created_at)=CURDATE()
             LEFT JOIN sold_bales sb ON sb.ticketsid=tk.id
             WHERE tk.barcode='$bc' AND ($spid=0 OR g.selling_pointid=$spid) LIMIT 1
@@ -111,7 +111,7 @@ if (isset($_GET['export'])) {
         JOIN growers g ON g.id=bj.growerid
         LEFT JOIN transporter_growers tg ON tg.id=bj.transporter_growersid
         LEFT JOIN transporter t ON t.id=tg.transporterid
-        LEFT JOIN bale_locations bl ON bl.id=t.location_id OR bl.code=t.location
+        LEFT JOIN bale_locations bl ON bl.id=COALESCE(tg.locationid, t.location_id) OR (tg.locationid IS NULL AND t.location_id IS NULL AND bl.code=t.location)
         LEFT JOIN sold_bales sb ON sb.ticketsid=tk.id
         WHERE DATE(fs.created_at)='$exp_date' AND ($spid=0 OR g.selling_pointid=$spid)
         ORDER BY fs.`row`, COALESCE(bl.code, t.location), tk.barcode
@@ -144,7 +144,7 @@ $summary_q = $conn->query("
     JOIN growers g ON g.id=bj.growerid
     LEFT JOIN transporter_growers tg ON tg.id=bj.transporter_growersid
     LEFT JOIN transporter t ON t.id=tg.transporterid
-    LEFT JOIN bale_locations bl ON bl.id=t.location_id OR bl.code=t.location
+    LEFT JOIN bale_locations bl ON bl.id=COALESCE(tg.locationid, t.location_id) OR (tg.locationid IS NULL AND t.location_id IS NULL AND bl.code=t.location)
     LEFT JOIN sold_bales sb ON sb.ticketsid=tk.id
     WHERE DATE(fs.created_at)='$date_f' AND ($spid=0 OR g.selling_pointid=$spid)
     ORDER BY fs.`row`, COALESCE(bl.code, t.location), tk.barcode

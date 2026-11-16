@@ -71,6 +71,11 @@ if (!function_exists('bale_import_ensure_tables')) {
                 ADD prev_bales_delivered VARCHAR(100) NULL DEFAULT NULL,
                 ADD prev_tg_bales INT NULL DEFAULT NULL");
         }
+        // The location a booked delivery-note line had before the import set one
+        $c = $conn->query("SHOW COLUMNS FROM bale_import_deliveries LIKE 'prev_tg_locationid'");
+        if ($c && $c !== true && !$c->num_rows) {
+            $conn->query("ALTER TABLE bale_import_deliveries ADD prev_tg_locationid INT NULL DEFAULT NULL");
+        }
     }
 }
 
@@ -94,6 +99,7 @@ function bale_import_fields(): array {
         'group'         => ['Bale group',     'no',     ['group','bale_group','grp']],
         'split'         => ['Split',          'no',     ['split','split_no','splitid']],
         'sales_rep'     => ['Sales rep',      'no',     ['sales_rep','rep','auctioneer','salesrep']],
+        'location'      => ['Bale location',  'no',     ['location','bale_location','location_code','loc','loc_code','bay','store','warehouse','section']],
     ];
 }
 
@@ -391,7 +397,9 @@ function bale_import_day(mysqli $conn, int $spid, string $date): ?array {
  * Check every row and resolve it to ids. Writes nothing.
  *
  * $opt: default_sell_date (Y-m-d), zig_rate (rate for sell dates the floor has
- * not opened; 0 = refuse those).
+ * not opened; 0 = refuse those), default_locid (bale location for rows the
+ * file gives none; 0 = none). A location in the file is matched to the floor's
+ * bale locations by code or name (A, "Location A", "Main Bay").
  *
  * Returns ['errors' => [[line, msg]], 'notes' => [msg], 'bales' => [...],
  * 'deliveries' => [key => summary], 'days' => [date => info],
@@ -436,6 +444,25 @@ function bale_import_check(mysqli $conn, int $spid, array $rows, array $map, arr
         $k = $x['buyerid'] . '|' . $x['d'];
         if (!isset($bgrades[$k])) $bgrades[$k] = (int)$x['id'];
     }
+
+    // Bale locations on this floor, by code and by name
+    $locs = []; $loc_code = [];
+    $lq = $conn->query("SELECT id, TRIM(code) code, TRIM(name) name FROM bale_locations WHERE selling_pointid=$spid AND active=1");
+    while ($lq && $lq !== true && $l = $lq->fetch_assoc()) {
+        $loc_code[(int)$l['id']] = $l['code'];
+        foreach ([$l['code'], $l['name']] as $nm) {
+            $nm = strtoupper(trim($nm));
+            if ($nm !== '' && !isset($locs[$nm])) $locs[$nm] = (int)$l['id'];
+        }
+    }
+    $find_loc = function (string $v) use ($locs): int {
+        $v = strtoupper(trim(preg_replace('/\s+/', ' ', $v)));
+        if (isset($locs[$v])) return $locs[$v];
+        $v = trim(preg_replace('/^(LOCATION|LOC|BAY|SECTION)[\s.:#-]*/', '', $v));
+        return $locs[$v] ?? 0;
+    };
+    $default_loc = (int)($opt['default_locid'] ?? 0);
+    if ($default_loc && !isset($loc_code[$default_loc])) $default_loc = 0;
 
     $bales = []; $seen_bc = []; $seen_tag = []; $new_grades = []; $days = [];
     $default_date = $opt['default_sell_date'] ?? '';
@@ -521,6 +548,14 @@ function bale_import_check(mysqli $conn, int $spid, array $rows, array $map, arr
         elseif (isset($seen_tag[strtoupper($tag)])) $row_err[] = "scale tag $tag is also on line " . $seen_tag[strtoupper($tag)];
         else $seen_tag[strtoupper($tag)] = $line;
 
+        $loc_in = $cell($cells, 'location');
+        $locid = $default_loc;
+        if ($loc_in !== '') {
+            $locid = $find_loc($loc_in);
+            if (!$locid) $row_err[] = "location $loc_in is not a bale location on this floor"
+                . ($loc_code ? ' (' . implode(', ', $loc_code) . ')' : ' (add it under Locations first)');
+        }
+
         foreach ($row_err as $e) $errors[] = [$line, $e];
         if ($row_err) continue;
 
@@ -535,6 +570,7 @@ function bale_import_check(mysqli $conn, int $spid, array $rows, array $map, arr
             'sell_date' => $sell_date, 'split' => $split,
             'lot' => (int)$cell($cells, 'lot'), 'group' => $cell($cells, 'group') === '' ? 1 : (int)$cell($cells, 'group'),
             'sales_rep' => substr($cell($cells, 'sales_rep'), 0, 100),
+            'locid' => $locid, 'loc_from_file' => $loc_in !== '',
         ];
     }
 
@@ -570,40 +606,47 @@ function bale_import_check(mysqli $conn, int $spid, array $rows, array $map, arr
         }
     }
 
-    // Deliveries: one per grower per sell date.
-    $deliveries = [];
+    // Deliveries: one per grower, sell date and bale location (a delivery-note
+    // line carries one location). The grower's booking covers all of them.
+    $deliveries = []; $by_loc = [];
     foreach ($bales as $b) {
-        $k = $b['growerid'] . '|' . $b['sell_date'];
+        $k = $b['growerid'] . '|' . $b['sell_date'] . '|' . $b['locid'];
         $dv = &$deliveries[$k];
         if (!$dv) $dv = ['growerid' => $b['growerid'], 'grower_num' => $b['grower_num'], 'grower_name' => $b['grower_name'],
                          'grower_spid' => $b['grower_spid'], 'sell_date' => $b['sell_date'],
+                         'locid' => $b['locid'], 'loc_code' => $loc_code[$b['locid']] ?? '', 'loc_from_file' => false,
                          'bales' => 0, 'sold' => 0, 'rejected' => 0, 'mass' => 0, 'usd' => 0, 'splits' => [], 'booking' => null,
                          'delivery' => null];
+        if ($b['loc_from_file']) $dv['loc_from_file'] = true;
+        $by_loc[$dv['loc_code'] !== '' ? $dv['loc_code'] : '(no location)'] = ($by_loc[$dv['loc_code'] !== '' ? $dv['loc_code'] : '(no location)'] ?? 0) + 1;
         $dv['bales']++;
         $dv['splits'][$b['split']] = true;
         if ($b['rejected']) { $dv['rejected']++; }
         else { $dv['sold']++; $dv['mass'] += $b['mass']; $dv['usd'] += $b['mass'] * $b['price']; }
         unset($dv);
     }
-    $unbooked = 0; $on_booked = 0;
+    $unbooked = 0; $on_booked = 0; $tg_taken = []; $gd_seen = [];
     foreach ($deliveries as &$dv) {
+        $gdk = $dv['growerid'] . '|' . $dv['sell_date'];
         $gid = $dv['growerid'];
         $sd = $esc($dv['sell_date']);
         $alt = $esc(date('d-M-y', strtotime($dv['sell_date'])));
         $q = $conn->query("SELECT id FROM booked_bales WHERE growerid=$gid AND (sell_date='$sd' OR sell_date='$alt')
             AND bales_booked > 0 AND TRIM(COALESCE(booked_id,'')) <> '' ORDER BY id DESC LIMIT 1");
         $dv['booking'] = ($q && $q !== true && $q->num_rows) ? (int)$q->fetch_assoc()['id'] : null;
-        if (!$dv['booking']) $unbooked++;
+        if (!$dv['booking'] && !isset($gd_seen[$gdk])) $unbooked++;
+        $gd_seen[$gdk] = true;
+        $taken = $tg_taken ? ' AND tg.id NOT IN (' . implode(',', array_keys($tg_taken)) . ')' : '';
         // A delivery already booked for this grower and day, with no bales on it yet,
         // takes the file's bales, so they show on the delivery the floor booked.
         $q = $conn->query("SELECT tg.id FROM transporter_growers tg JOIN growers g ON g.id=tg.growerid
             WHERE tg.growerid=$gid AND tg.sell_date='$sd' AND tg.booked=1
               AND (tg.selling_pointid=$spid OR g.selling_pointid=$spid)
               AND NOT EXISTS (SELECT 1 FROM bale_junus bj WHERE bj.transporter_growersid=tg.id)
-              AND NOT EXISTS (SELECT 1 FROM balanced_bales bb WHERE bb.transporter_growersid=tg.id)
-            ORDER BY tg.id LIMIT 1");
+              AND NOT EXISTS (SELECT 1 FROM balanced_bales bb WHERE bb.transporter_growersid=tg.id)$taken
+            ORDER BY (COALESCE(tg.locationid,0)=" . (int)$dv['locid'] . ") DESC, tg.id LIMIT 1");
         $dv['delivery'] = ($q && $q !== true && $q->num_rows) ? (int)$q->fetch_assoc()['id'] : null;
-        if ($dv['delivery']) $on_booked++;
+        if ($dv['delivery']) { $on_booked++; $tg_taken[$dv['delivery']] = true; }
     }
     unset($dv);
     if ($on_booked) {
@@ -611,6 +654,11 @@ function bale_import_check(mysqli $conn, int $spid, array $rows, array $map, arr
     }
     if ($unbooked) {
         $notes[] = "$unbooked grower(s) have no booking for their sell date; a booking with ID IMP-<import>-<grower> will be recorded for them so the sale can be balanced.";
+    }
+    if (count($by_loc) > 1 || array_key_first($by_loc) !== '(no location)') {
+        ksort($by_loc);
+        $notes[] = 'Bales by location: ' . implode(', ', array_map(fn($l, $n) => "$l $n", array_keys($by_loc), $by_loc)) . '.'
+                 . (isset($by_loc['(no location)']) ? ' Choose a location on the form for the bales the file gives none.' : '');
     }
     if ($new_grades) {
         $list = array_map(fn($x) => "{$x[2]} {$x[1]}", array_slice(array_values($new_grades), 0, 15));
@@ -716,17 +764,29 @@ function bale_import_commit(mysqli $conn, int $spid, int $seasonid, int $userid,
             if (!$tid) throw new RuntimeException('Could not record the import transporter: ' . $conn->error);
         }
 
-        $tg_for = [];
+        $tg_for = []; $gd_total = []; $gd_done = [];
+        foreach ($check['deliveries'] as $dv) {
+            $gdk = $dv['growerid'] . '|' . $dv['sell_date'];
+            $gd_total[$gdk] = ($gd_total[$gdk] ?? 0) + (int)$dv['bales'];
+        }
         foreach ($check['deliveries'] as $k => $dv) {
             $gid = $dv['growerid'];
+            $gdk = $gid . '|' . $dv['sell_date'];
+            $locv = !empty($dv['locid']) ? (int)$dv['locid'] : 'NULL';
             // A grower registered without a floor joins this one, as in Junus.
             if ($dv['grower_spid'] !== $spid) $conn->query("UPDATE growers SET selling_pointid=$spid WHERE id=$gid AND (selling_pointid=0 OR selling_pointid IS NULL)");
             $sd = $esc($dv['sell_date']);
             $n  = (int)$dv['bales'];
             $booked_new = null;
-            $completed = 'NULL'; $prev_id = 'NULL'; $prev_bales = 'NULL'; $prev_deliv = 'NULL'; $prev_tg = 'NULL';
+            $completed = 'NULL'; $prev_id = 'NULL'; $prev_bales = 'NULL'; $prev_deliv = 'NULL'; $prev_tg = 'NULL'; $prev_loc = 'NULL';
             $sqlv = fn($v) => $v === null ? 'NULL' : "'" . $esc($v) . "'";
-            if ($dv['booking']) {
+            // The booking covers the grower's bales on that day at every location: once
+            $book_now = !isset($gd_done[$gdk]);
+            $gd_done[$gdk] = true;
+            $nb = $gd_total[$gdk];
+            if (!$book_now) {
+                // booked with the grower's first location
+            } elseif ($dv['booking']) {
                 // Booked by the floor: the booking takes the grower's bales from the file
                 $bk = (int)$dv['booking'];
                 $ex = $conn->query("SELECT booked_id, bales_booked, bales_delivered FROM booked_bales WHERE id=$bk LIMIT 1");
@@ -736,8 +796,8 @@ function bale_import_commit(mysqli $conn, int $spid, int $seasonid, int $userid,
                 $prev_id    = $sqlv($exr['booked_id']);
                 $prev_bales = $sqlv($exr['bales_booked']);
                 $prev_deliv = $sqlv($exr['bales_delivered']);
-                if (!$conn->query("UPDATE booked_bales SET bales_booked=GREATEST(CAST(COALESCE(bales_booked,'0') AS UNSIGNED),$n),
-                        bales_delivered='$n', datetime=NOW() WHERE id=$bk")) {
+                if (!$conn->query("UPDATE booked_bales SET bales_booked=GREATEST(CAST(COALESCE(bales_booked,'0') AS UNSIGNED),$nb),
+                        bales_delivered='$nb', datetime=NOW() WHERE id=$bk")) {
                     throw new RuntimeException("Could not update the booking for {$dv['grower_num']}: " . $conn->error);
                 }
             } else {
@@ -752,14 +812,14 @@ function bale_import_commit(mysqli $conn, int $spid, int $seasonid, int $userid,
                     $prev_bales = $sqlv($exr['bales_booked']);
                     $dq = $conn->query("SELECT bales_delivered FROM booked_bales WHERE id=$eid");
                     $prev_deliv = $sqlv(($dq && $dq !== true && $dq->num_rows) ? $dq->fetch_assoc()['bales_delivered'] : null);
-                    $conn->query("UPDATE booked_bales SET bales_booked=GREATEST(CAST(COALESCE(bales_booked,'0') AS UNSIGNED),$n),
-                        bales_delivered='$n',
+                    $conn->query("UPDATE booked_bales SET bales_booked=GREATEST(CAST(COALESCE(bales_booked,'0') AS UNSIGNED),$nb),
+                        bales_delivered='$nb',
                         booked_id=IF(TRIM(COALESCE(booked_id,''))='', '$bid', booked_id), datetime=NOW() WHERE id=$eid");
                 } else {
                     $conn->query("INSERT INTO booked_bales
                         (userid,growerid,book_date,comm_graded,bales_booked,bales_delivered,bales_handled,sell_date,book_user,
                          ip_address,floor,sale,booked_id,reoffer,booked_by,prefered_rep,last_sell,prefered_time,venue,datetime)
-                        VALUES ($userid,$gid,'$sd','0','$n','$n','0','$sd','$userid','','','','$bid','0','bale import','','','','',NOW())");
+                        VALUES ($userid,$gid,'$sd','0','$nb','$nb','0','$sd','$userid','','','','$bid','0','bale import','','','','',NOW())");
                     $booked_new = (int)$conn->insert_id;
                 }
             }
@@ -773,17 +833,21 @@ function bale_import_commit(mysqli $conn, int $spid, int $seasonid, int $userid,
                 if ($busy->num_rows) {
                     throw new RuntimeException("The booked delivery for {$dv['grower_num']} ({$dv['sell_date']}) got bales on the floor after the check. Check the file again.");
                 }
-                $pq = $conn->query("SELECT bales FROM transporter_growers WHERE id=$tgid");
-                $prev_tg = ($pq && $pq !== true && $pq->num_rows) ? (int)$pq->fetch_assoc()['bales'] : 'NULL';
-                if (!$conn->query("UPDATE transporter_growers SET junused_bales=$n, bales=IF(bales>0, bales, $n) WHERE id=$tgid")) {
+                $pq = $conn->query("SELECT bales, locationid FROM transporter_growers WHERE id=$tgid");
+                $pr = ($pq && $pq !== true && $pq->num_rows) ? $pq->fetch_assoc() : null;
+                $prev_tg  = $pr ? (int)$pr['bales'] : 'NULL';
+                $prev_loc = ($pr && $pr['locationid'] !== null) ? (int)$pr['locationid'] : 'NULL';
+                // The file's location wins; otherwise the line keeps its own, or takes the one chosen on the form
+                $set_loc = ($dv['loc_from_file'] || $prev_loc === 'NULL') && $locv !== 'NULL' ? ", locationid=$locv" : '';
+                if (!$conn->query("UPDATE transporter_growers SET junused_bales=$n, bales=IF(bales>0, bales, $n)$set_loc WHERE id=$tgid")) {
                     throw new RuntimeException("Could not use the booked delivery for {$dv['grower_num']}: " . $conn->error);
                 }
                 $existing = 1;
             } else {
                 $booked = 1;   // booked (by the floor or by this import), so it can be balanced
                 $conn->query("INSERT INTO transporter_growers
-                    (userid,transporterid,growerid,selling_pointid,bales,junused_bales,booked,sell_date,status,open_close,created_at,datetime)
-                    VALUES ($userid,$tid,$gid,$spid,$n,$n,$booked,'$sd','active',0,'$now','$now')");
+                    (userid,transporterid,growerid,selling_pointid,bales,junused_bales,booked,sell_date,status,open_close,locationid,created_at,datetime)
+                    VALUES ($userid,$tid,$gid,$spid,$n,$n,$booked,'$sd','active',0,$locv,'$now','$now')");
                 $tgid = (int)$conn->insert_id;
                 if (!$tgid) throw new RuntimeException("Could not record the delivery for {$dv['grower_num']}: " . $conn->error);
             }
@@ -791,18 +855,19 @@ function bale_import_commit(mysqli $conn, int $spid, int $seasonid, int $userid,
             // A booked delivery left by an undone import is linked to this import instead
             $ok = $conn->query("INSERT INTO bale_import_deliveries
                     (bale_importid, transporter_growersid, booked_balesid, existing, completed_bookingid, prev_booked_id, prev_bales_booked,
-                     prev_bales_delivered, prev_tg_bales)
-                VALUES ($import_id, $tgid, $bn, $existing, $completed, $prev_id, $prev_bales, $prev_deliv, $prev_tg)
+                     prev_bales_delivered, prev_tg_bales, prev_tg_locationid)
+                VALUES ($import_id, $tgid, $bn, $existing, $completed, $prev_id, $prev_bales, $prev_deliv, $prev_tg, $prev_loc)
                 ON DUPLICATE KEY UPDATE bale_importid=VALUES(bale_importid), booked_balesid=VALUES(booked_balesid), existing=VALUES(existing),
                     completed_bookingid=VALUES(completed_bookingid), prev_booked_id=VALUES(prev_booked_id), prev_bales_booked=VALUES(prev_bales_booked),
-                    prev_bales_delivered=VALUES(prev_bales_delivered), prev_tg_bales=VALUES(prev_tg_bales)");
+                    prev_bales_delivered=VALUES(prev_bales_delivered), prev_tg_bales=VALUES(prev_tg_bales),
+                    prev_tg_locationid=VALUES(prev_tg_locationid)");
             if (!$ok) throw new RuntimeException("Could not link the delivery for {$dv['grower_num']} to the import: " . $conn->error);
             $tg_for[$k] = $tgid;
         }
 
         $lots = [];
         foreach ($check['bales'] as $b) {
-            $k = $b['growerid'] . '|' . $b['sell_date'];
+            $k = $b['growerid'] . '|' . $b['sell_date'] . '|' . $b['locid'];
             $tgid = $tg_for[$k];
             $sd = $esc($b['sell_date']);
             $lots[$tgid] = ($lots[$tgid] ?? 0) + 1;
@@ -859,9 +924,9 @@ function bale_import_reverse(mysqli $conn, int $import_id, int $spid, int $useri
     if (!$imp) return ['error' => 'Import not found on this floor.'];
     if ($imp['status'] === 'reversed') return ['error' => 'This import has already been undone.'];
 
-    $tgids = []; $bookings = []; $own = []; $completed = []; $tg_prev = [];
+    $tgids = []; $bookings = []; $own = []; $completed = []; $tg_prev = []; $tg_prevloc = [];
     $dq = $conn->query("SELECT transporter_growersid, booked_balesid, existing,
-            completed_bookingid, prev_booked_id, prev_bales_booked, prev_bales_delivered, prev_tg_bales
+            completed_bookingid, prev_booked_id, prev_bales_booked, prev_bales_delivered, prev_tg_bales, prev_tg_locationid
         FROM bale_import_deliveries WHERE bale_importid=$import_id");
     while ($dq && $d = $dq->fetch_assoc()) {
         $tgids[] = (int)$d['transporter_growersid'];
@@ -869,6 +934,7 @@ function bale_import_reverse(mysqli $conn, int $import_id, int $spid, int $useri
         if ($d['booked_balesid']) $bookings[] = (int)$d['booked_balesid'];
         if ($d['completed_bookingid']) $completed[] = $d;
         if ((int)$d['existing'] && $d['prev_tg_bales'] !== null) $tg_prev[(int)$d['transporter_growersid']] = (int)$d['prev_tg_bales'];
+        if ((int)$d['existing']) $tg_prevloc[(int)$d['transporter_growersid']] = $d['prev_tg_locationid'] === null ? 'NULL' : (int)$d['prev_tg_locationid'];
     }
     $sqlv = fn($v) => $v === null ? 'NULL' : "'" . $conn->real_escape_string($v) . "'";
     $tg_in  = $tgids ? implode(',', $tgids) : '0';
@@ -906,6 +972,7 @@ function bale_import_reverse(mysqli $conn, int $import_id, int $spid, int $useri
                 WHERE id=" . (int)$d['completed_bookingid']);
         }
         foreach ($tg_prev as $tg => $b) $run("UPDATE transporter_growers SET bales=$b WHERE id=$tg");
+        foreach ($tg_prevloc as $tg => $l) $run("UPDATE transporter_growers SET locationid=$l WHERE id=$tg");
         // Deliveries the import created go; booked ones it added bales to stay, empty again
         $run("DELETE FROM transporter_growers WHERE id IN ($own_in)");
         $run("UPDATE transporter_growers SET junused_bales=0 WHERE id IN ($tg_in) AND id NOT IN ($own_in)");

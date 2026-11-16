@@ -65,7 +65,7 @@ if ($page === 'reports') {
     $net_col  = $has_dtn ? "SUM(dtn.usd_net_value)" : "SUM(dt.usd_value)";
     $net_join = $has_dtn ? "LEFT JOIN daily_totals_net_amount dtn ON dtn.balanced_balesid = bb.id" : "";
     $loc_join = $has_locs
-        ? "JOIN transporter t ON t.id=tg.transporterid LEFT JOIN bale_locations bl ON bl.id=t.location_id"
+        ? "JOIN transporter t ON t.id=tg.transporterid LEFT JOIN bale_locations bl ON bl.id=COALESCE(tg.locationid, t.location_id)"
         : "JOIN transporter t ON t.id=tg.transporterid";
     $bl_sel   = $has_locs ? ", bl.code loc_code" : ", NULL loc_code";
 
@@ -189,8 +189,8 @@ if ($page === 'reports') {
                    COALESCE(SUM(dt.mass),0) mass,
                    COALESCE(SUM(dt.usd_value),0) gross_usd
             FROM bale_locations bl
-            LEFT JOIN transporter t ON t.location_id=bl.id
-            LEFT JOIN transporter_growers tg ON tg.transporterid=t.id
+            LEFT JOIN (transporter_growers tg JOIN transporter t ON t.id=tg.transporterid)
+                   ON COALESCE(tg.locationid, t.location_id)=bl.id
             LEFT JOIN balanced_bales bb ON bb.transporter_growersid=tg.id
             LEFT JOIN daily_totals dt ON dt.balanced_balesid=bb.id
             LEFT JOIN transporter_growers tg2 ON tg2.id=bb.transporter_growersid
@@ -373,7 +373,7 @@ elseif ($page === 'eod') {
         JOIN growers g ON g.id=bj.growerid
         JOIN transporter_growers tg2 ON tg2.id=bj.transporter_growersid
         JOIN transporter t ON t.id=tg2.transporterid
-        LEFT JOIN bale_locations bl ON bl.id=t.location_id
+        LEFT JOIN bale_locations bl ON bl.id=COALESCE(tg2.locationid, t.location_id)
         LEFT JOIN sold_bales sb ON sb.ticketsid=tk.id
         LEFT JOIN timb_grades tgd ON tgd.id=sb.timb_gradesid
         LEFT JOIN buyer_grades bg ON bg.id=sb.buyer_gradesid
@@ -638,7 +638,7 @@ elseif ($page === 'timb') {
         JOIN growers g ON g.id=bj.growerid
         JOIN transporter_growers tg ON tg.id=bj.transporter_growersid
         JOIN transporter t ON t.id=tg.transporterid
-        LEFT JOIN bale_locations bl ON bl.id=t.location_id
+        LEFT JOIN bale_locations bl ON bl.id=COALESCE(tg.locationid, t.location_id)
         LEFT JOIN sold_bales sb ON sb.ticketsid=tk.id
         LEFT JOIN timb_grades tgd ON tgd.id=sb.timb_gradesid
         LEFT JOIN buyer_grades bg ON bg.id=sb.buyer_gradesid

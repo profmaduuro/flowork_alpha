@@ -134,8 +134,8 @@ if (isset($_GET['ajax'])) {
                COALESCE(SUM(bm.mass),0) mass,
                COALESCE(SUM(CASE WHEN sb.price>10 THEN sb.price/100*bm.mass ELSE sb.price*bm.mass END),0) usd
         FROM bale_locations bl
-        JOIN transporter t ON t.location_id=bl.id
-        JOIN transporter_growers tg ON tg.transporterid=t.id
+        JOIN (transporter_growers tg JOIN transporter t ON t.id=tg.transporterid)
+             ON COALESCE(tg.locationid, t.location_id)=bl.id
         JOIN bale_junus bj ON bj.transporter_growersid=tg.id
         JOIN tickets tk ON tk.bale_junusid=bj.id
         JOIN bale_mass bm ON bm.id=bj.bale_massid

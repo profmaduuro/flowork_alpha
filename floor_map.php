@@ -33,7 +33,7 @@ if (isset($_GET['ajax'])) {
             LEFT JOIN bale_junus bj ON bj.bale_massid=bm.id
             LEFT JOIN transporter_growers tg ON tg.id=bj.transporter_growersid
             LEFT JOIN transporter t ON t.id=tg.transporterid
-            LEFT JOIN bale_locations bl ON bl.id=t.location_id
+            LEFT JOIN bale_locations bl ON bl.id=COALESCE(tg.locationid, t.location_id)
             LEFT JOIN growers g ON g.id=bj.growerid
             LEFT JOIN tickets tk ON tk.bale_junusid=bj.id
             LEFT JOIN sold_bales sb ON sb.ticketsid=tk.id
@@ -49,7 +49,7 @@ if (isset($_GET['ajax'])) {
             JOIN bale_junus bj ON bj.bale_massid=bm.id
             JOIN transporter_growers tg ON tg.id=bj.transporter_growersid
             JOIN transporter t ON t.id=tg.transporterid
-            JOIN bale_locations bl ON bl.id=t.location_id
+            JOIN bale_locations bl ON bl.id=COALESCE(tg.locationid, t.location_id)
             JOIN growers g ON g.id=bj.growerid
             LEFT JOIN tickets tk ON tk.bale_junusid=bj.id
             LEFT JOIN sold_bales sb ON sb.ticketsid=tk.id

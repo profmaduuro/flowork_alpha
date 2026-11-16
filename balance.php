@@ -72,7 +72,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'panel') {
         FROM transporter_growers tg
         JOIN growers g ON g.id=tg.growerid
         JOIN transporter tr ON tr.id=tg.transporterid
-        LEFT JOIN bale_locations bl ON bl.id=tr.location_id
+        LEFT JOIN bale_locations bl ON bl.id=COALESCE(tg.locationid, tr.location_id)
         WHERE tg.id=$tgid LIMIT 1");
     $pg = ($pg && $pg !== true) ? $pg->fetch_assoc() : null;
     if (!$pg) { echo json_encode(['error'=>'Grower not found']); exit; }
@@ -551,7 +551,7 @@ $rows_q = $conn->query("
     FROM transporter_growers tg
     JOIN growers g              ON g.id  = tg.growerid
     JOIN transporter tr         ON tr.id = tg.transporterid
-    LEFT JOIN bale_locations bl ON bl.id = tr.location_id
+    LEFT JOIN bale_locations bl ON bl.id = COALESCE(tg.locationid, tr.location_id)
     LEFT JOIN selling_point sp  ON sp.id = g.selling_pointid
     LEFT JOIN bale_junus bj     ON bj.transporter_growersid = tg.id
     LEFT JOIN bale_mass bm      ON bm.id = bj.bale_massid
