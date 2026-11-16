@@ -15,7 +15,7 @@ How Flowork runs on the floor PC today, how to turn on HTTPS for the LAN, and ho
 | HTTPS | certificate ready in `C:\xampp\apache\conf\flowork-ssl`; **active after Apache restarts** |
 | Previous `.env` | `backups\env_before_production_*` (to roll back: copy it back over `.env`) |
 
-The second copy at `C:\xampp\htdocs\flowork` still uses the same `king` database as MySQL `root` without a password. Retire it or give it its own database and user, then set a root password (section 5).
+The second copy at `C:\xampp\htdocs\flowork` still uses the same `king` database as MySQL `root` without a password. Retire it or give it its own database and user, then set a root password (section 7).
 
 ## 2. Turn on HTTPS on the LAN
 
@@ -85,7 +85,28 @@ Caddy (HTTPS, Let's Encrypt) → PHP/Apache app → MariaDB 10.11, all from `doc
 
 Updates: `cd /opt/flowork && git pull && docker compose up -d --build`. phpMyAdmin: `ssh -L 8081:127.0.0.1:8081 user@vps`, then open `http://localhost:8081`.
 
-## 6. Still to do on this server (needs an administrator)
+## 6. Automatic deploy to cPanel (push once, live site updates)
+
+`.github/workflows/deploy-live.yml` runs on every push to `master`: it checks PHP syntax, then uploads the changed files to the live site over FTPS. A file with a syntax error stops the deploy, so the live site keeps the last good version.
+
+**One-time setup**
+
+1. **cPanel → FTP Accounts → Add FTP Account.** Pick a name (e.g. `deploy`), a strong password, and set **Directory** to the folder the live site runs from (the one with `index.php`, `login.php`, `.env`). Note the server name shown under "Configure FTP Client" (often `ftp.<your domain>`).
+2. **GitHub → the repository → Settings → Secrets and variables → Actions → New repository secret**, four times:
+   - `FTP_SERVER`: the FTP server name;
+   - `FTP_USERNAME`: the full FTP user name (e.g. `deploy@coreafricagrp.com`);
+   - `FTP_PASSWORD`: its password;
+   - `FTP_SERVER_DIR`: `./` when the FTP account's directory is the site folder (as in step 1).
+3. **GitHub → Actions → Deploy to live site → Run workflow** for the first deploy. The first run uploads every file (a few minutes); later runs send only what changed.
+4. If the site was set up with **cPanel → Git Version Control** in the same folder, stop using "Update from Remote" there: the two would overwrite each other. GitHub is now the only way code reaches the site.
+
+**What is never uploaded:** `.env`, `includes/timb_key.php`, `uploads/`, `backups/`, `maintenance/`, `scratch/`, `tests/`, Docker files and `*.md`. The live copies stay as they are.
+
+**When an update adds tables or columns:** the files deploy automatically, but the live database does not change by itself on every host. Run `php maintenance/schema_repair_sql.php` on the floor PC and import the file it writes (`backups/schema_repair_<date>.sql`) in the live phpMyAdmin. It only adds what is missing.
+
+**If a deploy fails:** GitHub → Actions shows the red run and the step that failed (wrong FTP password or folder, or a PHP syntax error with the file and line). Fix it and push again, or re-run the job.
+
+## 7. Still to do on this server (needs an administrator)
 
 - **Restart Apache** (section 2, step 1).
 - **Backups:** copy `BACKUP_PASSPHRASE` from `.env` to a safe place off this PC; point `BACKUP_COPY_DIR` at an external drive or cloud folder when one is available (today: `C:\FloworkBackups`, same disk); in Task Scheduler set `\Flowork\Nightly backup` to "Run whether user is logged on or not".
