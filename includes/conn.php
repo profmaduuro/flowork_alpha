@@ -4,6 +4,26 @@ mysqli_report(MYSQLI_REPORT_OFF);
 // Load environment variables if available
 require_once __DIR__ . '/env_loader.php';
 
+// ── Being updated? ────────────────────────────────────────────────────────
+// The self-updater (updater/update.php) sets this flag for the few seconds it
+// swaps files. Visitors get a short "back in a minute" page; the command line
+// (the updater itself) is never stopped. The flag counts as stale after 10 minutes.
+if (PHP_SAPI !== 'cli') {
+    $_fw_upd_flag = dirname(__DIR__) . '/updater/state/maintenance.flag';
+    if (is_file($_fw_upd_flag) && (int)@file_get_contents($_fw_upd_flag) > time() - 600) {
+        http_response_code(503);
+        header('Retry-After: 60');
+        header('Content-Type: text/html; charset=utf-8');
+        echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+           . '<meta http-equiv="refresh" content="30"><title>Updating — Flowork</title></head>'
+           . '<body style="font-family:system-ui,sans-serif;background:#F6F3EC;color:#1F1A14;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0">'
+           . '<div style="text-align:center;padding:2rem"><h1 style="font-size:1.4rem;margin:0 0 .5rem">Flowork is being updated</h1>'
+           . '<p style="color:#6B6253;margin:0">It will be back in a minute. This page reloads by itself.</p></div></body></html>';
+        exit;
+    }
+    unset($_fw_upd_flag);
+}
+
 // ── Base path ─────────────────────────────────────────────────────────────
 if (!defined('APP_BASE')) {
     $script_dir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_FILENAME'] ?? ''));

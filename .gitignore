@@ -29,3 +29,8 @@ scratch/*
 *.log
 Thumbs.db
 .DS_Store
+
+# Release packages built by maintenance/build_release.php
+dist/
+# Self-updater working files (downloads, staging, lock, installed file list)
+updater/state/

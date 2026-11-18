@@ -85,26 +85,35 @@ Caddy (HTTPS, Let's Encrypt) → PHP/Apache app → MariaDB 10.11, all from `doc
 
 Updates: `cd /opt/flowork && git pull && docker compose up -d --build`. phpMyAdmin: `ssh -L 8081:127.0.0.1:8081 user@vps`, then open `http://localhost:8081`.
 
-## 6. Automatic deploy to cPanel (push once, live site updates)
+## 6. Updates: every installation updates itself
 
-`.github/workflows/deploy-live.yml` runs on every push to `master`: it checks PHP syntax, then uploads the changed files to the live site over FTPS. A file with a syntax error stops the deploy, so the live site keeps the last good version.
+Each Flowork installation (the cPanel site, a company's own server, a floor PC) fetches signed releases from GitHub by itself and installs them. Nothing has to connect in to the site, so firewalls and home routers are no problem, and no one has to visit it.
 
-**One-time setup**
+**Publishing a release** (from the development PC):
 
-1. **cPanel → FTP Accounts → Add FTP Account.** Pick a name (e.g. `deploy`), a strong password, and set **Directory** to the folder the live site runs from (the one with `index.php`, `login.php`, `.env`). Note the server name shown under "Configure FTP Client" (often `ftp.<your domain>`).
-2. **GitHub → the repository → Settings → Secrets and variables → Actions → New repository secret**, four times:
-   - `FTP_SERVER`: the FTP server name;
-   - `FTP_USERNAME`: the full FTP user name (e.g. `deploy@coreafricagrp.com`);
-   - `FTP_PASSWORD`: its password;
-   - `FTP_SERVER_DIR`: `./` when the FTP account's directory is the site folder (as in step 1).
-3. **GitHub → Actions → Deploy to live site → Run workflow** for the first deploy. The first run uploads every file (a few minutes); later runs send only what changed.
-4. If the site was set up with **cPanel → Git Version Control** in the same folder, stop using "Update from Remote" there: the two would overwrite each other. GitHub is now the only way code reaches the site.
+1. If the change adds tables or columns: `php maintenance/schema_export.php` and commit `updater/schema.json` with it.
+2. Put the new version in `VERSION` (e.g. `1.0.1`), commit, push.
+3. `git tag v1.0.1` then `git push origin v1.0.1`. GitHub (`.github/workflows/release.yml`) checks the PHP, builds the package, signs it and publishes the release.
+   A tag with a dash (`v1.1.0-rc.1`) is a pre-release: only sites on the **Test** channel take it. Test on such a site, then tag the release without the dash for everyone.
 
-**What is never uploaded:** `.env`, `includes/timb_key.php`, `uploads/`, `backups/`, `maintenance/`, `scratch/`, `tests/`, Docker files and `*.md`. The live copies stay as they are.
+**What each site does** (`updater/update.php`, every 15 minutes):
 
-**When an update adds tables or columns:** the files deploy automatically, but the live database does not change by itself on every host. Run `php maintenance/schema_repair_sql.php` on the floor PC and import the file it writes (`backups/schema_repair_<date>.sql`) in the live phpMyAdmin. It only adds what is missing.
+- checks GitHub for a newer release on its channel, downloads it and **refuses it unless the signature matches** the Flowork release key (`updater/public_key.pem`) and every file matches its signed checksum;
+- installs only in its **update hours** (default 01:00–05:00) and when nobody has done anything for 15 minutes, or when a master user chooses **Install now** (System Updates page). In **approve** mode it downloads and waits for that;
+- backs up every file it replaces to `backups/updates/`, shows visitors an "updating" page for the few seconds files are swapped, adds new tables and columns to the database (never changes or deletes data or settings), then checks the sign-in page still loads; **anything wrong puts the previous version back**, and that version is not retried until an admin asks.
 
-**If a deploy fails:** GitHub → Actions shows the red run and the step that failed (wrong FTP password or folder, or a PHP syntax error with the file and line). Fix it and push again, or re-run the job.
+Never changed by an update: `.env`, `includes/timb_key.php`, `uploads/`, `backups/`, cPanel's own files and the cPanel block in `.htaccess`, and every row in the database (company settings, rates, deductions, users, transactions).
+
+**Turning it on at a site (once):**
+
+- **cPanel** → Cron Jobs → *Once Per Fifteen Minutes* → command
+  `/usr/local/bin/php /home/<account>/public_html/<folder>/updater/update.php >/dev/null 2>&1`
+- **Windows / XAMPP** → Task Scheduler → Create Task → trigger daily, repeat every 15 minutes → action
+  `C:\xampp\php\php-win.exe "C:\xampp\htdocs\<folder>\updater\update.php"`
+- Then open **Admin → System Updates** as a master user once (it records the site's address for the after-install check) and choose the channel, automatic or approve, and the update hours.
+- A site still on a version without the updater gets these files once by hand (or through cPanel Git): `VERSION`, `includes/updater.php`, `includes/schema_sync.php`, `includes/conn.php`, `includes/layout.php`, `system_updates.php` and the `updater/` folder. From then on it updates itself.
+
+**The release key:** the private key signs every release. It is the GitHub secret `FLOWORK_SIGNING_KEY`, with a copy somewhere safe off the development PC (a password manager, or a USB stick kept locked away). Whoever has it can publish updates every site will install, so it never goes in the code, in chat or in email. If it is ever exposed: make a new key pair, ship the new `updater/public_key.pem` in a release signed with the old key, then switch the secret.
 
 ## 7. Still to do on this server (needs an administrator)
 

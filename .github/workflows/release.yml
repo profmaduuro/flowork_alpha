@@ -1,0 +1,61 @@
+# Publish a signed Flowork release when a version tag is pushed.
+#
+#   1. Set the new version in the VERSION file and commit it.
+#   2. git tag v1.0.1 && git push origin v1.0.1
+#      (a tag with a dash, e.g. v1.1.0-rc.1, is a pre-release: only sites on the
+#       Test channel take it)
+#
+# Every Flowork installation checks GitHub every 15 minutes (updater/update.php),
+# verifies the signature with updater/public_key.pem and installs the release in
+# its update hours. The private key is the FLOWORK_SIGNING_KEY secret.
+
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write   # create the release and attach the package
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Get the code
+        uses: actions/checkout@v4
+
+      - name: Check the version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          file="$(tr -d ' \r\n' < VERSION)"
+          if [ "$tag" != "$file" ]; then
+            echo "::error::The tag says $tag but the VERSION file says $file. Update VERSION, commit, and tag again."
+            exit 1
+          fi
+          echo "VERSION=$tag" >> "$GITHUB_ENV"
+
+      - name: Check PHP syntax
+        run: |
+          bad=0
+          for f in $(git ls-files '*.php'); do
+            php -l "$f" > /dev/null 2> err.txt || { echo "::error file=$f::$(cat err.txt)"; bad=1; }
+          done
+          exit $bad
+
+      - name: Build and sign the package
+        env:
+          FLOWORK_SIGNING_KEY: ${{ secrets.FLOWORK_SIGNING_KEY }}
+        run: |
+          if [ -z "$FLOWORK_SIGNING_KEY" ]; then echo "::error::The FLOWORK_SIGNING_KEY secret is not set."; exit 1; fi
+          php -m | grep -qi '^zip$' || { sudo apt-get update -qq && sudo apt-get install -y -qq php-zip; }
+          php maintenance/build_release.php --version="$VERSION" --out=dist
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pre=""
+          case "$VERSION" in *-*) pre="--prerelease";; esac
+          gh release create "$GITHUB_REF_NAME" dist/* $pre --title "Flowork $VERSION" --generate-notes

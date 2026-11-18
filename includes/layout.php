@@ -810,7 +810,7 @@ if ('serviceWorker' in navigator) {
   </div>
   <?php endif; ?>
 
-  <?php $grp_adm = in_array($active_page,['settings','users','backup','audit_log','auto_backup','timb_api','grower_portal','notifications','two_factor','sms_notify','system_health','multi_floor','clerk_performance','whatsapp_notify','document_vault','help_center','language','role_dashboard','email_reports','billing']); ?>
+  <?php $grp_adm = in_array($active_page,['settings','users','backup','audit_log','auto_backup','timb_api','grower_portal','notifications','two_factor','sms_notify','system_health','multi_floor','clerk_performance','whatsapp_notify','document_vault','help_center','language','role_dashboard','email_reports','billing','system_updates']); ?>
   <div class="nav-group" data-group="admin">
     <div class="nav-toggle <?= $grp_adm ? 'has-active' : '' ?>" onclick="toggleNavGroup(this)">
       Admin
@@ -850,6 +850,12 @@ if ('serviceWorker' in navigator) {
   </a>
   <?php endif; ?>
   <?php if (has_right('admin')): ?>
+  <?php if (is_master_user()): ?>
+  <a href="system_updates.php" class="nav-item <?= $active_page==='system_updates'?'active':'' ?>">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9"/><path d="M14 2v3h-3"/><path d="M8 5v3.5l2 1.2"/></svg>
+    System Updates
+  </a>
+  <?php endif; ?>
   <a href="system_health.php" class="nav-item <?= $active_page==='system_health'?'active':'' ?>">
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 8h3l2-5 3 10 2-5h4"/></svg>
     System Health

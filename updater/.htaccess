@@ -1,0 +1,9 @@
+# updater/ holds the self-update command (run from cron / Task Scheduler on the
+# command line), the release public key, the database structure and the
+# updater's working files. None of it is served over HTTP.
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Deny from all
+</IfModule>
