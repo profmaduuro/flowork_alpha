@@ -878,7 +878,12 @@ include "includes/layout.php";
 <div class="ksc"><div class="ksl">Rate ZiG/USD</div><div class="ksv w"><?=$er_now>0?number_format($er_now,2):'--'?></div><div class="kss">current rate</div></div>
 </div>
 
-<!-- ZiG/USD Split Preview Widget -->
+<!-- ZiG/USD Split Preview Widget: this company's RBZ retention (Settings), not a fixed 70/30 -->
+<?php
+$zpw_usd = min(1, max(0, (float)$rbz_now));
+$zpw_zig = 1 - $zpw_usd;
+$zpw_pct = fn($v) => rtrim(rtrim(number_format($v * 100, 2), '0'), '.');
+?>
 <div id="zig-preview-widget" class="zpw">
   <div class="zpw-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 3h5v5M8 3H3v5M21 3l-7 7M3 3l7 7M12 22v-8"/></svg> ZiG / USD split preview</div>
   <div class="zpw-inputs">
@@ -886,17 +891,18 @@ include "includes/layout.php";
     <label>Rate <input id="zpw-rate" class="form-control" type="number" step="0.01" min="0" placeholder="ZiG rate" value="<?=number_format($er_now,2,'.','')?>" style="width:96px" oninput="calcSplit()"></label>
   </div>
   <div class="zpw-out" id="zpw-result">
-    <div><div class="l">70% USD</div><div class="v usd" id="zpw-usd">$<?=number_format($t_gross*0.70,2)?></div></div>
-    <div><div class="l">30% ZiG</div><div class="v zig" id="zpw-zig"><?=number_format($t_gross*0.30*$er_now,2)?> ZiG</div></div>
+    <div><div class="l"><?=$zpw_pct($zpw_usd)?>% USD</div><div class="v usd" id="zpw-usd">$<?=number_format($t_gross*$zpw_usd,2)?></div></div>
+    <div><div class="l"><?=$zpw_pct($zpw_zig)?>% ZiG</div><div class="v zig" id="zpw-zig"><?=number_format($t_gross*$zpw_zig*$er_now,2)?> ZiG</div></div>
     <div><div class="l">Net USD (est.)</div><div class="v" id="zpw-net">$<?=number_format($t_net,2)?></div></div>
   </div>
-  <div class="zpw-foot">RBZ 70/30 split · estimate only</div>
+  <div class="zpw-foot">RBZ <?=$zpw_pct($zpw_usd)?>/<?=$zpw_pct($zpw_zig)?> split (Settings) · estimate only</div>
 </div>
 <script>
 function calcSplit(){
   var g=parseFloat(document.getElementById('zpw-gross').value)||0;
   var r=parseFloat(document.getElementById('zpw-rate').value)||1;
-  var usd=g*0.70, zig=g*0.30*r;
+  var share=<?=json_encode(round($zpw_usd, 4))?>;
+  var usd=g*share, zig=g*(1-share)*r;
   document.getElementById('zpw-usd').textContent='$'+usd.toFixed(2);
   document.getElementById('zpw-zig').textContent=zig.toFixed(2)+' ZiG';
   document.getElementById('zpw-net').textContent='~$'+usd.toFixed(2);
