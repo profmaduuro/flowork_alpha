@@ -404,7 +404,8 @@ function flowork_upd_run(mysqli $conn, string $root, array $opt = []): array {
         $rel = ['version' => (string)($m['version'] ?? ''), 'local' => rtrim($opt['package_dir'], '/\\')];
         if (!version_compare($rel['version'], $current, '>')) return ['status' => 'current', 'message' => "the package ($rel[version]) is not newer than $current"];
     } else {
-        $due = $s['check_requested'] === '1' || $requested || $s['last_check'] === '' || strtotime($s['last_check']) < time() - 1800;
+        $due = !empty($opt['force']) || !empty($opt['check_only']) || $s['check_requested'] === '1' || $requested
+            || $s['last_check'] === '' || strtotime($s['last_check']) < time() - 1800;
         if (!$due && $s['ready_version'] === '') return ['status' => 'idle', 'message' => 'checked recently'];
         $rel = flowork_upd_find_release($s['repo'], $s['channel'], $current);
         flowork_upd_set($conn, ['last_check' => date('Y-m-d H:i:s'), 'check_requested' => '0']);
