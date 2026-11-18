@@ -135,6 +135,9 @@ if (isset($_GET['export'])) {
     if (strpos($which, 'registry') === 0) {
         $sq = trim($_GET['q'] ?? '');
         $rw = "WHERE r.selling_pointid=$spid";
+        // fetched=1: only growers fetched from TIMB (lookups and full pulls), not simulated or typed-in ones
+        $fetched = !empty($_GET['fetched']);
+        if ($fetched) $rw .= " AND r.source LIKE 'growermaster%'";
         if ($sq !== '') {
             $s   = $conn->real_escape_string($sq);
             $rw .= " AND (r.grower_num LIKE '%$s%' OR r.name LIKE '%$s%' OR r.surname LIKE '%$s%' OR r.national_id LIKE '%$s%')";
@@ -147,7 +150,7 @@ if (isset($_GET['export'])) {
             return [(string)($r['source'] ?? ''), (string)($r['last_synced'] ?? ''),
                     !empty($r['local_id']) ? 'Yes' : 'No'];
         };
-        $base = 'timb_registry';
+        $base = $fetched ? 'timb_fetched_growers' : 'timb_registry';
     } else {
         $src = $_SESSION['timb_gm_results'] ?? [];
         $extra_labels = ['Local Record'];
@@ -161,7 +164,8 @@ if (isset($_GET['export'])) {
     }
 
     if (!$src) {
-        header('Location: timb_growermaster.php' . (strpos($which, 'registry') === 0 ? '?tab=registry&noexport=1' : '?noexport=1'));
+        header('Location: timb_growermaster.php' . (strpos($which, 'registry') === 0
+            ? '?tab=' . (!empty($_GET['fetched']) ? 'sync' : 'registry') . '&noexport=1' : '?noexport=1'));
         exit;
     }
 
@@ -382,7 +386,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 if (!empty($_GET['saved']))    $msg = "✓ TIMB web service settings saved.";
-if (!empty($_GET['noexport'])) $err = "Nothing to export yet — run a lookup or open a registry with records first.";
+if (!empty($_GET['noexport'])) $err = "Nothing to export yet — fetch growers from TIMB first (a lookup or a full database pull).";
 
 /* ── One service-log entry's raw request/response, loaded on demand ────── */
 if (isset($_GET['raw_log'])) {
@@ -765,6 +769,27 @@ include "includes/layout.php";
   </div>
 </div>
 <?php endif;?>
+
+<div class="card">
+  <div class="card-head">
+    <h3>Export fetched growers</h3>
+    <span class="badge badge-gray"><?=(int)$reg_counts['ws']?> fetched from TIMB</span>
+  </div>
+  <div class="card-body">
+    <?php if((int)$reg_counts['ws'] > 0):?>
+    <p style="font-size:.8rem;margin-bottom:.85rem">
+      Every grower fetched from TIMB for this floor — by full database pull or by lookup — in one file, with all their details
+      (ID, farm, area, province, hectares, contractor, registration, obligations) and whether they are on this floor.
+    </p>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+      <a href="?export=registry_xlsx&amp;fetched=1" class="btn btn-primary btn-sm">⭳ Export all <?=(int)$reg_counts['ws']?> to Excel</a>
+      <a href="?export=registry_csv&amp;fetched=1"  class="btn btn-ghost btn-sm">⭳ CSV</a>
+    </div>
+    <?php else:?>
+    <p style="font-size:.8rem;color:var(--muted);margin:0">No growers fetched from TIMB yet. Pull the grower database above, then export them here.</p>
+    <?php endif;?>
+  </div>
+</div>
 </div><!-- /panel-sync -->
 
 <!-- ══ Registry ════════════════════════════════════════════════════════ -->
@@ -784,8 +809,9 @@ include "includes/layout.php";
       <?php if($search!==''):?><a href="?tab=registry" class="btn btn-ghost btn-sm">Clear</a><?php endif;?>
       <?php if($registry):
               $qs = $search !== '' ? '&q=' . urlencode($search) : ''; ?>
-        <a href="?export=registry_csv<?=$qs?>"  class="btn btn-ghost btn-sm">⭳ CSV</a>
-        <a href="?export=registry_xlsx<?=$qs?>" class="btn btn-ghost btn-sm">⭳ Excel</a>
+        <?php $n_exp = $search !== '' ? (int)$reg_found : (int)$reg_counts['n']; ?>
+        <a href="?export=registry_xlsx<?=$qs?>" class="btn btn-ghost btn-sm" title="All <?=$n_exp?> record(s)<?=$search!==''?' matching the search':''?>, not just this page">⭳ Excel (all <?=$n_exp?>)</a>
+        <a href="?export=registry_csv<?=$qs?>"  class="btn btn-ghost btn-sm" title="All <?=$n_exp?> record(s)<?=$search!==''?' matching the search':''?>, not just this page">⭳ CSV</a>
       <?php endif;?>
     </form>
     <?php if((int)$reg_counts['unmet'] > 0):?>
