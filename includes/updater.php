@@ -79,6 +79,10 @@ function flowork_upd_defaults(): array {
         'ready_version' => '',
         'status'        => '',
         'failed_version'=> '',         // a version that failed to install is not retried automatically
+        'last_run'      => '',         // every updater run, even one that had nothing to do
+        'run_started'   => '',         // set while a run is going; cleared when it ends
+        'step'          => '',         // what a running updater is doing, for the progress panel
+        'last_result'   => '',         // the outcome of the last run, in words
     ];
 }
 
@@ -385,6 +389,24 @@ function flowork_upd_run(mysqli $conn, string $root, array $opt = []): array {
     $state = flowork_upd_state_dir($root);
     $lock = fopen("$state/update.lock", 'c');
     if (!$lock || !flock($lock, LOCK_EX | LOCK_NB)) return ['status' => 'busy', 'message' => 'another update run is still going'];
+    // Recorded so System Updates can show that the updater runs and what it is doing
+    flowork_upd_set($conn, ['last_run' => date('Y-m-d H:i:s'), 'run_started' => date('Y-m-d H:i:s'), 'step' => 'starting']);
+    try {
+        $r = flowork_upd_run_steps($conn, $root, $opt);
+    } catch (Throwable $e) {
+        $r = ['status' => 'error', 'message' => $e->getMessage()];
+    }
+    flowork_upd_set($conn, ['run_started' => '', 'step' => '', 'last_result' => $r['message'] ?? $r['status']]);
+    flock($lock, LOCK_UN);
+    return $r;
+}
+
+function flowork_upd_step(mysqli $conn, string $what): void {
+    flowork_upd_set($conn, ['step' => $what]);
+}
+
+function flowork_upd_run_steps(mysqli $conn, string $root, array $opt): array {
+    $state = flowork_upd_state_dir($root);
 
     $s = flowork_upd_get($conn);
     $current = flowork_version($root);
@@ -406,7 +428,8 @@ function flowork_upd_run(mysqli $conn, string $root, array $opt = []): array {
     } else {
         $due = !empty($opt['force']) || !empty($opt['check_only']) || $s['check_requested'] === '1' || $requested
             || $s['last_check'] === '' || strtotime($s['last_check']) < time() - 1800;
-        if (!$due && $s['ready_version'] === '') return ['status' => 'idle', 'message' => 'checked recently'];
+        if (!$due && $s['ready_version'] === '') return ['status' => 'idle', 'message' => 'nothing to do (checked GitHub less than 30 minutes ago)'];
+        flowork_upd_step($conn, 'checking GitHub for a new version');
         $rel = flowork_upd_find_release($s['repo'], $s['channel'], $current);
         flowork_upd_set($conn, ['last_check' => date('Y-m-d H:i:s'), 'check_requested' => '0']);
         if (isset($rel['error'])) { flowork_upd_log($conn, 'warn', 'Update check: ' . $rel['error']); flowork_upd_set($conn, ['status' => 'check failed']); return ['status' => 'error', 'message' => $rel['error']]; }
@@ -427,12 +450,14 @@ function flowork_upd_run(mysqli $conn, string $root, array $opt = []): array {
         if (!is_dir($dl)) mkdir($dl, 0750, true);
         foreach (["flowork-$v.zip", "flowork-$v.manifest.json", "flowork-$v.manifest.sig"] as $a) {
             if (is_file("$dl/$a")) continue;
+            flowork_upd_step($conn, "downloading $v ($a)");
             if (empty($rel['assets'][$a])) { flowork_upd_log($conn, 'error', "Release $v has no $a; it was not built by the release workflow.", $v); return ['status' => 'error', 'message' => "release $v has no $a"]; }
             [$code, $err] = flowork_upd_http_get($rel['assets'][$a], "$dl/$a.part", 300);
             if ($code !== 200) { @unlink("$dl/$a.part"); flowork_upd_log($conn, 'warn', "Download of $a failed ($code $err); it will try again.", $v); return ['status' => 'error', 'message' => "download failed: $a"]; }
             rename("$dl/$a.part", "$dl/$a");
         }
     }
+    flowork_upd_step($conn, "checking the signature of $v");
     $ver = flowork_upd_verify($dl, $v, $pubkey);
     if (isset($ver['error'])) {
         flowork_upd_log($conn, 'error', "Version $v refused: " . $ver['error'], $v);
@@ -455,6 +480,7 @@ function flowork_upd_run(mysqli $conn, string $root, array $opt = []): array {
 
     // 4. Install
     flowork_upd_log($conn, 'info', "Installing $v (was $current).", $v);
+    flowork_upd_step($conn, "installing $v");
     $r = flowork_upd_install($conn, $root, $ver['manifest'], $ver['zip'], ['site_url' => $s['site_url'], 'lint' => true]);
     flowork_upd_set($conn, ['install_requested' => '0']);
     if (empty($r['ok'])) {

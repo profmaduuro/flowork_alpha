@@ -46,11 +46,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $msg = 'Update settings saved.';
         } elseif ($a === 'check') {
             flowork_upd_set($conn, ['check_requested' => '1']);
-            $msg = 'The site will check for a new version on the updater\'s next run (within 15 minutes).';
+            $msg = 'Check requested. The countdown below shows when the updater picks it up.';
         } elseif ($a === 'install') {
             flowork_upd_set($conn, ['install_requested' => '1', 'check_requested' => '1']);
             flowork_upd_log($conn, 'info', 'Install now requested by ' . ($_SESSION['username'] ?? 'user') . '.');
-            $msg = 'The newest version will be installed on the updater\'s next run (within 15 minutes), outside the update hours too.';
+            $msg = 'Install requested. The countdown below shows when the updater starts it, outside the update hours too.';
         } elseif ($a === 'cancel_install') {
             flowork_upd_set($conn, ['install_requested' => '0']);
             $msg = 'Install request cancelled.';
@@ -60,10 +60,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $current = flowork_version($root);
+
+// When the updater runs next: cPanel's "Once Per Fifteen Minutes" is */15, so on the quarter hour
+function fw_upd_live(mysqli $conn, array $u, string $current): array {
+    $now = time();
+    $lid = $conn->query("SELECT MAX(id) m FROM flowork_update_log");
+    $started = $u['run_started'] !== '' ? strtotime($u['run_started']) : 0;
+    return [
+        'now'       => $now,
+        'next_run'  => (intdiv($now, 900) + 1) * 900,
+        'last_run'  => $u['last_run'] !== '' ? strtotime($u['last_run']) : 0,
+        'running'   => $started > $now - 900,           // a run older than 15 minutes has died
+        'step'      => $u['step'],
+        'result'    => $u['last_result'],
+        'status'    => $u['status'],
+        'current'   => $current,
+        'latest'    => $u['latest_version'],
+        'check_req' => $u['check_requested'] === '1',
+        'inst_req'  => $u['install_requested'] === '1',
+        'log_id'    => ($lid && $lid !== true) ? (int)($lid->fetch_assoc()['m'] ?? 0) : 0,
+    ];
+}
+$live = fw_upd_live($conn, $upd, $current);
+if (($_GET['live'] ?? '') === '1') {
+    header('Content-Type: application/json');
+    header('Cache-Control: no-store');
+    echo json_encode($live);
+    exit;
+}
+
 $log = $conn->query("SELECT * FROM flowork_update_log ORDER BY id DESC LIMIT 40");
 $log = ($log && $log !== true) ? $log->fetch_all(MYSQLI_ASSOC) : [];
 $last_run = $upd['last_check'] !== '' ? strtotime($upd['last_check']) : 0;
-$cron_ok = $last_run > time() - 3600 * 2;
+$cron_ok = max($last_run, $live['last_run']) > time() - 3600 * 2;
 $h = fn($x) => htmlspecialchars((string)$x, ENT_QUOTES, 'UTF-8');
 $newer = $upd['latest_version'] !== '' && version_compare($upd['latest_version'], $current, '>');
 
@@ -90,6 +119,91 @@ include "includes/layout.php";
     <div class="kpi-sub" style="<?=$cron_ok?'':'color:var(--danger)'?>"><?= $cron_ok ? 'the updater is running' : 'the updater has not run lately' ?></div></div>
 </div>
 
+
+<div class="card mb-3" id="upd-live" style="margin-bottom:1.25rem">
+  <div class="card-body" style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap">
+    <div id="ul-icon" class="ul-icon" aria-hidden="true"></div>
+    <div style="flex:1;min-width:220px">
+      <div id="ul-title" style="font-weight:600">Updater activity</div>
+      <div id="ul-sub" style="font-size:.8rem;color:var(--muted);margin-top:.15rem"></div>
+      <div class="ul-bar"><div id="ul-fill"></div></div>
+    </div>
+    <div style="text-align:right">
+      <div id="ul-count" style="font-size:1.6rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1">--:--</div>
+      <div id="ul-countlbl" style="font-size:.72rem;color:var(--muted)">until the next run</div>
+    </div>
+  </div>
+</div>
+<style>
+  .ul-icon{width:34px;height:34px;border-radius:50%;flex:none;background:var(--surface-3);position:relative}
+  .ul-icon.wait::after{content:"";position:absolute;inset:11px;border-radius:50%;background:var(--muted)}
+  .ul-icon.queued::after{content:"";position:absolute;inset:11px;border-radius:50%;background:var(--gold);animation:ulpulse 1.4s ease-in-out infinite}
+  .ul-icon.run{background:none;border:3px solid var(--surface-3);border-top-color:var(--accent);animation:fw-spin .9s linear infinite}
+  .ul-icon.off::after{content:"";position:absolute;inset:11px;border-radius:50%;background:var(--danger)}
+  .ul-icon.done::after{content:"";position:absolute;inset:11px;border-radius:50%;background:var(--leaf)}
+  @keyframes ulpulse{0%,100%{transform:scale(.7);opacity:.5}50%{transform:scale(1.15);opacity:1}}
+  .ul-bar{height:5px;border-radius:3px;background:var(--surface-3);margin-top:.55rem;overflow:hidden}
+  #ul-fill{height:100%;width:0;background:var(--accent);transition:width 1s linear}
+  #upd-live.running #ul-fill{width:40%!important;animation:ulslide 1.2s ease-in-out infinite alternate}
+  @keyframes ulslide{from{transform:translateX(-10%)}to{transform:translateX(160%)}}
+</style>
+<script>
+(function(){
+  var L = <?= json_encode($live) ?>, cronOk = <?= $cron_ok ? 'true' : 'false' ?>;
+  var skew = L.now * 1000 - Date.now();            // server clock minus this browser's clock
+  var start = {last_run: L.last_run, log_id: L.log_id}, wasRunning = L.running, down = false;
+  var $ = function(id){ return document.getElementById(id); };
+  function ago(t){ var s = Math.round((Date.now() + skew) / 1000 - t); if (s < 60) return 'just now'; if (s < 3600) return Math.floor(s/60) + ' min ago'; return Math.floor(s/3600) + ' h ago'; }
+  function render(){
+    var now = (Date.now() + skew) / 1000;
+    var next = L.next_run; while (next <= now) next += 900;
+    var left = Math.max(0, Math.round(next - now));
+    var mm = Math.floor(left / 60), ss = left % 60;
+    var box = $('upd-live'), icon = $('ul-icon');
+    box.classList.toggle('running', !!L.running && !down);
+    $('ul-count').textContent = (mm < 10 ? '0' : '') + mm + ':' + (ss < 10 ? '0' : '') + ss;
+    $('ul-countlbl').textContent = 'until the next run (' + new Date(next * 1000 - skew).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) + ')';
+    $('ul-fill').style.width = L.running ? '' : (100 * (900 - left) / 900) + '%';
+    var lastTxt = L.last_run ? 'Last run ' + ago(L.last_run) + (L.result ? ': ' + L.result : '') + '.' : 'The updater has not run on this site yet.';
+    if (down) {
+      icon.className = 'ul-icon run';
+      $('ul-title').textContent = 'Installing the update…';
+      $('ul-sub').textContent = 'The site is briefly unavailable while files are swapped. This page reloads by itself when it is back.';
+    } else if (L.running) {
+      icon.className = 'ul-icon run';
+      $('ul-title').textContent = 'The updater is running: ' + (L.step || 'working') + '…';
+      $('ul-sub').textContent = 'Started ' + ago(L.last_run) + '. This page follows along by itself.';
+    } else if (L.inst_req || L.check_req) {
+      icon.className = 'ul-icon queued';
+      $('ul-title').textContent = (L.inst_req ? 'Install requested' : 'Check requested') + ': waiting for the next run';
+      $('ul-sub').textContent = 'It starts when the countdown reaches zero. ' + lastTxt;
+    } else if (!L.last_run && !cronOk) {
+      icon.className = 'ul-icon off';
+      $('ul-title').textContent = 'The updater has not run yet';
+      $('ul-sub').textContent = 'If it is set up, its first run shows here when the countdown reaches zero. If not, see "Turn on the updater" below.';
+    } else {
+      icon.className = 'ul-icon ' + (L.last_run && L.last_run > now - 1800 ? 'done' : 'wait');
+      $('ul-title').textContent = 'Waiting for the next run';
+      $('ul-sub').textContent = lastTxt;
+    }
+  }
+  function poll(){
+    fetch('system_updates.php?live=1', {cache: 'no-store', credentials: 'same-origin'})
+      .then(function(r){ if (r.status === 503) { down = true; return null; } return r.ok ? r.json() : null; })
+      .then(function(d){
+        if (!d) { render(); return; }
+        var wasDown = down, wasQueued = L.inst_req || L.check_req; down = false;
+        skew = d.now * 1000 - Date.now(); L = d;
+        // A run finished, a request was handled or the history changed: reload to show the result
+        if (wasDown || d.log_id !== start.log_id || (wasRunning && !d.running) || (wasQueued && !d.running && !d.inst_req && !d.check_req)) { location.reload(); return; }
+        wasRunning = d.running; render();
+      })
+      .catch(function(){ render(); })
+      .then(function(){ setTimeout(poll, (L.running || down) ? 3000 : (L.inst_req || L.check_req) ? 5000 : 15000); });
+  }
+  render(); setInterval(render, 1000); setTimeout(poll, 3000);
+})();
+</script>
 <?php if(!$cron_ok):?>
 <div class="card mb-3">
   <div class="card-head"><h3>Turn on the updater</h3><span class="badge badge-red">not running</span></div>
