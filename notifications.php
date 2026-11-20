@@ -4,7 +4,7 @@ session_start();
 require_once "includes/auth.php";
 require_once "includes/conn.php";
 require_once "includes/audit.php";
-require_once "email_reports.php";
+require_once "email_reports_functions.php";
 require_once "includes/rbz_change.php";
 require_login();
 
@@ -66,23 +66,6 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
             $msg="✓ EOD report sent to ".implode(', ',$sent_to).".";
             if($failed) $err="Failed for: ".implode(', ',$failed);
         }
-    }
-
-    if ($action==='send_sms_batch') {
-        $date = $conn->real_escape_string($_POST['sms_date']??$today);
-        $gids_q=$conn->query("SELECT DISTINCT g.id FROM growers g JOIN bale_junus bj ON bj.growerid=g.id JOIN tickets tk ON tk.bale_junusid=bj.id JOIN sold_bales sb ON sb.ticketsid=tk.id WHERE g.selling_pointid=$spid AND DATE(sb.created_at)='$date' AND g.phone IS NOT NULL AND g.phone!=''");
-        $sent=$failed=$sim=0;
-        while($gids_q&&$r=$gids_q->fetch_assoc()){
-            $gid=(int)$r['id'];
-            $res=send_grower_sms($conn,$spid,$gid,$date);
-            $status=$res['ok']?'sent':($cfg['telerivet_api_key']??''?'failed':'simulated');
-            $phone_esc=$conn->real_escape_string($res['phone']??'');
-            $resp_esc=$conn->real_escape_string(substr(json_encode($res),0,500));
-            $conn->query("INSERT INTO notification_log (selling_pointid,type,recipient,subject,status,response) VALUES ($spid,'sms','$phone_esc','Sale results $date','$status','$resp_esc')");
-            if($status==='sent')$sent++; elseif($status==='simulated')$sim++; else $failed++;
-        }
-        $msg="SMS batch for $date: $sent sent, $sim simulated, $failed failed.";
-        audit_log($conn,$spid,$userid,'notification_log','sms_batch',null,null,['date'=>$date,'sent'=>$sent,'failed'=>$failed]);
     }
 }
 
@@ -171,19 +154,12 @@ include "includes/layout.php";
 </div>
 </div>
 
-<!-- SMS Batch -->
+<!-- SMS: sent from SMS Notify, which builds each grower's message -->
 <div class="card mb-3">
-<div class="card-head"><h3>📱 SMS Batch — Sell Date</h3></div>
-<div class="card-body">
-<form method="POST"><input type="hidden" name="action" value="send_sms_batch">
-<div class="form-row cols-2" style="align-items:flex-end">
-  <div class="form-group" style="margin:0"><label>Selling Date</label><input type="date" name="sms_date" class="form-control" value="<?=$today?>"></div>
-  <button type="submit" class="btn btn-primary" onclick="return confirm('Send SMS to all growers who sold on this date?')" data-progress-label="Sending...">
-    📤 Send to <?=$sms_today_count?> Growers
-  </button>
-</div>
-<div style="font-size:.7rem;color:var(--muted);margin-top:.4rem">Sends: grower #, bales, mass, gross, deductions, net USD and ZiG</div>
-</form>
+<div class="card-head"><h3>📱 Sale results by SMS</h3></div>
+<div class="card-body" style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap">
+  <div style="font-size:.85rem"><?=$sms_today_count?> grower(s) with a phone number sold today. Each gets grower #, bales, mass, gross, deductions, net USD and ZiG.</div>
+  <a href="sms_notify.php" class="btn btn-primary">Open SMS Notify →</a>
 </div>
 </div>
 
@@ -193,14 +169,13 @@ include "includes/layout.php";
 <div id="panel-cron" class="tab-panel" data-tabs="notify">
 <div class="card">
 <div class="card-head"><h3>⏰ Automation (Cron)</h3></div>
-<div class="card-body" style="font-size:.75rem">
-  <p style="color:var(--muted);margin-bottom:.5rem">Add to crontab for daily automation:</p>
-  <div style="background:var(--surface-2);color:var(--text);padding:.5rem .75rem;border-radius:5px;font-family:monospace;font-size:.68rem;overflow-x:auto;margin-bottom:.4rem">
-    0 18 * * * curl -s "<?=htmlspecialchars('https://yourdomain.com/flowork/notifications.php?cron=eod&token=flowork_cron&spid='.$spid)?>"
-  </div>
-  <div style="background:var(--surface-2);color:var(--text);padding:.5rem .75rem;border-radius:5px;font-family:monospace;font-size:.68rem;overflow-x:auto">
-    0 17 * * * curl -s "<?=htmlspecialchars('https://yourdomain.com/flowork/notifications.php?cron=sms&token=flowork_cron&spid='.$spid)?>"
-  </div>
+<div class="card-body" style="font-size:.8rem;line-height:1.6">
+  <p style="color:var(--muted);margin:0 0 .5rem">To email the end-of-day report every evening, have the server run this once a day (e.g. 18:00). It sends to the recipients in Settings, for every active floor.</p>
+  <p style="margin:.4rem 0 .2rem"><strong>cPanel / Linux cron:</strong></p>
+  <div style="background:var(--surface-2);color:var(--text);padding:.5rem .75rem;border-radius:5px;font-family:monospace;font-size:.72rem;overflow-x:auto;word-break:break-all">0 18 * * * /usr/local/bin/php <?=htmlspecialchars(str_replace('\\','/',__DIR__))?>/cron_email.php &gt;/dev/null 2&gt;&amp;1</div>
+  <p style="margin:.6rem 0 .2rem"><strong>Windows Task Scheduler:</strong></p>
+  <div style="background:var(--surface-2);color:var(--text);padding:.5rem .75rem;border-radius:5px;font-family:monospace;font-size:.72rem;overflow-x:auto;word-break:break-all">C:\xampp\php\php-win.exe "<?=htmlspecialchars(str_replace('/','\\',__DIR__))?>\cron_email.php"</div>
+  <p style="color:var(--muted);margin:.6rem 0 0">SMS sale results are sent from <a href="sms_notify.php">SMS Notify</a>.</p>
 </div>
 </div>
 </div><!-- /panel-cron -->
@@ -283,19 +258,5 @@ include "includes/layout.php";
 </table></div>
 </div>
 </div><!-- /panel-log -->
-
-<?php
-// Cron endpoint
-if(isset($_GET['cron'])&&$_GET['token']==='flowork_cron'){
-    $sp=(int)($_GET['spid']??$spid);
-    if($_GET['cron']==='eod'){$r=send_eod_email($conn,$sp);echo json_encode($r);}
-    elseif($_GET['cron']==='sms'){
-        $gids_q=$conn->query("SELECT DISTINCT g.id FROM growers g JOIN bale_junus bj ON bj.growerid=g.id JOIN tickets tk ON tk.bale_junusid=bj.id JOIN sold_bales sb ON sb.ticketsid=tk.id WHERE g.selling_pointid=$sp AND DATE(sb.created_at)='$today' AND g.phone IS NOT NULL AND g.phone!=''");
-        $sent=0;while($gids_q&&$r=$gids_q->fetch_assoc()){send_grower_sms($conn,$sp,(int)$r['id'],$today);$sent++;}
-        echo json_encode(['sent'=>$sent]);
-    }
-    exit;
-}
-?>
 
 <?php include "includes/layout_end.php"; ?>

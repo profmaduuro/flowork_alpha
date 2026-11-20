@@ -133,7 +133,7 @@ $log_q=$conn->query("SELECT sl.*,u.username FROM sms_log sl LEFT JOIN users u ON
 $logs=($log_q&&$log_q!==true)?$log_q->fetch_all(MYSQLI_ASSOC):[];
 $growers_q=$conn->query("SELECT id,grower_num,name,surname,phone FROM growers WHERE selling_pointid=$spid AND phone IS NOT NULL AND phone!='' ORDER BY grower_num LIMIT 500");
 $growers=($growers_q&&$growers_q!==true)?$growers_q->fetch_all(MYSQLI_ASSOC):[];
-$is_configured=!empty($cfg['telerivet_api_key']&&$cfg['telerivet_project_id']);
+$is_configured=!empty($cfg['telerivet_api_key']) && !empty($cfg['telerivet_project_id']);
 
 include "includes/layout.php";
 ?>

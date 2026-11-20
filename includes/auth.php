@@ -210,9 +210,11 @@ function require_login() {
             'timb_api.php'          => 'admin',
             'notifications.php'     => 'admin',
             'sms_notify.php'        => 'admin',
+            'file_manager_uploads.php'=> 'admin',
+            // removed in 1.0.3; kept so a copy left on an older installation stays admin-only
             'whatsapp_notify.php'   => 'admin',
             'document_vault.php'    => 'admin',
-            'file_manager_uploads.php'=> 'admin'
+            'language.php'          => 'admin'
         ];
         
         if (isset($rights_map[$current_script])) {

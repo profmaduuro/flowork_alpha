@@ -810,7 +810,7 @@ if ('serviceWorker' in navigator) {
   </div>
   <?php endif; ?>
 
-  <?php $grp_adm = in_array($active_page,['settings','users','backup','audit_log','auto_backup','timb_api','grower_portal','notifications','two_factor','sms_notify','system_health','multi_floor','clerk_performance','whatsapp_notify','document_vault','help_center','language','role_dashboard','email_reports','billing','system_updates']); ?>
+  <?php $grp_adm = in_array($active_page,['settings','users','backup','audit_log','auto_backup','timb_api','grower_portal','notifications','two_factor','sms_notify','system_health','multi_floor','clerk_performance','help_center','role_dashboard','email_reports','billing','system_updates']); ?>
   <div class="nav-group" data-group="admin">
     <div class="nav-toggle <?= $grp_adm ? 'has-active' : '' ?>" onclick="toggleNavGroup(this)">
       Admin
@@ -822,19 +822,7 @@ if ('serviceWorker' in navigator) {
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3h12a1 1 0 011 1v7a1 1 0 01-1 1H3l-2 2V4a1 1 0 011-1z"/></svg>
     SMS Notify
   </a>
-  <a href="whatsapp_notify.php" class="nav-item <?= $active_page==='whatsapp_notify'?'active':'' ?>">
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 14l1.5-4A6 6 0 1112.5 5.5L2 14z"/><path d="M6 7c0 1.5 2 3 4 3"/></svg>
-    WhatsApp Notify
-  </a>
-  <a href="document_vault.php" class="nav-item <?= $active_page==='document_vault'?'active':'' ?>">
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="1"/><path d="M2 6h12"/><path d="M6 6v8"/></svg>
-    Document Vault
-  </a>
   <?php endif; ?>
-  <a href="language.php" class="nav-item <?= $active_page==='language'?'active':'' ?>">
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2c-2 2-2 4 0 6s2 4 0 6M8 2c2 2 2 4 0 6s-2 4 0 6"/></svg>
-    Language
-  </a>
   <a href="role_dashboard.php" class="nav-item <?= $active_page==='role_dashboard'?'active':'' ?>">
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><path d="M12 10v4M10 12h4"/></svg>
     My Dashboard
