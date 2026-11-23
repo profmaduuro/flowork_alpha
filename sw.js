@@ -1,4 +1,4 @@
-const CACHE_NAME = 'flowork-cache-v4';   // bump to drop older caches (v3 also cached PHP data requests)
+const CACHE_NAME = 'flowork-cache-v5';   // bump to drop older caches (v4 could hold broken images from a bad upload)
 const OFFLINE_URL = 'offline.html';
 const FONT_URL = 'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300&display=swap';
 
@@ -79,7 +79,8 @@ self.addEventListener('fetch', (event) => {
                 if (cachedResponse) {
                     // Stale-while-revalidate for local assets when online
                     if (requestUrl.origin === self.location.origin) {
-                        fetch(event.request).then((networkResponse) => {
+                        // no-cache: ask the server, not the browser's 30-day copy, so a fixed file reaches everyone
+                        fetch(event.request, { cache: 'no-cache' }).then((networkResponse) => {
                             if (networkResponse.status === 200) {
                                 caches.open(CACHE_NAME).then((cache) => cache.put(event.request, networkResponse));
                             }

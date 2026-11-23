@@ -39,7 +39,7 @@ $lp_leaf = '<svg viewBox="0 0 24 24" fill="none" stroke="#E2B04A" stroke-width="
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="includes/layout.css?v=9">
-<link rel="preload" as="image" href="images/login-tobacco-bales.jpg">
+<link rel="preload" as="image" href="images/login-tobacco-bales.jpg?v=2">
 <style>
 /* Landing page. Colours come from the shared tokens in includes/layout.css
    (light and dark), like the sign-in page; the photo panels stay dark. */
@@ -74,7 +74,7 @@ body.lp{font-size:16px;line-height:1.6;background:var(--page);color:var(--text)}
 
 /* Hero */
 .lp-hero{position:relative;min-height:min(92vh,820px);display:flex;align-items:flex-end;color:#F4EFE6;
-  background:#14110D url('images/login-tobacco-bales.jpg') center 55%/cover no-repeat}
+  background:#14110D url('images/login-tobacco-bales.jpg?v=2') center 55%/cover no-repeat}
 .lp-hero::before{content:'';position:absolute;inset:0;
   background:linear-gradient(90deg,rgba(20,17,13,.82) 0%,rgba(20,17,13,.6) 45%,rgba(20,17,13,.1) 85%),
              linear-gradient(180deg,rgba(20,17,13,.7) 0%,rgba(20,17,13,.15) 30%,rgba(20,17,13,.3) 60%,rgba(20,17,13,.95) 100%)}
@@ -140,7 +140,7 @@ body.lp{font-size:16px;line-height:1.6;background:var(--page);color:var(--text)}
 
 /* Closing band */
 .lp-cta{position:relative;color:#F4EFE6;text-align:center;padding:6rem 0;
-  background:#14110D url('images/login-tobacco-field.jpg') center/cover no-repeat}
+  background:#14110D url('images/login-tobacco-field.jpg?v=2') center/cover no-repeat}
 .lp-cta::before{content:'';position:absolute;inset:0;background:rgba(20,17,13,.78)}
 .lp-cta .lp-wrap{position:relative}
 .lp-cta h2{font-size:clamp(1.8rem,3.4vw,2.6rem);font-weight:600;letter-spacing:-.015em;line-height:1.15}

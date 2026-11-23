@@ -261,7 +261,7 @@ $lg_title = $step === 'choose_floor' ? 'Choose floor' : ($step === 'activate_lic
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="includes/layout.css?v=9">
-<link rel="preload" as="image" href="images/login-tobacco-bales.jpg">
+<link rel="preload" as="image" href="images/login-tobacco-bales.jpg?v=2">
 <style>
 /* Sign-in pages: brand panel + form card. Colours come from the shared tokens
    in includes/layout.css, so light and dark mode match the rest of the app. */
@@ -272,7 +272,7 @@ body{display:flex;min-height:100vh;background:var(--page);color:var(--text)}
 /* Brand panel: bales of cured tobacco on the auction floor
    (images/login-tobacco-bales.jpg) under a dark shade so the white text
    stays readable; the bales show through above the text. */
-.lg-brand{position:relative;background:#14110D url('images/login-tobacco-bales.jpg') 55% center/cover no-repeat;color:#F4EFE6;padding:2.5rem 3rem;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden}
+.lg-brand{position:relative;background:#14110D url('images/login-tobacco-bales.jpg?v=2') 55% center/cover no-repeat;color:#F4EFE6;padding:2.5rem 3rem;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden}
 .lg-brand::before{content:'';position:absolute;inset:0;pointer-events:none;
   background:linear-gradient(180deg,rgba(20,17,13,.72) 0%,rgba(20,17,13,.38) 22%,rgba(20,17,13,.42) 42%,rgba(20,17,13,.82) 64%,rgba(20,17,13,.95) 100%)}
 .lg-brand > *{position:relative}
@@ -366,7 +366,7 @@ body.theme-dark .lg-seg button.on{background:var(--line-strong)}
   .lg-mobile-mark{display:flex}
   /* the field photo becomes the page background; the form sits on a card */
   .lg-side{align-items:center;padding:2rem 1rem;
-    background:linear-gradient(180deg,rgba(20,17,13,.25),rgba(20,17,13,.7)),#14110D url('images/login-tobacco-bales.jpg') center/cover no-repeat}
+    background:linear-gradient(180deg,rgba(20,17,13,.25),rgba(20,17,13,.7)),#14110D url('images/login-tobacco-bales.jpg?v=2') center/cover no-repeat}
   .lg-card{background:var(--surface);padding:1.6rem 1.35rem;border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.35)}
 }
 
