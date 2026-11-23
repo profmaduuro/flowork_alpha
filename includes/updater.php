@@ -80,6 +80,7 @@ function flowork_upd_defaults(): array {
         'status'        => '',
         'failed_version'=> '',         // a version that failed to install is not retried automatically
         'last_run'      => '',         // every updater run, even one that had nothing to do
+        'last_cron_run' => '',         // the last run started by cron / Task Scheduler (automatic updates work)
         'run_started'   => '',         // set while a run is going; cleared when it ends
         'step'          => '',         // what a running updater is doing, for the progress panel
         'last_result'   => '',         // the outcome of the last run, in words
@@ -305,6 +306,7 @@ function flowork_upd_install(mysqli $conn, string $root, array $manifest, string
     file_put_contents($flag, (string)time());
     $rollback = function (string $why) use ($root, $bzip, $flag, $stage, $remove): array {
         $ok = flowork_upd_restore($root, $bzip);
+        if (function_exists('opcache_reset')) @opcache_reset();
         @unlink($flag);
         flowork_upd_rrmdir($stage);
         return ['error' => $why . ($ok ? ' The previous version was put back.' : ' Putting the previous version back also failed: restore ' . basename($bzip) . ' by hand.'), 'rolled_back' => $ok];
@@ -330,6 +332,8 @@ function flowork_upd_install(mysqli $conn, string $root, array $manifest, string
         if (!$ok) return $rollback("Could not write $f.");
     }
     foreach ($remove as $f) @unlink("$root/$f");
+    // A web server's PHP cache could keep running the old code: drop it
+    if (function_exists('opcache_reset')) @opcache_reset();
 
     // Database: add what the new version needs (never changes existing data)
     $schema = ['tables' => 0, 'columns' => 0, 'indexes' => 0, 'seeded' => [], 'errors' => []];
@@ -390,7 +394,9 @@ function flowork_upd_run(mysqli $conn, string $root, array $opt = []): array {
     $lock = fopen("$state/update.lock", 'c');
     if (!$lock || !flock($lock, LOCK_EX | LOCK_NB)) return ['status' => 'busy', 'message' => 'another update run is still going'];
     // Recorded so System Updates can show that the updater runs and what it is doing
-    flowork_upd_set($conn, ['last_run' => date('Y-m-d H:i:s'), 'run_started' => date('Y-m-d H:i:s'), 'step' => 'starting']);
+    $now = date('Y-m-d H:i:s');
+    flowork_upd_set($conn, ['last_run' => $now, 'run_started' => $now, 'step' => 'starting']
+        + (PHP_SAPI === 'cli' ? ['last_cron_run' => $now] : []));
     try {
         $r = flowork_upd_run_steps($conn, $root, $opt);
     } catch (Throwable $e) {
@@ -434,7 +440,7 @@ function flowork_upd_run_steps(mysqli $conn, string $root, array $opt): array {
         flowork_upd_set($conn, ['last_check' => date('Y-m-d H:i:s'), 'check_requested' => '0']);
         if (isset($rel['error'])) { flowork_upd_log($conn, 'warn', 'Update check: ' . $rel['error']); flowork_upd_set($conn, ['status' => 'check failed']); return ['status' => 'error', 'message' => $rel['error']]; }
         if (!$rel) { flowork_upd_set($conn, ['latest_version' => $current, 'status' => 'up to date', 'ready_version' => '']); return ['status' => 'current', 'message' => "$current is the newest on the {$s['channel']} channel"]; }
-        flowork_upd_set($conn, ['latest_version' => $rel['version']]);
+        flowork_upd_set($conn, ['latest_version' => $rel['version'], 'status' => "{$rel['version']} available"]);
     }
     $v = $rel['version'];
     if (!empty($opt['check_only'])) return ['status' => 'available', 'message' => "$v is available (this site has $current)"];

@@ -31,6 +31,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $err = 'Security token expired. Please retry.';
     } else {
         $a = $_POST['action'] ?? '';
+        if ($a === 'run_now') {
+            // Check or install right now, in this request: no cron needed. The page
+            // follows the steps through ?live=1, so the session must not stay locked.
+            $install = ($_POST['mode'] ?? '') === 'install';
+            $who = $_SESSION['username'] ?? 'user';
+            session_write_close();
+            ignore_user_abort(true);
+            @set_time_limit(600);
+            if ($install) {
+                flowork_upd_set($conn, ['install_requested' => '1']);
+                flowork_upd_log($conn, 'info', "Install started from System Updates by $who.");
+            }
+            $r = flowork_upd_run($conn, $root, $install ? [] : ['check_only' => true]);
+            if ($install) flowork_upd_set($conn, ['install_requested' => '0']);
+            header('Content-Type: application/json');
+            header('Cache-Control: no-store');
+            echo json_encode(['status' => $r['status'] ?? 'error', 'message' => $r['message'] ?? '']);
+            exit;
+        }
         if ($a === 'save') {
             $ws = max(0, min(23, (int)($_POST['window_start'] ?? 1)));
             $we = max(0, min(24, (int)($_POST['window_end'] ?? 5)));
@@ -92,16 +111,19 @@ if (($_GET['live'] ?? '') === '1') {
 $log = $conn->query("SELECT * FROM flowork_update_log ORDER BY id DESC LIMIT 40");
 $log = ($log && $log !== true) ? $log->fetch_all(MYSQLI_ASSOC) : [];
 $last_run = $upd['last_check'] !== '' ? strtotime($upd['last_check']) : 0;
-$cron_ok = max($last_run, $live['last_run']) > time() - 3600 * 2;
+// Automatic updates need the server's scheduled job; checking and installing from this page do not
+$cron_ok = $upd['last_cron_run'] !== '' && strtotime($upd['last_cron_run']) > time() - 3600 * 2;
 $h = fn($x) => htmlspecialchars((string)$x, ENT_QUOTES, 'UTF-8');
 $newer = $upd['latest_version'] !== '' && version_compare($upd['latest_version'], $current, '>');
+// A "newest" older than this site (it was updated by hand) means: not checked since
+if ($upd['latest_version'] !== '' && version_compare($upd['latest_version'], $current, '<')) $upd['latest_version'] = '';
 
 include "includes/layout.php";
 ?>
 <div class="page-header">
   <div class="page-header-left">
     <h2>System Updates</h2>
-    <p>This site installs new Flowork versions by itself, from signed releases. Your settings and data are never changed by an update.</p>
+    <p>Check for and install new Flowork versions here, from signed releases. Your settings and data are never changed by an update.</p>
   </div>
 </div>
 
@@ -116,10 +138,11 @@ include "includes/layout.php";
   <div class="kpi-card"><div class="kpi-label">Status</div><div class="kpi-value" style="font-size:1rem"><?=$h($upd['paused']==='1' ? 'Paused' : ($upd['status'] ?: '—'))?></div>
     <div class="kpi-sub"><?= $upd['install_requested']==='1' ? 'install requested' : ($upd['mode']==='manual' ? 'installs when you approve' : 'installs automatically') ?></div></div>
   <div class="kpi-card"><div class="kpi-label">Last check</div><div class="kpi-value" style="font-size:1rem"><?= $last_run ? $h(date('d M H:i', $last_run)) : 'never' ?></div>
-    <div class="kpi-sub" style="<?=$cron_ok?'':'color:var(--danger)'?>"><?= $cron_ok ? 'the updater is running' : 'the updater has not run lately' ?></div></div>
+    <div class="kpi-sub" style="<?=$cron_ok?'':'color:var(--danger)'?>"><?= $cron_ok ? 'automatic updates are on' : 'automatic updates are off' ?></div></div>
 </div>
 
 
+<?php $offer = $upd['ready_version'] ?: ($newer ? $upd['latest_version'] : ''); ?>
 <div class="card mb-3" id="upd-live" style="margin-bottom:1.25rem">
   <div class="card-body" style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap">
     <div id="ul-icon" class="ul-icon" aria-hidden="true"></div>
@@ -128,19 +151,27 @@ include "includes/layout.php";
       <div id="ul-sub" style="font-size:.8rem;color:var(--muted);margin-top:.15rem"></div>
       <div class="ul-bar"><div id="ul-fill"></div></div>
     </div>
-    <div style="text-align:right">
+    <div id="ul-clock" style="text-align:right;<?=$cron_ok?'':'display:none'?>">
       <div id="ul-count" style="font-size:1.6rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1">--:--</div>
-      <div id="ul-countlbl" style="font-size:.72rem;color:var(--muted)">until the next run</div>
+      <div id="ul-countlbl" style="font-size:.72rem;color:var(--muted)">until the next automatic run</div>
+    </div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+      <button type="button" class="btn btn-ghost" data-run="check">Check for updates</button>
+      <?php if($offer !== ''):?>
+        <button type="button" class="btn btn-primary" data-run="install" data-ver="<?=$h($offer)?>">Install v<?=$h($offer)?> now</button>
+      <?php endif;?>
     </div>
   </div>
+  <form id="ul-token" style="display:none"><?=csrf_field()?></form>
 </div>
 <style>
   .ul-icon{width:34px;height:34px;border-radius:50%;flex:none;background:var(--surface-3);position:relative}
   .ul-icon.wait::after{content:"";position:absolute;inset:11px;border-radius:50%;background:var(--muted)}
   .ul-icon.queued::after{content:"";position:absolute;inset:11px;border-radius:50%;background:var(--gold);animation:ulpulse 1.4s ease-in-out infinite}
   .ul-icon.run{background:none;border:3px solid var(--surface-3);border-top-color:var(--accent);animation:fw-spin .9s linear infinite}
-  .ul-icon.off::after{content:"";position:absolute;inset:11px;border-radius:50%;background:var(--danger)}
+  .ul-icon.off::after{content:"";position:absolute;inset:11px;border-radius:50%;background:var(--gold)}
   .ul-icon.done::after{content:"";position:absolute;inset:11px;border-radius:50%;background:var(--leaf)}
+  .ul-icon.bad::after{content:"";position:absolute;inset:11px;border-radius:50%;background:var(--danger)}
   @keyframes ulpulse{0%,100%{transform:scale(.7);opacity:.5}50%{transform:scale(1.15);opacity:1}}
   .ul-bar{height:5px;border-radius:3px;background:var(--surface-3);margin-top:.55rem;overflow:hidden}
   #ul-fill{height:100%;width:0;background:var(--accent);transition:width 1s linear}
@@ -149,42 +180,36 @@ include "includes/layout.php";
 </style>
 <script>
 (function(){
-  var L = <?= json_encode($live) ?>, cronOk = <?= $cron_ok ? 'true' : 'false' ?>;
+  var L = <?= json_encode($live) ?>, cronOk = <?= $cron_ok ? 'true' : 'false' ?>, offer = <?= json_encode($offer) ?>;
   var skew = L.now * 1000 - Date.now();            // server clock minus this browser's clock
-  var start = {last_run: L.last_run, log_id: L.log_id}, wasRunning = L.running, down = false;
+  var start = {log_id: L.log_id}, wasRunning = L.running, down = false, mine = null, outcome = null;
   var $ = function(id){ return document.getElementById(id); };
-  function ago(t){ var s = Math.round((Date.now() + skew) / 1000 - t); if (s < 60) return 'just now'; if (s < 3600) return Math.floor(s/60) + ' min ago'; return Math.floor(s/3600) + ' h ago'; }
+  function ago(t){ var s = Math.round((Date.now() + skew) / 1000 - t); if (s < 60) return 'just now'; if (s < 3600) return Math.floor(s/60) + ' min ago'; if (s < 172800) return Math.floor(s/3600) + ' h ago'; return Math.floor(s/86400) + ' days ago'; }
+  function show(cls, title, sub){ $('ul-icon').className = 'ul-icon ' + cls; $('ul-title').textContent = title; $('ul-sub').textContent = sub; }
   function render(){
     var now = (Date.now() + skew) / 1000;
     var next = L.next_run; while (next <= now) next += 900;
-    var left = Math.max(0, Math.round(next - now));
-    var mm = Math.floor(left / 60), ss = left % 60;
-    var box = $('upd-live'), icon = $('ul-icon');
-    box.classList.toggle('running', !!L.running && !down);
+    var left = Math.max(0, Math.round(next - now)), mm = Math.floor(left / 60), ss = left % 60;
+    var busy = (L.running || down || mine) && !outcome;
+    $('upd-live').classList.toggle('running', !!busy);
     $('ul-count').textContent = (mm < 10 ? '0' : '') + mm + ':' + (ss < 10 ? '0' : '') + ss;
-    $('ul-countlbl').textContent = 'until the next run (' + new Date(next * 1000 - skew).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) + ')';
-    $('ul-fill').style.width = L.running ? '' : (100 * (900 - left) / 900) + '%';
-    var lastTxt = L.last_run ? 'Last run ' + ago(L.last_run) + (L.result ? ': ' + L.result : '') + '.' : 'The updater has not run on this site yet.';
-    if (down) {
-      icon.className = 'ul-icon run';
-      $('ul-title').textContent = 'Installing the update…';
-      $('ul-sub').textContent = 'The site is briefly unavailable while files are swapped. This page reloads by itself when it is back.';
-    } else if (L.running) {
-      icon.className = 'ul-icon run';
-      $('ul-title').textContent = 'The updater is running: ' + (L.step || 'working') + '…';
-      $('ul-sub').textContent = 'Started ' + ago(L.last_run) + '. This page follows along by itself.';
-    } else if (L.inst_req || L.check_req) {
-      icon.className = 'ul-icon queued';
-      $('ul-title').textContent = (L.inst_req ? 'Install requested' : 'Check requested') + ': waiting for the next run';
-      $('ul-sub').textContent = 'It starts when the countdown reaches zero. ' + lastTxt;
-    } else if (!L.last_run && !cronOk) {
-      icon.className = 'ul-icon off';
-      $('ul-title').textContent = 'The updater has not run yet';
-      $('ul-sub').textContent = 'If it is set up, its first run shows here when the countdown reaches zero. If not, see "Turn on the updater" below.';
+    $('ul-countlbl').textContent = 'until the next automatic run (' + new Date(next * 1000 - skew).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) + ')';
+    $('ul-fill').style.width = busy ? '' : (cronOk ? (100 * (900 - left) / 900) + '%' : '0');
+    document.querySelectorAll('[data-run]').forEach(function(b){ b.disabled = !!busy; });
+    var lastTxt = L.last_run ? 'Last run ' + ago(L.last_run) + (L.result ? ': ' + L.result : '') + '.' : '';
+    if (outcome) {
+      show(outcome.ok ? 'done' : 'bad', outcome.title, outcome.sub);
+    } else if (down) {
+      show('run', 'Installing the update…', 'The site is unavailable for a few seconds while files are swapped. This page reloads by itself when it is back.');
+    } else if (L.running || mine) {
+      show('run', (mine === 'install' ? 'Installing' : mine === 'check' ? 'Checking for updates' : 'The updater is running') + ': ' + (L.step || 'starting') + '…',
+        mine === 'install' ? 'Keep this page open. It takes up to a minute; users may see an "updating" page for a few seconds.' : 'This takes a few seconds.');
+    } else if (offer) {
+      show('queued', 'Version ' + offer + ' is ready to install', 'Click Install v' + offer + ' now. ' + (cronOk ? 'Otherwise it installs by itself in the update hours.' : ''));
+    } else if (!cronOk) {
+      show('off', 'Automatic updates are off on this server', 'You can still click Check for updates and install from here. To make it update by itself, see "Turn on automatic updates" below. ' + lastTxt);
     } else {
-      icon.className = 'ul-icon ' + (L.last_run && L.last_run > now - 1800 ? 'done' : 'wait');
-      $('ul-title').textContent = 'Waiting for the next run';
-      $('ul-sub').textContent = lastTxt;
+      show(L.last_run && L.last_run > now - 1800 ? 'done' : 'wait', 'Up to date. Waiting for the next automatic run', lastTxt);
     }
   }
   function poll(){
@@ -194,21 +219,41 @@ include "includes/layout.php";
         if (!d) { render(); return; }
         var wasDown = down, wasQueued = L.inst_req || L.check_req; down = false;
         skew = d.now * 1000 - Date.now(); L = d;
-        // A run finished, a request was handled or the history changed: reload to show the result
-        if (wasDown || d.log_id !== start.log_id || (wasRunning && !d.running) || (wasQueued && !d.running && !d.inst_req && !d.check_req)) { location.reload(); return; }
+        // A run this page did not start ended, or the history changed: reload to show it
+        if (!mine && !outcome && (wasDown || d.log_id !== start.log_id || (wasRunning && !d.running) || (wasQueued && !d.running && !d.inst_req && !d.check_req))) { location.reload(); return; }
         wasRunning = d.running; render();
       })
       .catch(function(){ render(); })
-      .then(function(){ setTimeout(poll, (L.running || down) ? 3000 : (L.inst_req || L.check_req) ? 5000 : 15000); });
+      .then(function(){ if (!outcome) setTimeout(poll, (L.running || down || mine) ? 1500 : (L.inst_req || L.check_req) ? 5000 : 15000); });
   }
+  function run(mode, ver){
+    if (mode === 'install' && !confirm('Install version ' + ver + ' now? Users may see an "updating" page for a few seconds.')) return;
+    mine = mode; outcome = null; render();
+    var fd = new FormData($('ul-token')); fd.append('action', 'run_now'); fd.append('mode', mode);
+    fetch('system_updates.php', {method: 'POST', body: fd, credentials: 'same-origin'})
+      .then(function(r){ return r.json(); })
+      .then(function(res){
+        var ok = ['current','available','updated','ready'].indexOf(res.status) >= 0;
+        var titles = {current: 'This site is up to date', available: 'A new version is available', updated: 'Update installed', ready: 'Downloaded and ready'};
+        outcome = {ok: ok, title: titles[res.status] || (res.status === 'busy' ? 'The updater is already running' : 'It did not work'), sub: (res.message || '') + (ok ? ' Reloading…' : ' Details are in the update history below.')};
+        render(); setTimeout(function(){ location.reload(); }, ok ? 1800 : 6000);
+      })
+      .catch(function(){
+        // The install swaps files and may briefly answer with the "updating" page: reload to see the result
+        outcome = {ok: true, title: 'Finishing…', sub: 'Reloading to show the result.'};
+        render(); setTimeout(function(){ location.reload(); }, 4000);
+      });
+    setTimeout(poll, 800);
+  }
+  document.querySelectorAll('[data-run]').forEach(function(b){ b.addEventListener('click', function(){ run(b.getAttribute('data-run'), b.getAttribute('data-ver')); }); });
   render(); setInterval(render, 1000); setTimeout(poll, 3000);
 })();
 </script>
 <?php if(!$cron_ok):?>
 <div class="card mb-3">
-  <div class="card-head"><h3>Turn on the updater</h3><span class="badge badge-red">not running</span></div>
+  <div class="card-head"><h3>Turn on automatic updates</h3><span class="badge badge-gold">optional</span></div>
   <div class="card-body" style="font-size:.85rem;line-height:1.7">
-    The updater is a small command the server runs every 15 minutes. Set it up once:
+    Check for updates and Install now above work without this. To have the site also update by itself (at night, when nobody is working), the server must run the updater every 15 minutes. Set it up once:
     <p style="margin:.6rem 0 .3rem"><strong>cPanel:</strong> Cron Jobs → Common settings: <em>Once Per Fifteen Minutes</em> → Command:</p>
     <code style="display:block;padding:.5rem .7rem;background:var(--surface-3);border-radius:6px;word-break:break-all">/usr/local/bin/php <?=$h(str_replace('\\','/',$root))?>/updater/update.php &gt;/dev/null 2&gt;&amp;1</code>
     <p style="margin:.6rem 0 .3rem"><strong>Windows (XAMPP):</strong> Task Scheduler → Create Task → Trigger: daily, repeat every 15 minutes → Action: start a program:</p>
@@ -256,23 +301,12 @@ include "includes/layout.php";
 </div>
 
 <div class="card">
-  <div class="card-head"><h3>Update now</h3></div>
+  <div class="card-head"><h3>How an update is installed</h3></div>
   <div class="card-body" style="font-size:.85rem;line-height:1.6">
     <p style="margin-top:0">Before installing, the site checks the release signature and every file, backs up the files it replaces, and checks afterwards that it still loads. If anything is wrong it puts the previous version back.</p>
     <p>Never changed by an update: the <code>.env</code> settings, the TIMB key, uploaded files and backups, and anything in the database except new tables and columns.</p>
-    <div style="display:flex;gap:.5rem;flex-wrap:wrap">
-      <form method="POST"><?=csrf_field()?><input type="hidden" name="action" value="check"><button class="btn btn-ghost">Check for updates</button></form>
-      <?php if($upd['install_requested']==='1'):?>
-        <form method="POST"><?=csrf_field()?><input type="hidden" name="action" value="cancel_install"><button class="btn btn-ghost">Cancel install request</button></form>
-      <?php elseif($newer || $upd['ready_version'] !== ''):?>
-        <form method="POST" onsubmit="return confirm('Install v<?=$h($upd['ready_version'] ?: $upd['latest_version'])?> on the next run, even outside the update hours? Users may see an \'updating\' page for a minute.')">
-          <?=csrf_field()?><input type="hidden" name="action" value="install">
-          <button class="btn btn-primary">Install v<?=$h($upd['ready_version'] ?: $upd['latest_version'])?> now</button>
-        </form>
-      <?php endif;?>
-    </div>
     <?php if($upd['failed_version'] !== ''):?>
-      <p style="color:var(--danger);margin-bottom:0">v<?=$h($upd['failed_version'])?> failed to install and was rolled back; see the history. It is retried only when you choose Install now.</p>
+      <p style="color:var(--danger);margin-bottom:0">v<?=$h($upd['failed_version'])?> failed to install and was rolled back; see the history. Click Install now above to try it again.</p>
     <?php endif;?>
   </div>
 </div>
