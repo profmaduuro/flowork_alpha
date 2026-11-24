@@ -119,9 +119,19 @@ if ($conn->connect_error) {
 $_db_name_clean = preg_replace('/[^a-zA-Z0-9_]/', '', $_db_name);
 // Create the database only on a fresh install (MySQL error 1049, unknown
 // database), not as an extra query on every request.
-if (!@$conn->select_db($_db_name) && $conn->errno === 1049) {
+$_db_ok = @$conn->select_db($_db_name);
+if (!$_db_ok && $conn->errno === 1049) {
     $conn->query("CREATE DATABASE IF NOT EXISTS `$_db_name_clean` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-    $conn->select_db($_db_name);
+    $_db_ok = @$conn->select_db($_db_name);
+}
+// Still no database (wrong DB_NAME, or the user has no rights on it): stop here
+// with a clear log line, instead of every page failing later on its first query
+if (!$_db_ok) {
+    $msg = "Database '$_db_name_clean' could not be opened" . ($conn->error ? ': ' . $conn->error : '') . ' (check DB_NAME and DB_USER in .env)';
+    error_log($msg);
+    if (PHP_SAPI !== 'cli') http_response_code(503);
+    die(flowork_show_errors() ? "<pre style='color:red;padding:20px'>" . htmlspecialchars($msg) . "</pre>"
+                   : "<p style='font-family:sans-serif;padding:40px;text-align:center'>System unavailable.</p>");
 }
 $conn->set_charset('utf8mb4');
 $conn->query("SET time_zone = '+02:00'");

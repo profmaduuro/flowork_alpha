@@ -185,7 +185,6 @@ function require_login() {
 
             // dispatch
             'dispatch.php'          => 'dispatch',
-            'dispatch_export.php'   => 'dispatch',
             'vehicles.php'          => 'dispatch',
             'locations.php'         => 'dispatch',
             'transporters.php'      => 'dispatch',
@@ -211,7 +210,8 @@ function require_login() {
             'notifications.php'     => 'admin',
             'sms_notify.php'        => 'admin',
             'file_manager_uploads.php'=> 'admin',
-            // removed in 1.0.3; kept so a copy left on an older installation stays admin-only
+            // removed pages; kept so a copy left on an older installation stays admin-only
+            'dispatch_export.php'   => 'admin',
             'whatsapp_notify.php'   => 'admin',
             'document_vault.php'    => 'admin',
             'language.php'          => 'admin'

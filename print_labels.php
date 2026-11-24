@@ -203,8 +203,8 @@ include "includes/layout.php";
 <div class="card">
 <div class="card-head"><h3>🚛 Dispatch Notes</h3></div>
 <div class="card-body">
-  <p style="font-size:.8rem;color:var(--muted);margin-bottom:.75rem">Print dispatch notes for truck loadings from the Dispatch Export page.</p>
-  <a href="dispatch_export.php" class="btn btn-ghost" style="width:100%">→ Go to Dispatch Export</a>
+  <p style="font-size:.8rem;color:var(--muted);margin-bottom:.75rem">Print dispatch notes for truck loadings from the Dispatch page (PDF or CSV per destination).</p>
+  <a href="dispatch.php" class="btn btn-ghost" style="width:100%">→ Go to Dispatch</a>
 </div>
 </div>
 </div><!-- /panel-dispatch -->

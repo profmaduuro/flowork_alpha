@@ -568,7 +568,7 @@ if ('serviceWorker' in navigator) {
   <?php endif; ?>
 
   <?php if (has_right('dispatch')): ?>
-  <?php $grp_log = in_array($active_page,['dispatch','dispatch_export','vehicles']); ?>
+  <?php $grp_log = in_array($active_page,['dispatch','vehicles']); ?>
   <div class="nav-group" data-group="logistics">
     <div class="nav-toggle <?= $grp_log ? 'has-active' : '' ?>" onclick="toggleNavGroup(this)">
       Logistics
@@ -582,10 +582,6 @@ if ('serviceWorker' in navigator) {
   <a href="dispatch.php" class="nav-item <?= $active_page==='dispatch'?'active':'' ?>">
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 11h14M3 11V7l5-5 5 5v4"/><rect x="5" y="11" width="6" height="5"/></svg>
     Dispatch
-  </a>
-  <a href="dispatch_export.php" class="nav-item <?= $active_page==='dispatch_export'?'active':'' ?>">
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1v9M5 7l3 3 3-3"/><path d="M2 12v2a1 1 0 001 1h10a1 1 0 001-1v-2"/></svg>
-    Dispatch Export
   </a>
     </div>
   </div>
